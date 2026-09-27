@@ -5,9 +5,9 @@ Bilingual web application for construction safety observations. It uses Supabase
 ## Setup
 
 1. Create a Supabase project. In SQL Editor, run `supabase/schema.sql` once.
-2. In Authentication, create the first user with a company email. Copy its user UUID. In SQL Editor insert `profiles` with the same UUID, email, name and role `admin`.
-3. Insert a project into `projects`, then assign the admin's UUID in `project_members`. Add other users through Supabase Authentication, insert their profiles, and assign them to projects.
+2. In Authentication, create the first user with a company email. The database trigger creates its `profiles` row automatically. Copy its user UUID and run `update public.profiles set role = 'admin' where id = 'USER_UUID';` in SQL Editor. This is a one-time bootstrap step.
+3. Sign in as admin. Create projects and assign members on the **Projects & team** screen. Create additional users through Supabase Authentication first; profiles are generated automatically. Disable public signups if only company-invited accounts should exist.
 4. Copy `.env.example` to `.env` and fill in the project URL and **publishable/anon** key. Never put a service-role key in this app.
 5. Run `npm install`, then `npm run dev`. Build with `npm run build`.
 
-This release focuses on observations. The PDF button opens the browser's Save as PDF dialog, and photos use signed URLs. Role enforcement is in SQL, not only in the interface. Admin team management, JHA, incidents, and mobile packaging are subsequent modules. Do not enter real jobsite data until authentication, membership, and storage policies have been validated in the configured Supabase project.
+This release focuses on observations and basic project/member administration. The PDF button opens the browser's Save as PDF dialog, and photos use signed URLs. Role enforcement is in SQL, not only in the interface. Admin team management, JHA, incidents, and mobile packaging are subsequent modules. Do not enter real jobsite data until authentication, membership, and storage policies have been validated in the configured Supabase project.

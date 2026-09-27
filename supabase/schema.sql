@@ -7,6 +7,10 @@ create table public.observations (id uuid primary key default gen_random_uuid(),
 create table public.observation_photos (id uuid primary key default gen_random_uuid(), observation_id uuid not null references public.observations(id) on delete cascade, kind text not null check(kind in ('before','after')), path text unique not null, uploaded_by uuid not null references public.profiles(id), created_at timestamptz not null default now());
 create table public.observation_views (observation_id uuid not null references public.observations(id) on delete cascade, user_id uuid not null references public.profiles(id), last_viewed_at timestamptz not null default now(), primary key(observation_id,user_id));
 create table public.corrective_actions (id uuid primary key default gen_random_uuid(), observation_id uuid not null references public.observations(id) on delete cascade, comment text not null, created_by uuid not null references public.profiles(id), created_at timestamptz not null default now());
+create function public.new_user_profile() returns trigger language plpgsql security definer set search_path=public as $$begin
+ insert into public.profiles(id,email,name,role) values(new.id,new.email,coalesce(nullif(new.raw_user_meta_data->>'name',''),split_part(new.email,'@',1)),'worker');
+ return new; end$$;
+create trigger create_profile_after_signup after insert on auth.users for each row execute function public.new_user_profile();
 create function public.my_role() returns text language sql stable security definer set search_path=public as $$select role from public.profiles where id=auth.uid()$$;
 create function public.is_project_member(p uuid) returns boolean language sql stable security definer set search_path=public as $$select public.my_role()='admin' or exists(select 1 from public.project_members where project_id=p and user_id=auth.uid())$$;
 create function public.is_teammate(other_id uuid) returns boolean language sql stable security definer set search_path=public as $$select public.my_role()='admin' or other_id=auth.uid() or exists(select 1 from public.project_members a join public.project_members b on a.project_id=b.project_id where a.user_id=auth.uid() and b.user_id=other_id)$$;
@@ -30,11 +34,11 @@ create policy "team profiles" on public.profiles for select to authenticated usi
 create policy "member projects" on public.projects for select to authenticated using(public.is_project_member(id));
 create policy "admin creates projects" on public.projects for insert to authenticated with check(public.my_role()='admin');
 create policy "admin manages projects" on public.projects for update to authenticated using(public.my_role()='admin') with check(public.my_role()='admin');
-create policy "memberships visible" on public.project_members for select to authenticated using(user_id=auth.uid() or public.my_role()='admin');
+create policy "memberships visible" on public.project_members for select to authenticated using(public.is_project_member(project_id));
 create policy "admin assigns members" on public.project_members for insert to authenticated with check(public.my_role()='admin');
 create policy "admin removes members" on public.project_members for delete to authenticated using(public.my_role()='admin');
 create policy "project observations" on public.observations for select to authenticated using(public.is_project_member(project_id));
-create policy "create observation" on public.observations for insert to authenticated with check(public.is_project_member(project_id) and created_by=auth.uid() and status='open' and verified_by is null and closed_at is null);
+create policy "create observation" on public.observations for insert to authenticated with check(public.is_project_member(project_id) and created_by=auth.uid() and status='open' and verified_by is null and closed_at is null and (assigned_to is null or exists(select 1 from public.project_members where project_id=observations.project_id and user_id=assigned_to)));
 create policy "advance observation" on public.observations for update to authenticated using(public.is_project_member(project_id)) with check(public.is_project_member(project_id));
 create policy "view photos" on public.observation_photos for select to authenticated using(public.can_see_observation(observation_id));
 create policy "upload photos" on public.observation_photos for insert to authenticated with check(uploaded_by=auth.uid() and ((kind='before' and exists(select 1 from public.observations where id=observation_id and created_by=auth.uid() and status='open')) or (kind='after' and public.can_submit_correction(observation_id))));
