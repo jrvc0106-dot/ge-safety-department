@@ -59,3 +59,7 @@
 .discipline-signatures small{font-weight:700;color:#486581}
 @media(max-width:640px){.discipline-signatures{grid-template-columns:1fr;gap:42px}}
 @media print{.discipline-report-section{break-inside:avoid}.discipline-signatures{break-inside:avoid;margin-top:48px}}
+
+.discipline-record-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.discipline-record-actions .secondary{width:auto;margin:0;min-height:40px}
+@media(max-width:640px){.discipline-record-actions{display:grid;grid-template-columns:1fr}.discipline-record-actions .secondary{width:100%;min-height:46px}}
