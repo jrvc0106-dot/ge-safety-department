@@ -83,3 +83,14 @@
 .home-action.settings{background:linear-gradient(145deg,#34495e,#526d82);color:#fff;border-color:transparent}
 .home-action.settings .action-icon{filter:drop-shadow(0 2px 4px rgba(0,0,0,.18))}
 .home-action.settings:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(52,73,94,.22)}
+
+.report-category-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}
+.report-category{min-height:118px;display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:14px;text-align:left;border:2px solid transparent;border-radius:16px;padding:17px;background:#fff;color:#102a43;box-shadow:0 3px 14px rgba(16,42,67,.08)}
+.report-category:hover,.report-category.selected{transform:translateY(-1px);box-shadow:0 7px 20px rgba(16,42,67,.13)}
+.report-category.selected{border-color:#075bc7}.report-category-icon{width:48px;height:48px;border-radius:13px;display:grid;place-items:center;font-size:24px;background:rgba(255,255,255,.7)}
+.report-category h2{font-size:17px;margin:0 0 4px}.report-category p{font-size:12px;line-height:1.4;margin:0;opacity:.78}.report-category>strong{font-size:26px}
+.report-category.reports-daily{background:#eaf3ff}.report-category.reports-discipline{background:#fff1e8}.report-category.reports-corrections{background:#eaf8f2}.report-category.reports-observations{background:#f1edff}
+.report-library{margin-top:8px}.report-library-head{display:flex;justify-content:space-between;align-items:center;gap:14px;border-bottom:1px solid #e6edf3;padding-bottom:13px;margin-bottom:6px}.report-library-head small{font-size:10px;font-weight:850;letter-spacing:.08em;color:#627d98}.report-library-head h2{margin:3px 0 0}
+.report-record{width:100%;display:grid;grid-template-columns:1fr auto 18px;gap:12px;align-items:center;text-align:left;background:#fff;color:#102a43;border:0;border-bottom:1px solid #e6edf3;border-radius:0;padding:14px 6px}
+.report-record:hover{background:#f7f9fc}.report-record strong,.report-record span,.report-record p{display:block}.report-record span{font-size:11px;color:#627d98;margin-top:3px}.report-record p{font-size:12px;line-height:1.35;color:#486581;margin:6px 0 0;max-width:760px}.report-record-status{padding:6px 9px!important;border-radius:999px;background:#edf2f7;font-weight:800;text-transform:capitalize;white-space:nowrap}.report-record>b{font-size:22px;color:#829ab1}
+@media(max-width:700px){.report-category-grid{grid-template-columns:1fr}.report-category{min-height:100px}.report-library-head{align-items:flex-start;flex-direction:column}.report-library-head button{width:100%}.report-record{grid-template-columns:1fr auto}.report-record>b{display:none}.report-record-status{max-width:120px;overflow:hidden;text-overflow:ellipsis}}
