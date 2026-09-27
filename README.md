@@ -5,8 +5,8 @@ Bilingual web application for construction safety observations. It uses Supabase
 ## Setup
 
 1. Create a Supabase project. In SQL Editor, run `supabase/schema.sql` once.
-2. In Authentication, create the first user with a company email. The database trigger creates its `profiles` row automatically. Copy its user UUID and run `update public.profiles set role = 'admin' where id = 'USER_UUID';` in SQL Editor. This is a one-time bootstrap step.
-3. Sign in as admin. Create projects and assign members on the **Projects & team** screen. Create additional users through Supabase Authentication first; profiles are generated automatically. Disable public signups if only company-invited accounts should exist.
+2. Create the first account from the app using a company email and confirm it by email. The database trigger creates its worker profile. In Supabase Authentication, copy that user UUID and run `update public.profiles set role = 'admin' where id = 'USER_UUID';` in SQL Editor. This is the one-time admin bootstrap step.
+3. Sign in as admin. Create projects and assign members on **Projects & team**. Additional team members can create accounts; they see no project data until the admin assigns them. If self-registration is not desired, disable public signups and invite users from Supabase Authentication.
 4. Copy `.env.example` to `.env` and fill in the project URL and **publishable/anon** key. Never put a service-role key in this app.
 5. Run `npm install`, then `npm run dev`. Build with `npm run build`.
 
