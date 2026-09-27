@@ -28,13 +28,16 @@
 /* Employee safety discipline */
 .home-action.discipline{background:linear-gradient(145deg,#c2410c,#7c2d12)}.discipline-notice{display:flex;flex-direction:column;gap:3px;margin:0 0 16px;padding:14px 16px;border:1px solid #f5c26b;border-left:5px solid #f59e0b;border-radius:10px;background:#fffbeb;color:#7c4a03}.discipline-notice span{font-size:12px}.check-line{display:flex;align-items:center;gap:9px}.check-line input{width:auto;margin:0}.discipline-history{display:grid;gap:10px}.discipline-record{padding:14px;border:1px solid #e4e7ec;border-radius:12px}.discipline-record>div:first-child{display:flex;justify-content:space-between;gap:10px}.discipline-record>div:first-child span{font-size:11px;color:#667085}.discipline-record .badge{display:inline-block;margin-top:8px}.discipline-record p{font-size:13px;line-height:1.5}.discipline-record small{display:block;border-top:1px solid #f0f2f5;padding-top:8px}
 
-/* Mobile/tablet bottom Back control */
+/* Mobile/tablet ergonomic Back + Home controls */
 .device-back-bar{display:none}
 @media(max-width:900px){
- .device-back-bar{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;justify-content:flex-end;align-items:center;padding:8px max(12px,env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) 12px;pointer-events:none}
- .mobile-back-button{pointer-events:auto;min-width:112px;height:48px;border:0;border-radius:14px;background:#050505;color:#fff;font-size:15px;font-weight:800;box-shadow:0 6px 20px rgba(0,0,0,.24)}
- .mobile-back-button span{font-size:21px;vertical-align:-1px;margin-right:5px}
- main{padding-bottom:76px}
+ .device-back-bar{position:fixed;left:max(10px,env(safe-area-inset-left));bottom:calc(10px + env(safe-area-inset-bottom));z-index:1200;display:flex;gap:8px;align-items:center;padding:5px;background:rgba(255,255,255,.96);border:1px solid #d8e0e7;border-radius:18px;box-shadow:0 6px 22px rgba(16,42,67,.18);backdrop-filter:blur(10px)}
+ .mobile-nav-button{width:76px;height:54px;border:0;border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:4px 8px;font-weight:850}
+ .mobile-nav-button span{font-size:21px;line-height:20px}
+ .mobile-nav-button small{font-size:10px;line-height:13px;font-weight:850}
+ .mobile-back-button{background:#102a43;color:#fff}
+ .mobile-home-button{background:#edf4fb;color:#075bc7}
+ main{padding-bottom:84px}
 }
 
 /* Disciplinary evidence */
