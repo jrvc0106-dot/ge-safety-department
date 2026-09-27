@@ -1,0 +1,15 @@
+{
+  "name": "G&E Safety Department",
+  "short_name": "G&E Safety",
+  "description": "Construction safety observations, corrections and daily reporting for G&E Florida Contractors.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b2d4d",
+  "orientation": "any",
+  "icons": [
+    {"src":"/ge-logo.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/ge-logo.png","sizes":"512x512","type":"image/png","purpose":"any"}
+  ]
+}
