@@ -36,3 +36,8 @@
  .mobile-back-button span{font-size:21px;vertical-align:-1px;margin-right:5px}
  main{padding-bottom:76px}
 }
+
+/* Disciplinary evidence */
+.discipline-record .discipline-evidence-btn{margin-top:12px;width:auto;padding:9px 14px;font-weight:750}
+.discipline-record{position:relative}
+@media(max-width:640px){.discipline-record .discipline-evidence-btn{width:100%;min-height:44px}}
