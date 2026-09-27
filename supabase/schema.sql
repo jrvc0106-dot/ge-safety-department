@@ -10,6 +10,7 @@ create table public.observation_photos (id uuid primary key default gen_random_u
 create table public.observation_views (observation_id uuid not null references public.observations(id) on delete cascade, user_id uuid not null references public.profiles(id), last_viewed_at timestamptz not null default now(), primary key(observation_id,user_id));
 create table public.corrective_actions (id uuid primary key default gen_random_uuid(), observation_id uuid not null references public.observations(id) on delete cascade, comment text not null, created_by uuid not null references public.profiles(id), created_at timestamptz not null default now());
 create function private.new_user_profile() returns trigger language plpgsql security definer set search_path='' as $$begin
+ if new.email is null or lower(split_part(new.email,'@',2)) <> 'geflcontractors.com' then raise exception 'Company email required'; end if;
  insert into public.profiles(id,email,name,role) values(new.id,new.email,coalesce(nullif(new.raw_user_meta_data->>'name',''),split_part(new.email,'@',1)),'worker');
  return new; end$$;
 create trigger create_profile_after_signup after insert on auth.users for each row execute function private.new_user_profile();
