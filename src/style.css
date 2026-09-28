@@ -446,3 +446,15 @@ header .brand small{
   header .brand span{font-size:19px!important}
   header .brand small{font-size:7px!important;letter-spacing:.13em!important;margin-top:5px!important}
 }
+
+
+/* ===== PERSONAL PROFILE PHOTO ===== */
+.profile-shell{max-width:720px;margin:24px auto;padding:0 14px}
+.profile-card{background:linear-gradient(145deg,#303a42,#20282e);border:1px solid #4b565e;border-radius:18px;padding:30px;color:#fff;box-shadow:0 12px 30px rgba(0,0,0,.2)}
+.profile-avatar-wrap{display:flex;flex-direction:column;align-items:center;gap:14px}
+.profile-avatar-large{width:132px;height:132px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:#505b63;border:4px solid #eef0f1;color:#fff;font-size:38px;font-weight:900;box-shadow:0 8px 22px rgba(0,0,0,.28)}
+.profile-avatar-large img{width:100%;height:100%;object-fit:cover}
+.profile-photo-button{cursor:pointer;background:#f4f5f5;color:#171c20;border-radius:11px;padding:11px 16px;font-size:12px;font-weight:900}
+.profile-info{text-align:center;margin-top:18px}.profile-info h1{margin:0;color:#fff;font-size:24px}.profile-info p{margin:7px 0;color:#cbd2d6}.profile-info span{display:inline-block;text-transform:capitalize;background:#3e4951;border:1px solid #566169;border-radius:999px;padding:6px 11px;color:#fff;font-size:10px;font-weight:800}
+#profile-message{text-align:center;margin-top:14px;font-size:12px;font-weight:800}
+.profile-note{text-align:center;color:#aeb8be;font-size:10px;line-height:1.5;margin-top:18px}
