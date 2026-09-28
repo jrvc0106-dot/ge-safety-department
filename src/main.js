@@ -22,8 +22,10 @@ const DRAFT_FORMS={
  'discipline-form':'disciplinary_action'
 };
 const draftTimers=new Map();
+const draftFileState=new Map();
+const draftContextKey=(type,key='default')=>`${state.profile?.id||'guest'}:${state.project||'none'}:${type}:${key}`;
 const draftLocalKey=(type,key='default')=>`ge_draft_v1:${state.profile?.id||'guest'}:${state.project||'none'}:${type}:${key}`;
-function serializeDraftForm(form){
+function serializeDraftForm(form,type=null,key='default'){
  const data={};
  for(const el of form.elements){
   if(!el.name||el.disabled||el.type==='file'||['submit','button','password'].includes(el.type))continue;
@@ -32,6 +34,7 @@ function serializeDraftForm(form){
   if(el.tagName==='SELECT'&&el.multiple){data[el.name]=[...el.selectedOptions].map(o=>o.value);continue}
   data[el.name]=el.value;
  }
+ if(type){const files=draftFileState.get(draftContextKey(type,key));if(files&&Object.keys(files).length)data.__files=files}
  return data;
 }
 function applyDraftForm(form,data={}){
@@ -52,16 +55,55 @@ function setDraftStatus(form,text,kind='saved'){
 }
 async function persistDraft(form,type,key='default'){
  if(!state.profile?.id||!state.project)return;
- const payload=serializeDraftForm(form),localKey=draftLocalKey(type,key),record={payload,updated_at:new Date().toISOString()};
+ const payload=serializeDraftForm(form,type,key),localKey=draftLocalKey(type,key),record={payload,updated_at:new Date().toISOString()};
  try{localStorage.setItem(localKey,JSON.stringify(record))}catch{}
  setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
  const result=await db.from('form_drafts').upsert({user_id:state.profile.id,project_id:state.project,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'});
  if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
  setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
 }
+async function uploadDraftFiles(form,type,key,input){
+ if(!input?.name||!input.files?.length)return;
+ const ctx=draftContextKey(type,key),all={...(draftFileState.get(ctx)||{})},old=all[input.name]||[];
+ if(old.length)await db.storage.from('draft-evidence').remove(old.map(x=>x.path));
+ const saved=[];
+ for(const original of [...input.files]){
+  if(original.size>10*1024*1024)throw Error(tr('Each draft photo must be 10 MB or less.','Cada foto del borrador debe ser de 10 MB o menos.'));
+  let file=await normalizeReportImage(original);
+  if(!file.type.startsWith('image/'))throw Error(tr('Only supported images can be saved as draft evidence.','Solo imágenes compatibles pueden guardarse como evidencia temporal.'));
+  const ext=file.type.split('/')[1]?.replace(/[^a-z0-9]/gi,'')||'jpg';
+  const safeName=input.name.replace(/[^a-z0-9_-]/gi,'_');
+  const path=`${state.profile.id}/${state.project}/${type}/${encodeURIComponent(key)}/${safeName}/${crypto.randomUUID()}.${ext}`;
+  const up=await db.storage.from('draft-evidence').upload(path,file,{contentType:file.type});
+  if(up.error)throw up.error;
+  saved.push({path,name:file.name,type:file.type,size:file.size});
+ }
+ all[input.name]=saved;draftFileState.set(ctx,all);renderDraftFileBadges(form,all);await persistDraft(form,type,key);
+}
+function renderDraftFileBadges(form,files={}){
+ form.querySelectorAll('.draft-file-restored').forEach(x=>x.remove());
+ for(const [name,items] of Object.entries(files)){
+  if(!items?.length)continue;const input=[...form.querySelectorAll('input[type=file]')].find(x=>x.name===name);if(!input)continue;
+  const note=document.createElement('div');note.className='draft-file-restored';note.textContent=tr(`${items.length} saved draft photo(s) protected in cloud ✓`,`${items.length} foto(s) del borrador protegida(s) en la nube ✓`);input.insertAdjacentElement('afterend',note);
+ }
+}
+async function draftFilesFor(form,type,key='default',name){
+ const input=[...form.querySelectorAll('input[type=file]')].find(x=>x.name===name);
+ if(input?.files?.length)return [...input.files];
+ const items=(draftFileState.get(draftContextKey(type,key))||{})[name]||[],files=[];
+ for(const item of items){const d=await db.storage.from('draft-evidence').download(item.path);if(d.error)throw d.error;files.push(new File([d.data],item.name||'draft-photo.jpg',{type:item.type||d.data.type||'image/jpeg'}))}
+ return files;
+}
+
 async function clearDraft(type,key='default'){
  try{localStorage.removeItem(draftLocalKey(type,key))}catch{}
- if(state.profile?.id&&state.project)await db.from('form_drafts').delete().eq('user_id',state.profile.id).eq('project_id',state.project).eq('form_type',type).eq('draft_key',key);
+ const ctx=draftContextKey(type,key),files=draftFileState.get(ctx)||{};
+ if(state.profile?.id&&state.project){
+  if(!Object.keys(files).length){const q=await db.from('form_drafts').select('payload').eq('user_id',state.profile.id).eq('project_id',state.project).eq('form_type',type).eq('draft_key',key).maybeSingle();Object.assign(files,q.data?.payload?.__files||{})}
+  const paths=Object.values(files).flat().map(x=>x.path).filter(Boolean);if(paths.length)await db.storage.from('draft-evidence').remove(paths);
+  await db.from('form_drafts').delete().eq('user_id',state.profile.id).eq('project_id',state.project).eq('form_type',type).eq('draft_key',key);
+ }
+ draftFileState.delete(ctx);
 }
 async function restoreDraft(form,type,key='default'){
  let local=null,cloud=null;
@@ -73,6 +115,7 @@ async function restoreDraft(form,type,key='default'){
  const source=!cloud?local:!local?cloud:(new Date(cloud.updated_at)>=new Date(local.updated_at)?cloud:local);
  if(!source?.payload)return false;
  applyDraftForm(form,source.payload);
+ if(source.payload.__files){draftFileState.set(draftContextKey(type,key),source.payload.__files);renderDraftFileBadges(form,source.payload.__files)}
  setDraftStatus(form,tr('Unfinished draft restored · '+fmt(source.updated_at),'Borrador sin terminar restaurado · '+fmt(source.updated_at)),'restored');
  if(source.current_field){const el=form.elements[source.current_field];if(el)el.scrollIntoView({block:'center'})}
  return true;
@@ -88,6 +131,7 @@ async function enableAutoDraft(form,type,key='default'){
  form.addEventListener('input',schedule);
  form.addEventListener('change',schedule);
  form.addEventListener('focusin',schedule);
+ form.addEventListener('change',e=>{if(e.target?.type==='file'&&e.target.files?.length)uploadDraftFiles(form,type,key,e.target).catch(error)});
  const flush=()=>{if(document.visibilityState==='hidden')persistDraft(form,type,key)};
  document.addEventListener('visibilitychange',flush);
  form.dataset.autoDraft='true';
