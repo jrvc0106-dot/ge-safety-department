@@ -827,3 +827,97 @@ input::placeholder,textarea::placeholder{color:#8a959c!important}
   body,.home-shell{background:#eef1f3!important}
   .home-welcome{background:linear-gradient(135deg,#ffffff,#e5eaed)!important}
 }
+
+
+/* ===== G&E PRODUCTION UI POLISH — SENIOR DESIGN SYSTEM ===== */
+:root{
+  --ui-bg:#f3f5f6;
+  --ui-surface:#ffffff;
+  --ui-subtle:#f8f9fa;
+  --ui-soft:#e9edef;
+  --ui-border:#d7dde1;
+  --ui-border-strong:#c2cbd0;
+  --ui-text:#20282e;
+  --ui-muted:#68747c;
+  --ui-shadow:0 6px 18px rgba(32,40,46,.07);
+  --ui-shadow-hover:0 10px 24px rgba(32,40,46,.10);
+  --ui-radius:14px;
+}
+body{background:var(--ui-bg)!important;font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;-webkit-font-smoothing:antialiased}
+main{max-width:1180px;margin:0 auto!important;padding-left:22px!important;padding-right:22px!important}
+body>header,header{min-height:76px!important;padding:10px 22px!important}
+header .brand{gap:12px!important}
+header .brand img{width:56px!important;height:56px!important;padding:4px!important}
+header .brand span{font-size:22px!important;letter-spacing:-.015em!important}
+header .brand small{font-size:9px!important;letter-spacing:.16em!important;color:#68747c!important}
+header nav{gap:8px!important}
+header nav button,header #notifications-button,header #lang,header #password-menu,header #logout{
+  min-height:38px!important;border-radius:10px!important;padding:9px 13px!important;
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,transform .15s ease!important
+}
+header nav button:hover,header #notifications-button:hover,header #lang:hover,header #password-menu:hover,header #logout:hover{transform:translateY(-1px)!important}
+
+/* Dashboard hierarchy */
+.home-shell{max-width:1080px!important;margin:18px auto 90px!important;padding:0!important}
+.home-welcome{border-radius:18px!important;padding:22px 24px!important}
+.home-welcome h1{font-size:26px!important;letter-spacing:-.025em!important;margin-bottom:5px!important}
+.home-welcome p{font-size:13px!important}
+.project-label{margin:18px 0 7px!important;font-size:10px!important;font-weight:900!important;letter-spacing:.09em!important;text-transform:uppercase}
+.project-picker{min-height:46px!important;border-radius:12px!important;padding:0 14px!important;font-weight:750!important}
+.today-line{margin:12px 2px 16px!important;font-size:11px!important;font-weight:750!important}
+.command-center{padding:0!important}
+.command-head{padding:4px 2px 13px!important;margin-bottom:11px!important}
+.command-head h2{font-size:19px!important;letter-spacing:-.015em!important}
+.command-grid{gap:10px!important}
+.command-alert{min-height:112px!important;border-radius:14px!important;padding:16px!important;transition:transform .15s ease,box-shadow .15s ease!important}
+.command-alert:hover{transform:translateY(-2px)!important;box-shadow:var(--ui-shadow-hover)!important}
+.command-alert strong{font-size:28px!important;letter-spacing:-.03em!important}
+.command-alert span{font-size:12px!important;font-weight:850!important}
+.command-alert small{font-size:10px!important;line-height:1.35!important}
+.home-actions{gap:10px!important;margin-top:12px!important}
+.home-action,.home-action.blue,.home-action.green,.home-action.orange,.home-action.purple,.home-action.slate,.home-action.settings,.home-action.discipline,.home-action.safety-walk{
+  min-height:100px!important;border-radius:14px!important;padding:16px 12px!important;
+  font-size:12px!important;font-weight:850!important;letter-spacing:-.005em!important;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease!important
+}
+.home-action:hover{transform:translateY(-2px)!important;box-shadow:var(--ui-shadow-hover)!important}
+.home-action .action-icon{font-size:23px!important;margin-bottom:6px!important}
+.home-stats{gap:10px!important;margin-top:12px!important}
+.home-stat{min-height:70px!important;border-radius:13px!important}
+.home-stat strong{font-size:23px!important}
+
+/* General surfaces */
+.card,.notification-card,.observation-card,.correction-card,.report-card,.discipline-card{
+  border-radius:var(--ui-radius)!important;box-shadow:var(--ui-shadow)!important
+}
+.section-heading{margin-bottom:16px!important}
+.section-heading h1{font-size:24px!important;letter-spacing:-.025em!important}
+.section-heading h2{letter-spacing:-.015em!important}
+.section-heading p{line-height:1.45!important}
+input,select,textarea{border-radius:10px!important;min-height:42px!important;outline:none!important;transition:border-color .15s ease,box-shadow .15s ease!important}
+input:focus,select:focus,textarea:focus{border-color:#89969e!important;box-shadow:0 0 0 3px rgba(113,126,135,.12)!important}
+button{font-family:inherit}
+button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-offset:2px!important}
+
+/* Observation status controls */
+.obs-summary{border-radius:15px!important;padding:6px!important;gap:6px!important}
+.summary-chip{min-height:68px!important;border-radius:10px!important;padding:10px 12px!important}
+.summary-chip .status-mark{border-radius:8px!important}
+.summary-chip .status-copy small{font-size:9px!important;letter-spacing:.055em!important;text-transform:uppercase}
+.summary-chip .status-copy strong{font-size:21px!important}
+
+/* Mobile polish */
+@media(max-width:760px){
+  main{padding-left:12px!important;padding-right:12px!important}
+  body>header,header{min-height:64px!important;padding:8px 11px!important}
+  header .brand img{width:46px!important;height:46px!important}
+  header .brand span{font-size:18px!important}
+  .home-shell{margin-top:10px!important}
+  .home-welcome{padding:17px!important;border-radius:15px!important}
+  .home-welcome h1{font-size:22px!important}
+  .command-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  .command-alert{min-height:104px!important;padding:13px!important}
+  .home-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  .home-action,.home-action.blue,.home-action.green,.home-action.orange,.home-action.purple,.home-action.slate,.home-action.settings,.home-action.discipline,.home-action.safety-walk{min-height:90px!important}
+  .mobile-bottom{min-height:62px!important;padding-bottom:max(5px,env(safe-area-inset-bottom))!important}
+}
