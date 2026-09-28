@@ -1019,3 +1019,21 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
  .safety-walk-shell .walk-item p{font-size:13px}
  .safety-walk-shell .walk-status label{padding:9px 11px}
 }
+
+
+/* Create Daily Report — refined field-label legibility */
+.safety-walk-shell .walk-details label,
+.safety-walk-shell .walk-final label{
+ color:#34434e!important;
+ font-size:13.5px!important;
+ font-weight:850!important;
+ line-height:1.35;
+}
+.safety-walk-shell .walk-details label>textarea,
+.safety-walk-shell .walk-details label>input,
+.safety-walk-shell .walk-final label>textarea,
+.safety-walk-shell .walk-final label>select{margin-top:8px!important}
+.safety-walk-shell .walk-details label:focus-within,
+.safety-walk-shell .walk-final label:focus-within{color:#1f2d36!important}
+.safety-walk-shell .walk-details textarea,
+.safety-walk-shell .walk-final textarea{font-size:14px!important;color:#1f2d36!important}
