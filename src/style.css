@@ -627,3 +627,55 @@ header #logout *{color:#fff!important}
   .home-stat{min-height:66px!important;border-radius:11px!important;font-size:10px!important;padding:8px 4px!important}
   .home-stat strong{font-size:20px!important}
 }
+
+
+/* ===== REPORTS ONLY — APPROVED PROFESSIONAL LIGHT THEME ===== */
+/* Keeps the application dark; generated/report-view documents remain clean, bright and corporate. */
+.professional-report,
+.safety-report,
+.discipline-report,
+.report-page,
+.observation-report,
+.walk-report{
+  background:#fff!important;
+  color:#20262b!important;
+  border:1px solid #d9dee1!important;
+  box-shadow:0 8px 28px rgba(20,28,34,.10)!important;
+}
+.professional-report h1,.professional-report h2,.professional-report h3,
+.safety-report h1,.safety-report h2,.safety-report h3,
+.discipline-report h1,.discipline-report h2,.discipline-report h3,
+.report-page h1,.report-page h2,.report-page h3,
+.observation-report h1,.observation-report h2,.observation-report h3,
+.walk-report h1,.walk-report h2,.walk-report h3{color:#20262b!important}
+.report-header,.report-titlebar,.report-section-title{
+  background:#eef1f2!important;
+  color:#20262b!important;
+  border-color:#cfd5d9!important;
+}
+.report-meta,.report-summary,.priority-summary,.report-footer,
+.report-info-grid,.report-detail-grid{
+  background:#f7f8f8!important;
+  color:#30383e!important;
+  border-color:#d9dee1!important;
+}
+.report-meta small,.report-info-grid small,.report-detail-grid small,
+.report-footer span{color:#626d74!important}
+.professional-report-rows,.report-row,.report-observation,.report-item{
+  background:#fff!important;color:#20262b!important;border-color:#dfe3e6!important
+}
+.report-empty{background:#f7f8f8!important;color:#626d74!important;border-color:#d9dee1!important}
+
+/* Light document styling also applies when viewing reports on the dark app. */
+.professional-report input,.professional-report textarea,.professional-report select,
+.safety-report input,.safety-report textarea,.safety-report select,
+.discipline-report input,.discipline-report textarea,.discipline-report select,
+.report-page input,.report-page textarea,.report-page select{
+  background:#fff!important;color:#20262b!important;border-color:#cfd5d9!important
+}
+
+@media print{
+  .professional-report,.safety-report,.discipline-report,.report-page,.observation-report,.walk-report{
+    background:#fff!important;color:#20262b!important;box-shadow:none!important;border:0!important
+  }
+}
