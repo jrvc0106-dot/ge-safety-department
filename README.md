@@ -11,3 +11,7 @@ Bilingual web application for construction safety observations. It uses Supabase
 5. Run `npm install`, then `npm run dev`. Build with `npm run build`.
 
 This release focuses on observations and basic project/member administration. The PDF button opens the browser's Save as PDF dialog, and photos use signed URLs. Role enforcement is in SQL, not only in the interface. Admin team management, JHA, incidents, and mobile packaging are subsequent modules. Do not enter real jobsite data until authentication, membership, and storage policies have been validated in the configured Supabase project.
+
+## Unfinished form drafts
+
+The observation, correction, safety walk, equipment inspection, incident, and disciplinary forms save unfinished fields on the current device. Photo attachments are stored in IndexedDB. Drafts are separated by signed-in user, project and form; correction drafts are also separated by observation. A draft is removed only after its final submission succeeds. A warning appears if device storage cannot save data or photos. Drafts do not sync across devices and are lost if browser/site storage is cleared.
