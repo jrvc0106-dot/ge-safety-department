@@ -522,3 +522,63 @@ header .brand small{
   .summary-chip .status-mark{width:27px;height:27px;flex-basis:27px}
   .summary-chip .status-copy strong{font-size:20px!important}
 }
+
+
+/* ===== UNIFIED GRAPHITE CONTROLS — HEADER + HOME STATUS ===== */
+header nav button,
+header #notifications-button,
+header #lang,
+header #password-menu,
+header #logout,
+.home-nav button,
+.home-nav select{
+  background:linear-gradient(145deg,#3b464e,#2e383f)!important;
+  color:#fff!important;
+  border:1px solid #4f5b63!important;
+  font-weight:800!important;
+  opacity:1!important;
+  box-shadow:0 3px 9px rgba(0,0,0,.18)!important;
+}
+header nav button:hover,
+header #notifications-button:hover,
+header #lang:hover,
+header #password-menu:hover,
+header #logout:hover,
+.home-nav button:hover{
+  background:linear-gradient(145deg,#4a565e,#374149)!important;
+  border-color:#69747b!important;
+  color:#fff!important;
+}
+header nav button *,
+header #notifications-button *,
+header #lang *,
+header #password-menu *,
+header #logout *{color:#fff!important}
+
+/* Home Open / In Progress / Closed controls */
+.home-shell > .status-tabs button,
+.home-shell > .observation-tabs button,
+.home-shell > .filter-tabs button,
+.home-shell > .tabs button,
+.home-shell button[data-status]{
+  background:linear-gradient(145deg,#3b464e,#2e383f)!important;
+  color:#fff!important;
+  border:1px solid #4f5b63!important;
+  font-weight:850!important;
+  opacity:1!important;
+  box-shadow:0 4px 10px rgba(0,0,0,.16)!important;
+}
+.home-shell > .status-tabs button:hover,
+.home-shell > .observation-tabs button:hover,
+.home-shell > .filter-tabs button:hover,
+.home-shell > .tabs button:hover,
+.home-shell button[data-status]:hover{
+  background:linear-gradient(145deg,#4a565e,#374149)!important;
+  color:#fff!important;
+}
+.home-shell button[data-status].active{
+  background:linear-gradient(145deg,#505c64,#3d484f)!important;
+  color:#fff!important;
+  border-color:#d7dde0!important;
+  box-shadow:0 0 0 1px #d7dde0,0 5px 12px rgba(0,0,0,.18)!important;
+}
