@@ -974,3 +974,12 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
 .profile-bio-label{display:block;margin-top:18px;font-weight:700;color:#33404a}
 .profile-bio-label textarea{display:block;width:100%;min-height:112px;margin-top:8px;resize:vertical;line-height:1.55}
 .profile-bio-label small{display:block;margin-top:6px;font-weight:500;color:#74808a}
+
+.profile-crop-overlay{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:18px;background:rgba(22,28,32,.68);backdrop-filter:blur(4px)}
+.profile-crop-card{width:min(520px,100%);background:#fff;border-radius:18px;padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.25)}
+.profile-crop-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:15px}.profile-crop-head strong,.profile-crop-head small{display:block}.profile-crop-head strong{font-size:18px;color:#27323a}.profile-crop-head small{margin-top:4px;color:#74808a}.profile-crop-head button{width:36px;height:36px;border-radius:50%;padding:0;background:#eef1f3;color:#47525a}
+.profile-crop-stage{position:relative;overflow:hidden;width:min(420px,100%);aspect-ratio:1;margin:auto;background:#e8ecef;border-radius:14px;touch-action:none}.profile-crop-stage canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:none}.profile-crop-stage canvas:active{cursor:grabbing}
+.profile-crop-ring{position:absolute;inset:7%;border:3px solid rgba(255,255,255,.95);border-radius:50%;box-shadow:0 0 0 999px rgba(15,20,24,.38),0 0 0 1px rgba(0,0,0,.15) inset;pointer-events:none}
+.profile-crop-zoom{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;margin:18px 4px 12px;font-weight:700;color:#47525a}.profile-crop-zoom input{width:100%}
+.profile-crop-actions{display:flex;justify-content:flex-end;gap:10px}.profile-crop-actions button{min-width:130px}
+@media(max-width:560px){.profile-crop-overlay{padding:10px}.profile-crop-card{padding:14px;border-radius:15px}.profile-crop-actions{display:grid;grid-template-columns:1fr 1fr}.profile-crop-actions button{min-width:0}}
