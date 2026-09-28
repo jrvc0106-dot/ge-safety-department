@@ -62,3 +62,15 @@ drop policy if exists "authorized upload final reports" on storage.objects;
 create policy "authorized upload final reports" on storage.objects for insert to authenticated with check(bucket_id='final-reports' and private.is_project_member((storage.foldername(name))[1]::uuid));
 drop policy if exists "authorized delete own failed final reports" on storage.objects;
 create policy "authorized delete own failed final reports" on storage.objects for delete to authenticated using(bucket_id='final-reports' and owner_id=((select auth.uid()))::text);
+
+drop policy if exists "discipline_photos_select" on public.discipline_photos;
+create policy "discipline_photos_select" on public.discipline_photos for select to authenticated using(exists(select 1 from public.safety_discipline d where d.id=discipline_id and (d.employee_id=(select auth.uid()) or d.created_by=(select auth.uid()) or (private.is_project_member(d.project_id) and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role in ('admin','safety_director','safety'))))));
+drop policy if exists "discipline_photos_insert" on public.discipline_photos;
+create policy "discipline_photos_insert" on public.discipline_photos for insert to authenticated with check(uploaded_by=(select auth.uid()) and exists(select 1 from public.safety_discipline d where d.id=discipline_id and d.created_by=(select auth.uid()) and private.is_project_member(d.project_id)));
+
+drop policy if exists "view daily safety walk images" on storage.objects;
+create policy "view daily safety walk images" on storage.objects for select to authenticated using(bucket_id='daily-safety-walks' and exists(select 1 from public.daily_safety_walk_photos p join public.daily_safety_walk_items i on i.id=p.item_id join public.daily_safety_walks w on w.id=i.walk_id where p.path=storage.objects.name and private.is_project_member(w.project_id)));
+drop policy if exists "discipline_evidence_select" on storage.objects;
+create policy "discipline_evidence_select" on storage.objects for select to authenticated using(bucket_id='discipline-evidence' and exists(select 1 from public.discipline_photos dp join public.safety_discipline d on d.id=dp.discipline_id where dp.path=storage.objects.name and (d.employee_id=(select auth.uid()) or d.created_by=(select auth.uid()) or (private.is_project_member(d.project_id) and exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role in ('admin','safety_director','safety'))))));
+drop policy if exists "discipline_evidence_insert" on storage.objects;
+create policy "discipline_evidence_insert" on storage.objects for insert to authenticated with check(bucket_id='discipline-evidence' and exists(select 1 from public.safety_discipline d where d.id=(split_part(storage.objects.name,'/',1))::uuid and d.created_by=(select auth.uid()) and private.is_project_member(d.project_id)));
