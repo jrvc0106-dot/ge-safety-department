@@ -458,3 +458,67 @@ header .brand small{
 .profile-info{text-align:center;margin-top:18px}.profile-info h1{margin:0;color:#fff;font-size:24px}.profile-info p{margin:7px 0;color:#cbd2d6}.profile-info span{display:inline-block;text-transform:capitalize;background:#3e4951;border:1px solid #566169;border-radius:999px;padding:6px 11px;color:#fff;font-size:10px;font-weight:800}
 #profile-message{text-align:center;margin-top:14px;font-size:12px;font-weight:800}
 .profile-note{text-align:center;color:#aeb8be;font-size:10px;line-height:1.5;margin-top:18px}
+
+
+/* ===== OBSERVATION STATUS CONTROL — PROFESSIONAL DARK UI ===== */
+.obs-summary{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:8px!important;
+  padding:7px!important;
+  margin:0 0 16px!important;
+  background:#1c242a!important;
+  border:1px solid #414b52!important;
+  border-radius:16px!important;
+  box-shadow:0 7px 18px rgba(0,0,0,.18)!important;
+}
+.summary-chip{
+  min-height:72px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:11px!important;
+  padding:10px 13px!important;
+  background:linear-gradient(145deg,#39434a,#2b343a)!important;
+  color:#fff!important;
+  border:1px solid #4b565e!important;
+  border-radius:11px!important;
+  text-align:left!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04)!important;
+  transition:transform .15s ease,border-color .15s ease,background .15s ease!important;
+  opacity:1!important;
+}
+.summary-chip:hover{transform:translateY(-1px)!important;background:linear-gradient(145deg,#444f57,#303940)!important}
+.summary-chip .status-mark{
+  width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;
+  border-radius:9px;background:#59636a;color:#fff;font-size:15px;font-weight:950;
+}
+.summary-chip .status-copy{display:flex;min-width:0;flex-direction:column;gap:2px}
+.summary-chip .status-copy small{
+  color:#eef1f2!important;font-size:10px!important;font-weight:850!important;
+  letter-spacing:.035em;white-space:nowrap
+}
+.summary-chip .status-copy strong{
+  display:block!important;color:#fff!important;font-size:23px!important;
+  line-height:1!important;font-weight:950!important
+}
+.summary-chip.all .status-mark{background:#66727a!important}
+.summary-chip.open .status-mark{background:#a9262b!important}
+.summary-chip.progress .status-mark{background:#a97808!important}
+.summary-chip.closed .status-mark{background:#147b50!important}
+.summary-chip.active{
+  background:linear-gradient(145deg,#515d65,#3c474e)!important;
+  border-color:#dce1e4!important;
+  box-shadow:0 0 0 1px #dce1e4,0 7px 18px rgba(0,0,0,.2)!important;
+}
+.summary-chip.active:after{
+  content:"";width:7px;height:7px;margin-left:auto;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 3px rgba(255,255,255,.12)
+}
+.summary-chip:focus-visible{outline:3px solid rgba(255,255,255,.35)!important;outline-offset:2px!important}
+@media(max-width:650px){
+  .obs-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;padding:6px!important}
+  .summary-chip{min-height:66px!important;padding:9px 10px!important;gap:9px!important}
+  .summary-chip .status-mark{width:27px;height:27px;flex-basis:27px}
+  .summary-chip .status-copy strong{font-size:20px!important}
+}
