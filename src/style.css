@@ -936,3 +936,22 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
   .pdf-document-actions .pdf-share{grid-column:1/-1}
   .pdf-document-actions button{width:100%}
 }
+
+.profile-card-pro{max-width:900px;margin:0 auto;padding:0;overflow:hidden}
+.profile-pro-head{display:flex;align-items:center;gap:28px;padding:32px;border-bottom:1px solid #dfe4e8;background:#f7f8f9}
+.profile-pro-head .profile-info{flex:1}
+.profile-pro-head .profile-info small{display:block;font-weight:800;letter-spacing:.12em;color:#68737d;margin-bottom:7px}
+.profile-pro-head .profile-info h1{margin:0 0 5px;font-size:30px}
+.profile-form{padding:30px 32px}
+.profile-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.profile-form-grid label{font-weight:700;color:#26323b}
+.profile-form-grid input,.profile-form-grid select{margin-top:7px;width:100%;background:#fff}
+.profile-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:26px 0 18px}
+.profile-summary>div{padding:15px;border:1px solid #dde2e6;border-radius:12px;background:#f8f9fa}
+.profile-summary small{display:block;color:#75808a;font-size:11px;font-weight:800;letter-spacing:.08em;margin-bottom:5px}
+.profile-summary strong{font-size:14px}
+.profile-message{min-height:24px;font-weight:700;margin:8px 0}
+.profile-form-actions{display:flex;justify-content:flex-end}
+.profile-form-actions button{min-width:180px}
+.profile-card-pro>.profile-note{margin:0 32px 30px}
+@media(max-width:700px){.profile-pro-head{flex-direction:column;text-align:center;padding:24px 18px}.profile-form{padding:22px 18px}.profile-form-grid,.profile-summary{grid-template-columns:1fr}.profile-card-pro>.profile-note{margin:0 18px 22px}.profile-form-actions button{width:100%}}
