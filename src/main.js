@@ -11,6 +11,64 @@ const localDateKey=(v=new Date())=>{const d=new Date(v),y=d.getFullYear(),m=Stri
 const deviceZone=()=>Intl.DateTimeFormat().resolvedOptions().timeZone||'Local';
 const error=e=>{document.querySelector('#message').textContent=e?.message||String(e)};
 let restoringHistory=false;
+
+function reportPdfFilename(report){
+  const title=(report.querySelector('h1')?.textContent||'G&E Safety Report').trim().replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');
+  return `${title||'GE-Safety-Report'}-${localDateKey()}.pdf`;
+}
+async function buildReportPdf(){
+  const report=document.querySelector('article.report');
+  if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
+  if(typeof window.html2pdf!=='function')throw new Error(tr('PDF service is still loading. Please try again.','El servicio PDF aún está cargando. Intente nuevamente.'));
+  await Promise.all([...report.querySelectorAll('img')].map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=img.onerror=resolve})));
+  const options={
+    margin:[0.25,0.25,0.3,0.25],
+    filename:reportPdfFilename(report),
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false},
+    jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
+    pagebreak:{mode:['css','legacy'],avoid:['.report-photo','figure','.ewr-hazard','.report-section']}
+  };
+  const worker=window.html2pdf().set(options).from(report);
+  const blob=await worker.outputPdf('blob');
+  return {blob,filename:options.filename,report};
+}
+async function runPdfAction(action,button){
+  const original=button?.innerHTML;
+  try{
+    if(button){button.disabled=true;button.textContent=tr('Preparing PDF…','Preparando PDF…')}
+    const {blob,filename,report}=await buildReportPdf();
+    if(action==='view'){
+      const u=URL.createObjectURL(blob);window.open(u,'_blank','noopener');setTimeout(()=>URL.revokeObjectURL(u),120000);return;
+    }
+    if(action==='download'){
+      const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);return;
+    }
+    const file=new File([blob],filename,{type:'application/pdf'});
+    const title=(report.querySelector('h1')?.textContent||'G&E Safety Report').trim();
+    if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+      await navigator.share({title,text:tr('G&E Safety Department report','Reporte de G&E Safety Department'),files:[file]});return;
+    }
+    const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);
+    location.href='mailto:?subject='+encodeURIComponent(title)+'&body='+encodeURIComponent(tr('The PDF report has been downloaded. Please attach it to this email.','El reporte PDF fue descargado. Por favor adjúntelo a este correo.'));
+  }catch(e){if(e?.name!=='AbortError')error(e)}
+  finally{if(button){button.disabled=false;button.innerHTML=original}}
+}
+function installReportDocumentActions(){
+  const report=document.querySelector('article.report');if(!report)return;
+  let bar=document.querySelector('.report-actions');
+  if(!bar){bar=document.createElement('div');bar.className='report-actions';report.before(bar)}
+  if(bar.dataset.pdfActions==='1')return;
+  bar.dataset.pdfActions='1';
+  const actions=document.createElement('div');actions.className='pdf-document-actions';
+  actions.innerHTML='<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button><button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button><button type="button" class="secondary pdf-share">↗ '+tr('Share / Email','Compartir / Correo')+'</button>';
+  bar.appendChild(actions);
+  actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
+  actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
+  actions.querySelector('.pdf-share').onclick=e=>runPdfAction('share',e.currentTarget);
+}
+const reportActionObserver=new MutationObserver(()=>{if(document.querySelector('article.report'))installReportDocumentActions()});
+reportActionObserver.observe(app,{childList:true,subtree:true});
 function navigate(page,detail=null,{replace=false}={}){state.page=page;state.detail=detail;const entry={geSafety:true,page,detail};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}render()}
 function back(){if(history.state?.geSafety&&state.page!=='home')history.back();else navigate('home',null,{replace:true})}
 function frame(body){app.innerHTML=`<header><div class="brand"><img src="/ge-logo.png" alt="G&E Florida Contractors"><span>G&E <small>SAFETY DEPARTMENT</small></span></div><nav>${state.session&&state.page!=='home'?'<button id="global-back" class="home-nav" aria-label="'+tr('Back','Atrás')+'">← <span>'+tr('Back','Atrás')+'</span></button><button id="global-home" class="home-nav" aria-label="'+tr('Home','Inicio')+'">⌂ <span>'+tr('Home','Inicio')+'</span></button>':''}${state.session?'<button id="notification-menu" class="notification-menu" aria-label="'+tr('Notifications','Notificaciones')+'">🔔<span id="notification-count"></span></button>':''}<button id="language">${state.lang==='es'?'EN':'ES'}</button>${state.session?'<button id="password-menu">'+tr('Settings','Configuración')+'</button><button id="logout">'+tr('Sign out','Salir')+'</button>':''}</nav></header><div id="message" role="alert"></div><main>${body}</main>${state.session&&state.page!=='home'?'<div class="device-back-bar"><button id="mobile-global-back" class="mobile-nav-button mobile-back-button" aria-label="'+tr('Back','Atrás')+'"><span>←</span><small>'+tr('Back','Atrás')+'</small></button><button id="mobile-global-home" class="mobile-nav-button mobile-home-button" aria-label="'+tr('Home','Inicio')+'"><span>⌂</span><small>'+tr('Home','Inicio')+'</small></button></div>':''}`;const mb=document.querySelector('#mobile-global-back'),mh=document.querySelector('#mobile-global-home');if(mb)mb.onclick=back;if(mh)mh.onclick=()=>navigate('home');document.querySelector('#language').onclick=()=>{state.lang=state.lang==='es'?'en':'es';localStorage.setItem('ge_lang',state.lang);render()};if(state.session){const nm=document.querySelector('#notification-menu');if(nm){nm.onclick=()=>navigate('notifications');db.from('notifications').select('id',{count:'exact',head:true}).is('read_at',null).then(({count})=>{const el=document.querySelector('#notification-count');if(el&&count){el.textContent=count>99?'99+':String(count);el.classList.add('show')}})}const b=document.querySelector('#global-back');if(b)b.onclick=back;const h=document.querySelector('#global-home');if(h)h.onclick=()=>navigate('home');document.querySelector('#logout').onclick=()=>db.auth.signOut();document.querySelector('#password-menu').onclick=()=>navigate('setPassword')}}
