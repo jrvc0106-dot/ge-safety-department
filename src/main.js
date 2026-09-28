@@ -12,6 +12,94 @@ const deviceZone=()=>Intl.DateTimeFormat().resolvedOptions().timeZone||'Local';
 const error=e=>{document.querySelector('#message').textContent=e?.message||String(e)};
 let restoringHistory=false;
 
+
+const DRAFT_FORMS={
+ 'observation':'observation',
+ 'correction':'correction',
+ 'walk-form':'daily_safety_walk',
+ 'incident-form':'incident',
+ 'equipment-form':'equipment_inspection',
+ 'discipline-form':'disciplinary_action'
+};
+const draftTimers=new Map();
+const draftLocalKey=(type,key='default')=>`ge_draft_v1:${state.profile?.id||'guest'}:${state.project||'none'}:${type}:${key}`;
+function serializeDraftForm(form){
+ const data={};
+ for(const el of form.elements){
+  if(!el.name||el.disabled||el.type==='file'||['submit','button','password'].includes(el.type))continue;
+  if(el.type==='radio'){if(el.checked)data[el.name]=el.value;continue}
+  if(el.type==='checkbox'){data[el.name]=!!el.checked;continue}
+  if(el.tagName==='SELECT'&&el.multiple){data[el.name]=[...el.selectedOptions].map(o=>o.value);continue}
+  data[el.name]=el.value;
+ }
+ return data;
+}
+function applyDraftForm(form,data={}){
+ for(const el of form.elements){
+  if(!el.name||!(el.name in data)||el.type==='file'||el.type==='password')continue;
+  const v=data[el.name];
+  if(el.type==='radio')el.checked=el.value===v;
+  else if(el.type==='checkbox')el.checked=!!v;
+  else if(el.tagName==='SELECT'&&el.multiple){for(const o of el.options)o.selected=Array.isArray(v)&&v.includes(o.value)}
+  else el.value=v??'';
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+ }
+}
+function setDraftStatus(form,text,kind='saved'){
+ let node=form.querySelector('.draft-save-status');
+ if(!node){node=document.createElement('div');node.className='draft-save-status';form.prepend(node)}
+ node.dataset.kind=kind;node.textContent=text;
+}
+async function persistDraft(form,type,key='default'){
+ if(!state.profile?.id||!state.project)return;
+ const payload=serializeDraftForm(form),localKey=draftLocalKey(type,key),record={payload,updated_at:new Date().toISOString()};
+ try{localStorage.setItem(localKey,JSON.stringify(record))}catch{}
+ setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
+ const result=await db.from('form_drafts').upsert({user_id:state.profile.id,project_id:state.project,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'});
+ if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
+ setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
+}
+async function clearDraft(type,key='default'){
+ try{localStorage.removeItem(draftLocalKey(type,key))}catch{}
+ if(state.profile?.id&&state.project)await db.from('form_drafts').delete().eq('user_id',state.profile.id).eq('project_id',state.project).eq('form_type',type).eq('draft_key',key);
+}
+async function restoreDraft(form,type,key='default'){
+ let local=null,cloud=null;
+ try{local=JSON.parse(localStorage.getItem(draftLocalKey(type,key))||'null')}catch{}
+ if(state.profile?.id&&state.project){
+  const q=await db.from('form_drafts').select('payload,updated_at,current_field').eq('user_id',state.profile.id).eq('project_id',state.project).eq('form_type',type).eq('draft_key',key).eq('status','active').maybeSingle();
+  if(!q.error)cloud=q.data;
+ }
+ const source=!cloud?local:!local?cloud:(new Date(cloud.updated_at)>=new Date(local.updated_at)?cloud:local);
+ if(!source?.payload)return false;
+ applyDraftForm(form,source.payload);
+ setDraftStatus(form,tr('Unfinished draft restored · '+fmt(source.updated_at),'Borrador sin terminar restaurado · '+fmt(source.updated_at)),'restored');
+ if(source.current_field){const el=form.elements[source.current_field];if(el)el.scrollIntoView({block:'center'})}
+ return true;
+}
+async function enableAutoDraft(form,type,key='default'){
+ if(!form||!type)return;
+ await restoreDraft(form,type,key);
+ const schedule=()=>{
+  const timerKey=type+':'+key;clearTimeout(draftTimers.get(timerKey));
+  setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
+  draftTimers.set(timerKey,setTimeout(()=>persistDraft(form,type,key),650));
+ };
+ form.addEventListener('input',schedule);
+ form.addEventListener('change',schedule);
+ form.addEventListener('focusin',schedule);
+ const flush=()=>{if(document.visibilityState==='hidden')persistDraft(form,type,key)};
+ document.addEventListener('visibilitychange',flush);
+ form.dataset.autoDraft='true';
+}
+function activateOperationalDrafts(){
+ for(const [id,type] of Object.entries(DRAFT_FORMS)){
+  const form=document.getElementById(id);if(!form||form.dataset.autoDraft)return;
+  const key=id==='correction'?(state.detail||'default'):'default';
+  enableAutoDraft(form,type,key);
+ }
+}
+
 async function normalizeReportImage(file){
   if(!(file instanceof File)||!file.size)return file;
   const heic=/image\/hei[cf]/i.test(file.type)||/\.hei[cf]$/i.test(file.name);
