@@ -235,21 +235,22 @@ body{background:#f3f4f5}
 .home-action.settings,
 .home-action.discipline,
 .home-action.safety-walk{
-  background:#fff!important;
-  color:#40464a!important;
-  border:1px solid #d9dcde!important;
-  box-shadow:0 5px 16px rgba(38,42,45,.05)!important
+  background:linear-gradient(145deg,#747b80,#646c71)!important;
+  color:#fff!important;
+  border:1px solid #626a6f!important;
+  box-shadow:0 5px 16px rgba(38,42,45,.14)!important
 }
 .home-action:hover{
-  background:#f7f7f7!important;
-  border-color:#aeb3b6!important;
-  box-shadow:0 9px 22px rgba(38,42,45,.09)!important
+  background:linear-gradient(145deg,#7e858a,#6c7479)!important;
+  border-color:#596167!important;
+  box-shadow:0 9px 22px rgba(38,42,45,.19)!important
 }
 .home-action .action-icon{
-  background:#eceeef!important;
-  color:#4c5358!important;
-  border:1px solid #e0e2e3!important
+  background:rgba(255,255,255,.16)!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.22)!important
 }
+.home-action:focus-visible{outline:3px solid #222b30;outline-offset:3px}
 .home-stats{
   background:#fff!important;
   border-color:#d9dcde!important;
