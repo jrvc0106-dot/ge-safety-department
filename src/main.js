@@ -34,6 +34,24 @@ function reportPdfFilename(report){
   const title=(report.querySelector('h1')?.textContent||'G&E Safety Report').trim().replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');
   return `${title||'GE-Safety-Report'}-${localDateKey()}.pdf`;
 }
+function currentReportIdentity(report){
+ const map={report:'daily_report',observationReport:'observation',safetyWalkReport:'daily_safety_walk',disciplineReport:'disciplinary_action'};
+ const reportType=map[state.page];if(!reportType||!state.project||!state.profile)return null;
+ let reportNumber=(report.querySelector('.ewr-id strong')?.textContent||report.querySelector('.print-report-number b')?.textContent||report.querySelector('.dr-doc p')?.textContent?.split('·')[0]||'').trim();
+ if(!reportNumber)reportNumber='DSR-'+localDateKey().replaceAll('-','')+'-'+String(state.project).slice(0,6).toUpperCase();
+ return {reportType,reportNumber,sourceId:state.page==='report'?null:state.detail||null,title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim()};
+}
+async function registerFinalReport(blob,report){
+ const meta=currentReportIdentity(report);if(!meta)return null;
+ const existing=await db.from('report_documents').select('id,pdf_path,report_number').eq('project_id',state.project).eq('report_number',meta.reportNumber).maybeSingle();
+ if(existing.error)throw existing.error;if(existing.data)return existing.data;
+ const safe=meta.reportNumber.replace(/[^a-z0-9_-]+/gi,'-'),path=`${state.project}/${meta.reportType}/${safe}-${Date.now()}.pdf`;
+ const stored=await db.storage.from('final-reports').upload(path,blob,{contentType:'application/pdf',cacheControl:'3600',upsert:false});if(stored.error)throw stored.error;
+ const doc=await db.from('report_documents').insert({project_id:state.project,report_type:meta.reportType,source_id:meta.sourceId,report_number:meta.reportNumber,title:meta.title,document_status:'final',version:1,snapshot:{generated_at:new Date().toISOString(),language:state.lang,source_page:state.page},pdf_path:path,created_by:state.profile.id,finalized_by:state.profile.id,finalized_at:new Date().toISOString()}).select('id,pdf_path,report_number').single();
+ if(doc.error){await db.storage.from('final-reports').remove([path]);throw doc.error}
+ await db.from('report_document_events').insert({report_document_id:doc.data.id,actor_id:state.profile.id,event_type:'finalized',detail:{source_page:state.page}});
+ return doc.data;
+}
 async function buildReportPdf(){
   const report=document.querySelector('article.report');
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
@@ -49,6 +67,7 @@ async function buildReportPdf(){
   };
   const worker=window.html2pdf().set(options).from(report);
   const blob=await worker.outputPdf('blob');
+  await registerFinalReport(blob,report);
   return {blob,filename:options.filename,report};
 }
 async function runPdfAction(action,button){
