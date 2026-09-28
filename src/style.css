@@ -382,3 +382,22 @@ input::placeholder,textarea::placeholder{color:#9fa9b0!important}
   .home-shell{background:#aeb5ba!important}
   .home-welcome{background:linear-gradient(135deg,#1d252b,#303a41)!important}
 }
+
+
+/* ===== STATUS TABS — HIGH CONTRAST ===== */
+.status-tabs button,
+.observation-tabs button,
+.filter-tabs button,
+.tabs button{
+  color:#111417!important;
+  font-weight:800!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+.status-tabs button.active,
+.observation-tabs button.active,
+.filter-tabs button.active,
+.tabs button.active{
+  color:#000!important;
+  font-weight:900!important;
+}
