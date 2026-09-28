@@ -182,3 +182,90 @@
 .app-menu-links{display:grid;gap:5px;padding:18px 0;overflow:auto}.app-menu-links button{display:grid;grid-template-columns:30px 1fr;align-items:center;text-align:left;background:transparent;border:0;color:#e9eef1;border-radius:9px;padding:11px 12px;font-size:12px}.app-menu-links button:hover{background:rgba(255,255,255,.1)}.app-menu-links button span{font-size:17px;color:#d6dde1}
 .app-menu-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.13);padding-top:16px}.app-menu-foot small{display:block;color:#aebbc4;margin:0 10px 10px;overflow:hidden;text-overflow:ellipsis}.app-menu-foot button{width:100%;text-align:left;border:0;background:transparent;color:#fff;padding:10px;font-weight:800}
 @media(max-width:760px){.home-shell{padding:0 12px 88px}.home-welcome{border-radius:0;margin:0 -12px 14px;padding:18px 16px}.home-welcome h1{font-size:20px}.home-actions{grid-template-columns:repeat(2,1fr)!important}.home-action{min-height:88px!important}.command-grid{grid-template-columns:1fr 1fr!important}.mobile-bottom{grid-template-columns:repeat(5,1fr)!important}.mobile-bottom button{font-size:8px!important}.mobile-bottom button span{font-size:17px!important}}
+
+
+/* ===== HOME — G&E GRAPHITE / WHITE CORPORATE STANDARD ===== */
+body{background:#f3f4f5}
+.home-shell{color:#2d3338}
+.home-welcome{
+  background:linear-gradient(135deg,#4b5054 0%,#686e72 100%)!important;
+  border:1px solid #73787c!important;
+  box-shadow:0 10px 28px rgba(35,39,42,.12)!important
+}
+.home-welcome h1{color:#fff!important}
+.home-welcome p{color:#eef0f1!important}
+.user-avatar{
+  background:#fff!important;
+  color:#4c5256!important;
+  border:2px solid rgba(255,255,255,.75)!important
+}
+.project-picker{
+  background:#fff!important;
+  color:#33393d!important;
+  border-color:#d3d6d8!important
+}
+.command-center{
+  background:#fff!important;
+  border-color:#d9dcde!important;
+  box-shadow:0 5px 18px rgba(45,49,52,.055)!important
+}
+.command-head{background:#fafafa!important;border-color:#e3e5e6!important}
+.command-head small{color:#777d81!important}
+.command-head h2{color:#3d4347!important}
+.command-alert{
+  background:#f7f7f7!important;
+  border-color:#dedfe0!important;
+  color:#3b4145!important
+}
+.command-alert span{color:#3d4347!important}
+.command-alert small{color:#7a8084!important}
+.command-alert.mine,.command-alert.review,.command-alert.walk{
+  background:#f7f7f7!important;
+  border-color:#dedfe0!important
+}
+.command-alert.mine strong,.command-alert.review strong{color:#4f565b!important}
+.command-alert.walk.done strong{color:#58615c!important}
+.home-actions{gap:11px!important}
+.home-action,
+.home-action.blue,
+.home-action.green,
+.home-action.orange,
+.home-action.purple,
+.home-action.slate,
+.home-action.settings,
+.home-action.discipline,
+.home-action.safety-walk{
+  background:#fff!important;
+  color:#40464a!important;
+  border:1px solid #d9dcde!important;
+  box-shadow:0 5px 16px rgba(38,42,45,.05)!important
+}
+.home-action:hover{
+  background:#f7f7f7!important;
+  border-color:#aeb3b6!important;
+  box-shadow:0 9px 22px rgba(38,42,45,.09)!important
+}
+.home-action .action-icon{
+  background:#eceeef!important;
+  color:#4c5358!important;
+  border:1px solid #e0e2e3!important
+}
+.home-stats{
+  background:#fff!important;
+  border-color:#d9dcde!important;
+  box-shadow:0 4px 14px rgba(38,42,45,.04)
+}
+.home-stat{color:#73797d!important}
+.home-stat strong{color:#41474b!important}
+.today-line{color:#777d81!important}
+.mobile-bottom{
+  background:rgba(255,255,255,.97)!important;
+  border-color:#d7dadc!important
+}
+.mobile-bottom button{color:#777d81!important}
+.mobile-bottom button.active{color:#3e4549!important}
+.mobile-bottom button.active span{background:#e9ebec!important;color:#3f464a!important}
+@media(max-width:760px){
+  body{background:#f5f5f5}
+  .home-welcome{background:linear-gradient(135deg,#4a4f53,#666c70)!important}
+}
