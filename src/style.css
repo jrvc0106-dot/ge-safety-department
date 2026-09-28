@@ -1083,3 +1083,15 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
  .safety-walk-shell .walk-meta small{color:#4d5b65!important}
  .safety-walk-shell .walk-meta strong{color:#35434d!important}
 }
+
+
+/* Create Daily Report — semantic Safe / Unsafe / N-A controls */
+.safety-walk-shell .walk-status label:has(input[value="safe"]){color:#237447!important;border-color:#b8d9c7!important;background:#f4faf6!important}
+.safety-walk-shell .walk-status label:has(input[value="unsafe"]){color:#a13a3a!important;border-color:#e4bcbc!important;background:#fff7f7!important}
+.safety-walk-shell .walk-status label:has(input[value="na"]){color:#66737c!important;border-color:#cbd3d9!important;background:#f7f8f9!important}
+.safety-walk-shell .walk-status label:has(input[value="safe"]:checked){color:#155f37!important;border-color:#63ad80!important;background:#e8f6ed!important;box-shadow:0 0 0 2px rgba(38,132,77,.10)}
+.safety-walk-shell .walk-status label:has(input[value="unsafe"]:checked){color:#8f2525!important;border-color:#cf6b6b!important;background:#fdecec!important;box-shadow:0 0 0 2px rgba(184,52,52,.10)}
+.safety-walk-shell .walk-status label:has(input[value="na"]:checked){color:#495761!important;border-color:#89969f!important;background:#edf0f2!important;box-shadow:0 0 0 2px rgba(93,108,118,.09)}
+.safety-walk-shell .walk-status input[value="safe"]{accent-color:#26844d}
+.safety-walk-shell .walk-status input[value="unsafe"]{accent-color:#b83434}
+.safety-walk-shell .walk-status input[value="na"]{accent-color:#687780}
