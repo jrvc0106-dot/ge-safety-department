@@ -1242,3 +1242,5 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
  .ewr-tr{break-inside:avoid;page-break-inside:avoid}
  .ewr-evidence figure,.ir-photos figure,.eq-photos figure{break-inside:avoid;page-break-inside:avoid}
 }
+.draft-status{margin:0 0 1rem;padding:.65rem .85rem;border:1px solid #c5d8cd;border-radius:8px;background:#edf7f0;color:#174b31;font-size:.9rem;font-weight:600}
+.draft-status.draft-warning{border-color:#dba8a8;background:#fff1f1;color:#8b2020}
