@@ -921,3 +921,18 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
   .home-action,.home-action.blue,.home-action.green,.home-action.orange,.home-action.purple,.home-action.slate,.home-action.settings,.home-action.discipline,.home-action.safety-walk{min-height:90px!important}
   .mobile-bottom{min-height:62px!important;padding-bottom:max(5px,env(safe-area-inset-bottom))!important}
 }
+
+
+/* ===== REPORT PDF DOCUMENT ACTIONS ===== */
+.report-actions{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;flex-wrap:wrap!important;margin:0 0 14px!important}
+.pdf-document-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-left:auto}
+.pdf-document-actions button{min-height:40px;border-radius:10px;padding:9px 14px;font-weight:850;font-size:12px;box-shadow:0 3px 9px rgba(32,40,46,.07)}
+.pdf-document-actions .pdf-download{background:#59666e!important;color:#fff!important;border:1px solid #59666e!important}
+.pdf-document-actions .pdf-download:hover{background:#465159!important}
+.pdf-document-actions button:disabled{opacity:.6;cursor:wait}
+@media(max-width:640px){
+  .report-actions{align-items:stretch!important}
+  .pdf-document-actions{display:grid;grid-template-columns:1fr 1fr;width:100%;margin-left:0}
+  .pdf-document-actions .pdf-share{grid-column:1/-1}
+  .pdf-document-actions button{width:100%}
+}
