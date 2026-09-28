@@ -1190,3 +1190,8 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
 .home-actions .home-action .action-icon{
  color:#fff!important;
 }
+
+/* Google Drive / Dropbox backup destinations */
+.backup-providers{grid-template-columns:repeat(3,1fr)!important}
+.cloud-provider-status{display:inline-block;margin-top:8px;padding:4px 7px;border-radius:12px;background:#fff4df;color:#8a611d;font-size:8px;font-style:normal;font-weight:900;text-transform:uppercase;letter-spacing:.03em}
+@media(max-width:700px){.backup-providers{grid-template-columns:1fr 1fr!important}}
