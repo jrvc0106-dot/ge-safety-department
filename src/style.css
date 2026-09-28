@@ -401,3 +401,48 @@ input::placeholder,textarea::placeholder{color:#9fa9b0!important}
   color:#000!important;
   font-weight:900!important;
 }
+
+
+/* ===== HEADER BRAND — ORIGINAL LOGO HIGH DEFINITION ===== */
+header .brand{
+  display:flex!important;
+  align-items:center!important;
+  gap:14px!important;
+}
+header .brand img{
+  width:62px!important;
+  height:62px!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  padding:5px!important;
+  box-sizing:border-box!important;
+  background:#f3f4f4!important;
+  border:1px solid #8d969c!important;
+  border-radius:50%!important;
+  opacity:1!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+  box-shadow:0 2px 8px rgba(0,0,0,.28)!important;
+}
+header .brand span{
+  color:#fff!important;
+  font-size:24px!important;
+  line-height:1!important;
+  font-weight:900!important;
+  letter-spacing:.015em!important;
+}
+header .brand small{
+  display:block!important;
+  margin-top:7px!important;
+  color:#fff!important;
+  font-size:10px!important;
+  line-height:1!important;
+  font-weight:900!important;
+  letter-spacing:.18em!important;
+}
+@media(max-width:760px){
+  header .brand{gap:9px!important}
+  header .brand img{width:50px!important;height:50px!important;padding:4px!important}
+  header .brand span{font-size:19px!important}
+  header .brand small{font-size:7px!important;letter-spacing:.13em!important;margin-top:5px!important}
+}
