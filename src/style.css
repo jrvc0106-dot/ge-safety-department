@@ -1195,3 +1195,32 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
 .backup-providers{grid-template-columns:repeat(3,1fr)!important}
 .cloud-provider-status{display:inline-block;margin-top:8px;padding:4px 7px;border-radius:12px;background:#fff4df;color:#8a611d;font-size:8px;font-style:normal;font-weight:900;text-transform:uppercase;letter-spacing:.03em}
 @media(max-width:700px){.backup-providers{grid-template-columns:1fr 1fr!important}}
+
+/* Home modules FINAL visual rule — one professional graphite color; incident remains red */
+.home-actions > .home-action:not(.incident-action){
+ background:linear-gradient(145deg,#5f6f79,#46555e)!important;
+ color:#fff!important;
+ border:1px solid #71808a!important;
+ box-shadow:0 5px 14px rgba(42,57,66,.14)!important;
+}
+.home-actions > .home-action:not(.incident-action):hover{
+ background:linear-gradient(145deg,#687983,#4d5c65)!important;
+ color:#fff!important;
+ border-color:#7e8d96!important;
+ box-shadow:0 7px 18px rgba(42,57,66,.18)!important;
+ filter:none!important;
+}
+.home-actions > .home-action:not(.incident-action) .action-icon{
+ color:#fff!important;
+}
+.home-actions > .home-action.incident-action{
+ background:linear-gradient(145deg,#c9222b,#e13a42)!important;
+ color:#fff!important;
+ border-color:#b91d25!important;
+ box-shadow:0 7px 18px rgba(190,28,38,.18)!important;
+}
+.home-actions > .home-action.incident-action:hover{
+ background:linear-gradient(145deg,#d12a33,#e7444c)!important;
+ border-color:#b91d25!important;
+ box-shadow:0 8px 20px rgba(190,28,38,.22)!important;
+}
