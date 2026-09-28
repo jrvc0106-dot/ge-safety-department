@@ -1061,3 +1061,25 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
 .safety-walk-shell .walk-details label:focus-within,
 .safety-walk-shell .walk-final label:focus-within{color:#4b5963!important}
 .safety-walk-shell .walk-final button{font-weight:800}
+
+
+/* Create Daily Report — mobile contrast correction from field screenshot */
+.safety-walk-shell .walk-meta small{color:#53616b!important}
+.safety-walk-shell .walk-meta strong{color:#34434e!important}
+.safety-walk-shell .walk-legend span{color:#46545e!important}
+.safety-walk-shell .walk-status label{color:#46545e!important}
+.safety-walk-shell .walk-status label:has(input:checked){color:#263640!important;font-weight:850!important}
+.safety-walk-shell .walk-details label,
+.safety-walk-shell .walk-final label{color:#46545e!important;font-weight:800!important;opacity:1!important}
+.safety-walk-shell .walk-details textarea,
+.safety-walk-shell .walk-final textarea,
+.safety-walk-shell .walk-final select{color:#34434e!important}
+.safety-walk-shell .walk-details input[type=file]{color:#34434e!important}
+.safety-walk-shell .walk-item p{color:#596872!important}
+@media(max-width:700px){
+ .safety-walk-shell .walk-details label,
+ .safety-walk-shell .walk-final label{color:#3f4d57!important;font-size:13.5px!important}
+ .safety-walk-shell .walk-status label{color:#3f4d57!important}
+ .safety-walk-shell .walk-meta small{color:#4d5b65!important}
+ .safety-walk-shell .walk-meta strong{color:#35434d!important}
+}
