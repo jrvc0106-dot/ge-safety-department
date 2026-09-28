@@ -679,3 +679,151 @@ header #logout *{color:#fff!important}
     background:#fff!important;color:#20262b!important;box-shadow:none!important;border:0!important
   }
 }
+
+
+/* ===== G&E LIGHT PROFESSIONAL UI — APPROVED LIGHT DIRECTION ===== */
+:root{
+  --ge-light-bg:#eef1f3;
+  --ge-light-surface:#ffffff;
+  --ge-light-card:#f7f8f9;
+  --ge-light-card-2:#e8ecef;
+  --ge-light-border:#cbd2d7;
+  --ge-light-text:#1f272d;
+  --ge-light-muted:#66727a;
+  --ge-light-accent:#7c878f;
+}
+body{background:var(--ge-light-bg)!important;color:var(--ge-light-text)!important}
+
+/* Header */
+body>header,header{
+  background:linear-gradient(180deg,#ffffff,#f1f3f4)!important;
+  color:var(--ge-light-text)!important;
+  border-bottom:1px solid #cbd2d7!important;
+  box-shadow:0 4px 16px rgba(35,45,52,.08)!important
+}
+header .brand span,header .brand small{color:#222b31!important}
+header .brand img{
+  background:#fff!important;border-color:#cbd2d7!important;
+  box-shadow:0 3px 10px rgba(35,45,52,.12)!important
+}
+header nav button,header #notifications-button,header #lang,header #password-menu,header #logout,.home-nav button,.home-nav select{
+  background:linear-gradient(145deg,#f8f9fa,#e7ebed)!important;
+  color:#263038!important;border:1px solid #c8d0d5!important;
+  box-shadow:0 3px 8px rgba(35,45,52,.07)!important
+}
+header nav button:hover,header #notifications-button:hover,header #lang:hover,header #password-menu:hover,header #logout:hover,.home-nav button:hover{
+  background:#dde3e6!important;color:#172026!important;border-color:#aeb8be!important
+}
+header nav button *,header #notifications-button *,header #lang *,header #password-menu *,header #logout *{color:#263038!important}
+
+/* Home */
+.home-shell{background:#eef1f3!important;color:#20282e!important}
+.home-welcome{
+  background:linear-gradient(135deg,#ffffff,#e5eaed)!important;
+  color:#20282e!important;border:1px solid #cbd2d7!important;
+  box-shadow:0 8px 22px rgba(35,45,52,.08)!important
+}
+.home-welcome h1{color:#1f272d!important}.home-welcome p{color:#66727a!important}
+.user-avatar{background:#dbe1e4!important;color:#263038!important;border-color:#b7c0c6!important}
+.project-label,.today-line{color:#58646c!important}
+.project-picker{
+  background:linear-gradient(135deg,#ffffff,#e9edef)!important;color:#263038!important;
+  border:1px solid #c4ccd1!important;box-shadow:0 4px 12px rgba(35,45,52,.06)!important
+}
+.command-head{border-bottom-color:#cbd2d7!important}
+.command-head small,.command-head h2,.command-head>span{color:#273138!important}
+.command-alert,.command-alert.mine,.command-alert.review,.command-alert.walk{
+  background:linear-gradient(145deg,#ffffff,#edf0f2)!important;
+  color:#273138!important;border:1px solid #cbd2d7!important;
+  box-shadow:0 5px 14px rgba(35,45,52,.07)!important
+}
+.command-alert span,.command-alert strong,.command-alert.mine strong,.command-alert.review strong{color:#263038!important}
+.command-alert small{color:#707c84!important}
+.command-alert.high strong{color:#b4232a!important}.command-alert.walk.done strong{color:#18794e!important}
+
+/* Main action modules */
+.home-action,.home-action.blue,.home-action.green,.home-action.orange,.home-action.purple,.home-action.slate,.home-action.settings,.home-action.discipline,.home-action.safety-walk{
+  background:linear-gradient(145deg,#ffffff,#e9edef)!important;color:#263038!important;
+  border:1px solid #c8d0d5!important;box-shadow:0 5px 14px rgba(35,45,52,.08)!important
+}
+.home-action:hover{background:linear-gradient(145deg,#fff,#dde3e6)!important;border-color:#aeb8be!important}
+.home-action .action-icon{color:#46535b!important}
+
+/* Bottom status cards */
+.home-stats{background:transparent!important;border:0!important;box-shadow:none!important}
+.home-stat{
+  background:linear-gradient(145deg,#ffffff,#e8ecef)!important;
+  color:#354149!important;border:1px solid #c8d0d5!important;
+  box-shadow:0 5px 12px rgba(35,45,52,.07)!important
+}
+.home-stat strong{color:#222b31!important}
+
+/* Mobile navigation */
+.mobile-bottom{
+  background:rgba(255,255,255,.97)!important;border-top:1px solid #cbd2d7!important;
+  box-shadow:0 -5px 16px rgba(35,45,52,.08)!important
+}
+.mobile-bottom button{color:#68747c!important}.mobile-bottom button.active{color:#20282e!important}
+.mobile-bottom button.active span{background:#e2e7ea!important;color:#20282e!important}
+
+/* Observation status control */
+.obs-summary{
+  background:#e3e8eb!important;border-color:#c5cdd2!important;
+  box-shadow:0 6px 16px rgba(35,45,52,.07)!important
+}
+.summary-chip{
+  background:linear-gradient(145deg,#ffffff,#edf0f2)!important;
+  color:#263038!important;border-color:#c8d0d5!important;
+  box-shadow:inset 0 1px 0 #fff!important
+}
+.summary-chip:hover{background:#e4e9ec!important}
+.summary-chip .status-copy small,.summary-chip .status-copy strong{color:#263038!important}
+.summary-chip.active{
+  background:#fff!important;border-color:#7f8b93!important;
+  box-shadow:0 0 0 1px #7f8b93,0 5px 12px rgba(35,45,52,.08)!important
+}
+.summary-chip.active:after{background:#59656d!important;box-shadow:0 0 0 3px rgba(89,101,109,.12)!important}
+
+/* Operational pages/cards/forms */
+.card,.notification-card,.observation-card,.correction-card,.report-card,.discipline-card{
+  background:#fff!important;color:#20282e!important;border-color:#d0d7db!important;
+  box-shadow:0 5px 14px rgba(35,45,52,.07)!important
+}
+.card h1,.card h2,.card h3,.section-heading h1,.section-heading h2{color:#20282e!important}
+.card p,.card small,.section-heading p{color:#68747c!important}
+input,select,textarea{
+  background:#fff!important;color:#20282e!important;border-color:#c6ced3!important
+}
+input::placeholder,textarea::placeholder{color:#8a959c!important}
+.secondary{background:#edf0f2!important;color:#263038!important;border-color:#c6ced3!important}
+
+/* Side menu */
+.app-menu-panel{background:linear-gradient(180deg,#ffffff,#edf1f3)!important;color:#20282e!important}
+.app-menu-head,.app-menu-head strong,.app-menu-head span{color:#20282e!important}
+.app-menu-links button{color:#263038!important}
+.app-menu-links button:hover{background:#dde3e6!important}
+
+/* Profile */
+.profile-card{
+  background:linear-gradient(145deg,#ffffff,#e9edef)!important;color:#20282e!important;
+  border-color:#cbd2d7!important;box-shadow:0 10px 26px rgba(35,45,52,.09)!important
+}
+.profile-avatar-large{background:#d9dfe3!important;color:#263038!important;border-color:#fff!important}
+.profile-info h1{color:#20282e!important}.profile-info p{color:#66727a!important}
+.profile-info span{background:#e2e7ea!important;color:#263038!important;border-color:#c1c9ce!important}
+.profile-note{color:#707c84!important}
+
+/* Auth */
+.auth-experience{background:#eef1f3!important}
+.auth-panel{background:linear-gradient(180deg,#ffffff,#edf1f3)!important;color:#20282e!important}
+.auth-copy h1,.auth-brand strong{color:#20282e!important}.auth-copy p,.auth-brand span{color:#66727a!important}
+.auth-form label{color:#354149!important}.auth-form input{background:#fff!important;color:#20282e!important;border-color:#c6ced3!important}
+.auth-switch,.auth-footer{color:#707c84!important}.auth-switch button,.auth-forgot{color:#263038!important}
+.auth-language button{background:#e5eaed!important;color:#263038!important;border-color:#c4ccd1!important}
+.auth-visual{background:linear-gradient(145deg,#e4e9ec,#cfd6da)!important}
+
+/* Reports remain on their dedicated approved light document theme. */
+@media(max-width:760px){
+  body,.home-shell{background:#eef1f3!important}
+  .home-welcome{background:linear-gradient(135deg,#ffffff,#e5eaed)!important}
+}
