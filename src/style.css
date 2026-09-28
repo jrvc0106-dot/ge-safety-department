@@ -1224,3 +1224,21 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
  border-color:#b91d25!important;
  box-shadow:0 8px 20px rgba(190,28,38,.22)!important;
 }
+
+/* Final report precision pass — print/PDF legibility and pagination */
+.professional-report{font-variant-numeric:tabular-nums}
+.professional-report img{image-rendering:auto}
+.ewr-finding-label{display:inline!important;font-size:8px!important;color:#3c4951!important}
+.ewr-correction-line{display:block!important;margin-top:3px!important;font-size:7.5px!important;line-height:1.35!important;color:#56646c!important}
+.ewr-correction-line b{color:#3c4951}
+.incident-pdf section,.equipment-pdf section{break-inside:auto;page-break-inside:auto}
+.incident-pdf h2,.equipment-pdf h2,.ir-meta,.eq-pdf-meta,.eq-summary,.ir-sign,.eq-signatures,.eq-final-status{break-inside:avoid;page-break-inside:avoid}
+.ir-photos figure,.eq-photos figure,.ir-two>div,.eq-corrective>div{break-inside:avoid;page-break-inside:avoid}
+.eq-table tr{break-inside:avoid;page-break-inside:avoid}
+@media print{
+ .professional-report{color:#202c33!important}
+ .executive-walk-report,.incident-pdf,.equipment-pdf{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+ .ewr-header,.ir-head,.eq-pdf-head{break-inside:avoid;page-break-inside:avoid}
+ .ewr-tr{break-inside:avoid;page-break-inside:avoid}
+ .ewr-evidence figure,.ir-photos figure,.eq-photos figure{break-inside:avoid;page-break-inside:avoid}
+}
