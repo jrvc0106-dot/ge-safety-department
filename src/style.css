@@ -1242,3 +1242,10 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
  .ewr-tr{break-inside:avoid;page-break-inside:avoid}
  .ewr-evidence figure,.ir-photos figure,.eq-photos figure{break-inside:avoid;page-break-inside:avoid}
 }
+
+/* Auto-save & Resume */
+.draft-save-status{position:sticky;top:6px;z-index:8;width:max-content;max-width:100%;margin:0 0 12px auto;padding:7px 11px;border:1px solid #d5dde1;border-radius:999px;background:#f7f9fa;color:#53636c;font-size:11px;font-weight:800;letter-spacing:.01em;box-shadow:0 3px 10px rgba(42,57,66,.06)}
+.draft-save-status[data-kind="saving"]{color:#7a6334;background:#fffaf0;border-color:#eadfca}
+.draft-save-status[data-kind="local"]{color:#875f20;background:#fff7e8;border-color:#ecd7ad}
+.draft-save-status[data-kind="restored"]{color:#315d4a;background:#f1f8f4;border-color:#cfe3d8}
+@media(max-width:700px){.draft-save-status{position:sticky;top:4px;margin:0 0 10px auto;font-size:10px;padding:6px 9px}}
