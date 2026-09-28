@@ -1037,3 +1037,27 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
 .safety-walk-shell .walk-final label:focus-within{color:#1f2d36!important}
 .safety-walk-shell .walk-details textarea,
 .safety-walk-shell .walk-final textarea{font-size:14px!important;color:#1f2d36!important}
+
+
+/* Create Daily Report — uniform soft professional typography */
+.safety-walk-shell{color:#53616b}
+.safety-walk-shell>.section-heading h1{color:#3d4a54!important;font-weight:800}
+.safety-walk-shell>.section-heading p{color:#68757e!important;font-weight:500}
+.safety-walk-shell .walk-meta small{color:#77838c!important;font-weight:800}
+.safety-walk-shell .walk-meta strong{color:#4d5a64!important;font-weight:750}
+.safety-walk-shell .walk-legend span{color:#66737c!important;font-weight:750}
+.safety-walk-shell .walk-number{color:#5b6872!important;background:#edf1f4!important}
+.safety-walk-shell .walk-item h3{color:#46535d!important;font-weight:800}
+.safety-walk-shell .walk-item p{color:#6d7982!important;font-weight:500}
+.safety-walk-shell .walk-status label{color:#5d6a73!important;font-weight:750;background:#fafbfc!important;border-color:#ccd4da!important}
+.safety-walk-shell .walk-details label,
+.safety-walk-shell .walk-final label{color:#5f6c75!important;font-weight:750!important}
+.safety-walk-shell .walk-details textarea,
+.safety-walk-shell .walk-final textarea,
+.safety-walk-shell .walk-final select,
+.safety-walk-shell .walk-details input[type=file]{color:#53616b!important;border-color:#c8d1d7!important;background:#fdfefe!important}
+.safety-walk-shell textarea::placeholder,
+.safety-walk-shell input::placeholder{color:#98a2a9!important;opacity:1}
+.safety-walk-shell .walk-details label:focus-within,
+.safety-walk-shell .walk-final label:focus-within{color:#4b5963!important}
+.safety-walk-shell .walk-final button{font-weight:800}
