@@ -1328,3 +1328,43 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
   object-fit:contain!important;
  }
 }
+
+
+/* Official G&E logo fidelity — all generated reports */
+article.report img[src="/ge-logo.png"],
+article.report img[src$="/ge-logo.png"],
+.professional-report .report-header img,
+.executive-walk-report .ewr-brand img,
+.executive-walk-report .ewr-footer img{
+ object-fit:contain!important;
+ object-position:center!important;
+ aspect-ratio:auto!important;
+ max-width:100%!important;
+ image-rendering:auto!important;
+}
+.professional-report .report-header img{
+ width:90px!important;
+ height:auto!important;
+ max-height:90px!important;
+}
+.executive-walk-report .ewr-brand img{
+ width:76px!important;
+ height:auto!important;
+ max-height:66px!important;
+}
+.executive-walk-report .ewr-footer img{
+ width:42px!important;
+ height:auto!important;
+ max-height:36px!important;
+}
+@media print{
+ article.report img[src="/ge-logo.png"],
+ article.report img[src$="/ge-logo.png"]{
+  object-fit:contain!important;
+  object-position:center!important;
+  aspect-ratio:auto!important;
+ }
+ .professional-report .report-header img{width:82px!important;height:auto!important;max-height:82px!important}
+ .executive-walk-report .ewr-brand img{width:60px!important;height:auto!important;max-height:52px!important}
+ .executive-walk-report .ewr-footer img{width:42px!important;height:auto!important;max-height:36px!important}
+}
