@@ -24,6 +24,7 @@ const DRAFT_FORMS={
 };
 const draftTimers=new Map();
 const draftFileState=new Map();
+let activeDraftFlush=null;
 const draftContextKey=(type,key='default')=>`${state.profile?.id||'guest'}:${state.project||'none'}:${type}:${key}`;
 const draftLocalKey=(type,key='default')=>`ge_draft_v1:${state.profile?.id||'guest'}:${state.project||'none'}:${type}:${key}`;
 function serializeDraftForm(form,type=null,key='default'){
@@ -66,7 +67,6 @@ async function persistDraft(form,type,key='default'){
 async function uploadDraftFiles(form,type,key,input){
  if(!input?.name||!input.files?.length)return;
  const ctx=draftContextKey(type,key),all={...(draftFileState.get(ctx)||{})},old=all[input.name]||[];
- if(old.length)await db.storage.from('draft-evidence').remove(old.map(x=>x.path));
  const saved=[];
  for(const original of [...input.files]){
   if(original.size>10*1024*1024)throw Error(tr('Each draft photo must be 10 MB or less.','Cada foto del borrador debe ser de 10 MB o menos.'));
@@ -80,6 +80,7 @@ async function uploadDraftFiles(form,type,key,input){
   saved.push({path,name:file.name,type:file.type,size:file.size});
  }
  all[input.name]=saved;draftFileState.set(ctx,all);renderDraftFileBadges(form,all);await persistDraft(form,type,key);
+ if(old.length)await db.storage.from('draft-evidence').remove(old.map(x=>x.path));
 }
 function renderDraftFileBadges(form,files={}){
  form.querySelectorAll('.draft-file-restored').forEach(x=>x.remove());
@@ -123,9 +124,12 @@ async function restoreDraft(form,type,key='default'){
 }
 async function enableAutoDraft(form,type,key='default'){
  if(!form||!type)return;
- await restoreDraft(form,type,key);
+ form.dataset.autoDraft='initializing';
+ let touched=false;
  const schedule=()=>{
+  touched=true;
   const timerKey=type+':'+key;clearTimeout(draftTimers.get(timerKey));
+  try{const payload=serializeDraftForm(form,type,key),record={payload,updated_at:new Date().toISOString()};localStorage.setItem(draftLocalKey(type,key),JSON.stringify(record))}catch{}
   setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
   draftTimers.set(timerKey,setTimeout(()=>persistDraft(form,type,key),650));
  };
@@ -133,9 +137,14 @@ async function enableAutoDraft(form,type,key='default'){
  form.addEventListener('change',schedule);
  form.addEventListener('focusin',schedule);
  form.addEventListener('change',e=>{if(e.target?.type==='file'&&e.target.files?.length)uploadDraftFiles(form,type,key,e.target).catch(error)});
- const flush=()=>{if(document.visibilityState==='hidden')persistDraft(form,type,key)};
- document.addEventListener('visibilitychange',flush);
+ if(activeDraftFlush)document.removeEventListener('visibilitychange',activeDraftFlush);
+ activeDraftFlush=()=>{if(document.visibilityState==='hidden'&&form.isConnected)persistDraft(form,type,key).catch(()=>{})};
+ document.addEventListener('visibilitychange',activeDraftFlush);
+ const snapshot=serializeDraftForm(form,type,key);
+ const restored=await restoreDraft(form,type,key);
+ if(touched){applyDraftForm(form,snapshot);schedule()}
  form.dataset.autoDraft='true';
+ return restored;
 }
 function activateOperationalDrafts(){
  for(const [id,type] of Object.entries(DRAFT_FORMS)){
