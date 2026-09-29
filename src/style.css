@@ -1368,3 +1368,30 @@ article.report img[src$="/ge-logo.png"],
  .executive-walk-report .ewr-brand img{width:60px!important;height:auto!important;max-height:52px!important}
  .executive-walk-report .ewr-footer img{width:42px!important;height:auto!important;max-height:36px!important}
 }
+
+
+/* JHA PDF final polish — restrained executive document details */
+.ge-reference-jha .ewr-project small,
+.ge-reference-jha .ewr-closeout small{letter-spacing:.075em}
+.ge-reference-jha .ewr-id strong{font-variant-numeric:tabular-nums}
+.ge-reference-jha .ewr-table{border-left:1px solid #d8dee2;border-right:1px solid #d8dee2}
+.ge-reference-jha .ewr-th{background:#eceff1}
+.ge-reference-jha .ewr-tr>span+span{border-left:1px solid #eef1f3}
+.ge-reference-jha .ewr-hazard>header{border-left:3px solid #8b959b;padding-left:10px}
+.ge-reference-jha .ewr-hazard-grid>div{min-width:0}
+.ge-reference-jha .ewr-closeout{background:rgba(249,250,250,.94)}
+.ge-reference-jha .ewr-signatures>div{min-height:38px}
+.ge-reference-jha .ewr-note{max-width:92%}
+.ge-reference-jha .ewr-footer{letter-spacing:.015em}
+.ge-reference-jha .ewr-photo-card figcaption,
+.ge-reference-jha .ewr-evidence figcaption{page-break-before:avoid;break-before:avoid}
+@media print{
+ .ge-reference-jha .ewr-header,
+ .ge-reference-jha .ewr-project,
+ .ge-reference-jha .ewr-executive,
+ .ge-reference-jha .ewr-footer{break-inside:avoid;page-break-inside:avoid}
+ .ge-reference-jha .ewr-table .ewr-th{break-after:avoid;page-break-after:avoid}
+ .ge-reference-jha .ewr-photo-card{break-inside:avoid;page-break-inside:avoid}
+ .ge-reference-jha .ewr-photo-card>img,
+ .ge-reference-jha .ewr-evidence .report-photos img{break-after:avoid;page-break-after:avoid}
+}
