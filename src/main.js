@@ -190,14 +190,24 @@ function currentReportIdentity(report){
 }
 async function registerFinalReport(blob,report){
  const meta=currentReportIdentity(report);if(!meta)return null;
- const existing=await db.from('report_documents').select('id,pdf_path,report_number').eq('project_id',state.project).eq('report_number',meta.reportNumber).maybeSingle();
- if(existing.error)throw existing.error;if(existing.data)return existing.data;
- const safe=meta.reportNumber.replace(/[^a-z0-9_-]+/gi,'-'),path=`${state.project}/${meta.reportType}/${safe}-${Date.now()}.pdf`;
+ let nextVersion=1;
+ if(meta.sourceId){
+  const prior=await db.from('report_documents').select('version').eq('report_type',meta.reportType).eq('source_id',meta.sourceId).order('version',{ascending:false}).limit(1);
+  if(prior.error)throw prior.error;
+  nextVersion=(prior.data?.[0]?.version||0)+1;
+ }else{
+  const prior=await db.from('report_documents').select('version').eq('project_id',state.project).eq('report_number',meta.reportNumber).order('version',{ascending:false}).limit(1);
+  if(prior.error)throw prior.error;
+  nextVersion=(prior.data?.[0]?.version||0)+1;
+ }
+ const revision=Math.max(0,nextVersion-1),safe=meta.reportNumber.replace(/[^a-z0-9_-]+/gi,'-');
+ const path=`${state.project}/${meta.reportType}/${safe}-REV-${revision}-${Date.now()}.pdf`;
  const stored=await db.storage.from('final-reports').upload(path,blob,{contentType:'application/pdf',cacheControl:'3600',upsert:false});if(stored.error)throw stored.error;
- const doc=await db.from('report_documents').insert({project_id:state.project,report_type:meta.reportType,source_id:meta.sourceId,report_number:meta.reportNumber,title:meta.title,document_status:'final',version:1,snapshot:{generated_at:new Date().toISOString(),language:state.lang,source_page:state.page},pdf_path:path,created_by:state.profile.id,finalized_by:state.profile.id,finalized_at:new Date().toISOString()}).select('id,pdf_path,report_number').single();
+ const doc=await db.from('report_documents').insert({project_id:state.project,report_type:meta.reportType,source_id:meta.sourceId,report_number:meta.reportNumber,title:meta.title,document_status:'final',version:nextVersion,snapshot:{generated_at:new Date().toISOString(),language:state.lang,source_page:state.page,revision},pdf_path:path,created_by:state.profile.id,finalized_by:state.profile.id,finalized_at:new Date().toISOString()}).select('id,pdf_path,report_number,version').single();
  if(doc.error){await db.storage.from('final-reports').remove([path]);throw doc.error}
- await db.from('report_document_events').insert({report_document_id:doc.data.id,actor_id:state.profile.id,event_type:'finalized',detail:{source_page:state.page}});
- return doc.data;
+ const event=await db.from('report_document_events').insert({report_document_id:doc.data.id,actor_id:state.profile.id,event_type:nextVersion===1?'finalized':'revision_created',detail:{source_page:state.page,revision,previous_version:nextVersion>1?nextVersion-1:null}});
+ if(event.error)console.warn('Document event log failed',event.error);
+ return {...doc.data,revision};
 }
 async function buildReportPdf(){
   const report=document.querySelector('article.report');
