@@ -1465,3 +1465,5 @@ article.report figure img{
   object-fit:contain!important;
  }
 }
+
+.orientation-evidence-option{display:grid;gap:10px;min-width:0}.orientation-source-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.orientation-editor .orientation-source-actions button{grid-column:auto;min-height:44px;padding:10px;font-size:14px}.orientation-evidence-option [hidden]{display:none!important}.orientation-evidence-option>small{overflow-wrap:anywhere}
