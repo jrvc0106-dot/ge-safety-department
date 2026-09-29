@@ -1434,3 +1434,34 @@ article.report img[src$="/ge-logo.png"],
 
 /* Safety Orientation — disciplinary warning summary */
 .orientation-warnings{grid-column:1/-1;margin-top:4px;border:1px solid #d8dee1;border-radius:10px;overflow:hidden;background:#fff}.orientation-warnings>header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;background:#f4f6f7;border-bottom:1px solid #dfe4e6}.orientation-warnings header b{display:block;font-size:11px;letter-spacing:.07em;color:#424f55}.orientation-warnings header small{display:block;margin-top:3px;color:#737f85}.warning-count{min-width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#59666c;color:#fff;font-size:20px}.warning-list{display:grid;gap:0}.warning-list article{display:grid;grid-template-columns:82px 1fr;gap:12px;padding:12px 14px;border-bottom:1px solid #e6eaec}.warning-list article:last-child{border-bottom:0}.warning-list article>span{font-size:10px;font-weight:850;letter-spacing:.04em;color:#6b767c}.warning-list article strong,.warning-list article small{display:block}.warning-list article small{margin-top:2px;color:#768187}.warning-list article p{margin:6px 0 0;color:#4f5c62}.warning-clear{padding:14px;color:#42634c;font-weight:750}.warning-unavailable{margin:0;padding:14px;color:#69757b}
+
+
+/* Global final-report photo fidelity — applies to every report module */
+article.report img:not(.report-logo):not(.report-watermark):not(.watermark):not(.logo-watermark){
+ image-rendering:auto;
+}
+article.report .report-photos img,
+article.report .ewr-evidence img,
+article.report .ir-photos img,
+article.report .eq-photos img,
+article.report .inventory-evidence img,
+article.report figure img{
+ width:100%;
+ height:auto!important;
+ max-height:none!important;
+ object-fit:contain!important;
+ object-position:center!important;
+ background:#fff;
+}
+@media print{
+ article.report .report-photos img,
+ article.report .ewr-evidence img,
+ article.report .ir-photos img,
+ article.report .eq-photos img,
+ article.report .inventory-evidence img,
+ article.report figure img{
+  height:auto!important;
+  max-height:none!important;
+  object-fit:contain!important;
+ }
+}
