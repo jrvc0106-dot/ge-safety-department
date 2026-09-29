@@ -125,9 +125,8 @@ async function restoreDraft(form,type,key='default'){
 async function enableAutoDraft(form,type,key='default'){
  if(!form||!type)return;
  form.dataset.autoDraft='initializing';
- let touched=false;
+ form.inert=true;
  const schedule=()=>{
-  touched=true;
   const timerKey=type+':'+key;clearTimeout(draftTimers.get(timerKey));
   try{const payload=serializeDraftForm(form,type,key),record={payload,updated_at:new Date().toISOString()};localStorage.setItem(draftLocalKey(type,key),JSON.stringify(record))}catch{}
   setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
@@ -140,9 +139,9 @@ async function enableAutoDraft(form,type,key='default'){
  if(activeDraftFlush)document.removeEventListener('visibilitychange',activeDraftFlush);
  activeDraftFlush=()=>{if(document.visibilityState==='hidden'&&form.isConnected)persistDraft(form,type,key).catch(()=>{})};
  document.addEventListener('visibilitychange',activeDraftFlush);
- const snapshot=serializeDraftForm(form,type,key);
- const restored=await restoreDraft(form,type,key);
- if(touched){applyDraftForm(form,snapshot);schedule()}
+ let restored=false;
+ try{restored=await restoreDraft(form,type,key)}
+ finally{form.inert=false}
  form.dataset.autoDraft='true';
  return restored;
 }
