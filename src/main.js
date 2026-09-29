@@ -170,7 +170,7 @@ function reportPdfFilename(report){
 function currentReportIdentity(report){
  const map={report:'daily_report',observationReport:'observation',safetyWalkReport:'daily_safety_walk',disciplineReport:'disciplinary_action',incidentReport:'incident',equipmentInspectionReport:'equipment_inspection',inventoryReport:'inventory'};
  const reportType=map[state.page];if(!reportType||!state.project||!state.profile)return null;
- let reportNumber=(report.querySelector('.ewr-id strong')?.textContent||report.querySelector('.print-report-number b')?.textContent||report.querySelector('.eq-doc b')?.textContent||report.querySelector('.ir-title b')?.textContent||report.querySelector('.dr-doc p')?.textContent?.split('·')[0]||'').trim();
+ let reportNumber=(report.querySelector('.ewr-id strong')?.textContent||report.querySelector('.print-report-number b')?.textContent||report.querySelector('.eq-doc b')?.textContent||report.querySelector('.ir-title b')?.textContent||report.querySelector('.inventory-report-number b')?.textContent||report.querySelector('.dr-doc p')?.textContent?.split('·')[0]||'').trim();
  if(!reportNumber)reportNumber='DSR-'+localDateKey().replaceAll('-','')+'-'+String(state.project).slice(0,6).toUpperCase();
  return {reportType,reportNumber,sourceId:state.page==='report'?null:state.detail||null,title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim()};
 }
