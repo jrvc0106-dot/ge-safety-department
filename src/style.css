@@ -1395,3 +1395,9 @@ article.report img[src$="/ge-logo.png"],
  .ge-reference-jha .ewr-photo-card>img,
  .ge-reference-jha .ewr-evidence .report-photos img{break-after:avoid;page-break-after:avoid}
 }
+
+
+/* JHA cover weather — compact field condition snapshot */
+.ge-reference-jha .ewr-weather strong{white-space:nowrap}
+.ge-reference-jha .ewr-weather span{display:block;margin-top:2px;font-size:8px;color:#69767d;line-height:1.25}
+@media print{.ge-reference-jha .ewr-weather{break-inside:avoid;page-break-inside:avoid}}
