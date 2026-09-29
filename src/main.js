@@ -166,16 +166,21 @@ async function normalizeReportImage(file){
 }
 async function waitForReportImages(report){
   const imgs=[...report.querySelectorAll('img')];
-  await Promise.all(imgs.map(img=>new Promise(resolve=>{
-    if(img.complete&&img.naturalWidth>0)return resolve();
-    let done=false;const finish=()=>{if(done)return;done=true;clearTimeout(timer);resolve()};
-    const timer=setTimeout(finish,12000);img.addEventListener('load',finish,{once:true});img.addEventListener('error',finish,{once:true});
+  const failed=[];
+  await Promise.all(imgs.map((img,index)=>new Promise(resolve=>{
+    if(img.complete){if(img.naturalWidth<1)failed.push(index);return resolve()}
+    let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);if(!ok||img.naturalWidth<1)failed.push(index);resolve()};
+    const timer=setTimeout(()=>finish(false),12000);
+    img.addEventListener('load',()=>finish(true),{once:true});
+    img.addEventListener('error',()=>finish(false),{once:true});
   })));
+  if(failed.length)throw new Error(tr('PDF stopped because '+failed.length+' image(s) did not load. Please check your connection and try again.','El PDF se detuvo porque '+failed.length+' imagen(es) no cargaron. Verifique su conexión e intente nuevamente.'));
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 }
 function reportPdfFilename(report){
   const title=(report.querySelector('h1')?.textContent||'G&E Safety Report').trim().replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');
-  return `${title||'GE-Safety-Report'}-${localDateKey()}.pdf`;
+  const number=(currentReportIdentity(report)?.reportNumber||'').replace(/[^a-z0-9_-]+/gi,'-');
+  return `${title||'GE-Safety-Report'}${number?'-'+number:''}.pdf`;
 }
 function currentReportIdentity(report){
  const map={report:'daily_report',observationReport:'observation',safetyWalkReport:'daily_safety_walk',disciplineReport:'disciplinary_action',incidentReport:'incident',equipmentInspectionReport:'equipment_inspection',inventoryReport:'inventory'};
