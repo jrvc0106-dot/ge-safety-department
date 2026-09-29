@@ -215,11 +215,12 @@ async function buildReportPdf(){
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
   if(typeof window.html2pdf!=='function')throw new Error(tr('PDF service is still loading. Please try again.','El servicio PDF aún está cargando. Intente nuevamente.'));
   await waitForReportImages(report);
+  const equipmentPdf=report.classList.contains('equipment-pdf');
   const options={
     margin:[0.25,0.25,0.3,0.25],
     filename:reportPdfFilename(report),
-    image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false},
+    image:{type:'jpeg',quality:equipmentPdf?0.995:0.98},
+    html2canvas:{scale:equipmentPdf?3:2,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,imageTimeout:20000},
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
     pagebreak:{mode:['css','legacy'],avoid:['.report-photo','figure','.ewr-hazard','.report-section']}
   };
@@ -400,11 +401,14 @@ const SAFETY_WALK_ITEMS=[
 ['PPE','Hard hats, eye/face protection, gloves, high visibility, footwear and task-specific PPE'],
 ['Housekeeping / Cleanliness — OSHA 1926.25','Debris, scrap lumber, protruding nails, trash and trip hazards cleared from work areas, passageways and stairs; refuse removed regularly'],
 ['Work Area Organization / Material Storage — OSHA 1926.250','Materials stacked, blocked or secured against sliding, falling or collapse; aisles and passageways clear; storage areas organized'],
+['Clean-As-You-Go / Active Work Zones — OSHA 1926.25','Active work zones maintained free of accumulating debris, scrap and trip hazards throughout the shift, not only at end of day'],
+['Material Staging / Edge & Opening Clearance — OSHA 1926.250','Staged materials kept stable and positioned so they do not create unsafe exposure at hoistways, floor openings, exterior edges, aisles or access routes'],
 ['Aisles / Passageways / Emergency Egress','Required access routes, stairs, aisles, passageways and exits clear and unobstructed'],
 ['Waste Containers / Debris Removal — OSHA 1926.25','Suitable waste containers available; combustible scrap and construction debris removed at regular intervals'],
 ['Safety Rules / Work-Practice Compliance','Crew follows applicable jobsite safety rules, established controls, posted signs, barricades and task-specific safe-work procedures'],
 ['Crew Conduct / Respect / Safety Cooperation — G&E Policy','Professional and respectful conduct maintained; workers follow Safety and supervisor instructions, communicate hazards and do not interfere with protective measures'],
 ['No Smoking / Open Flame Control — G&E Policy / OSHA Fire Prevention','G&E/project no-smoking rules followed; smoking/open flames prohibited and posted where operations or materials create a fire hazard'],
+['Smoking / Ignition Hazard Posting — OSHA 1926.151(a)(3)','No Smoking or Open Flame signs conspicuously posted where operations constitute a fire hazard; ignition restrictions observed'],
 ['Posted Signs / Barricades / Restricted Areas','Required warning signs, tags, barricades and controlled/restricted work areas visible, maintained and respected'],
 ['Ladders / Stairways — OSHA 1926 Subpart X','Ladders inspected and used as designed; stable setup, safe access, proper extension/securement where applicable; damaged ladders removed from service'],
 ['Fire Protection / Extinguishers — OSHA 1926.150','Required firefighting equipment available, conspicuously located, accessible, inspected and maintained in operating condition'],
