@@ -23,6 +23,8 @@ const DRAFT_FORMS={
  'inventory-form':'inventory_item'
 };
 const draftTimers=new Map();
+const draftWrites=new Map();
+const draftUploads=new Map();
 const draftFileState=new Map();
 let activeDraftFlush=null;
 const draftContextKey=(type,key='default')=>`${state.profile?.id||'guest'}:${state.project||'none'}:${type}:${key}`;
@@ -56,13 +58,21 @@ function setDraftStatus(form,text,kind='saved'){
  node.dataset.kind=kind;node.textContent=text;
 }
 async function persistDraft(form,type,key='default'){
- if(!state.profile?.id||!state.project)return;
+ if(!state.profile?.id||!state.project||form.dataset.autoDraft==='false')return;
+ const context=draftContextKey(type,key),userId=state.profile.id,projectId=state.project;
  const payload=serializeDraftForm(form,type,key),localKey=draftLocalKey(type,key),record={payload,updated_at:new Date().toISOString()};
  try{localStorage.setItem(localKey,JSON.stringify(record))}catch{}
  setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
- const result=await db.from('form_drafts').upsert({user_id:state.profile.id,project_id:state.project,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'});
- if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
- setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
+ const previous=draftWrites.get(context)||Promise.resolve();
+ const write=previous.catch(()=>{}).then(async()=>{
+  if(form.dataset.autoDraft==='false')return;
+  const result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'});
+  if(!form.isConnected||form.dataset.autoDraft==='false')return;
+  if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
+  setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
+ });
+ draftWrites.set(context,write);
+ try{await write}finally{if(draftWrites.get(context)===write)draftWrites.delete(context)}
 }
 async function uploadDraftFiles(form,type,key,input){
  if(!input?.name||!input.files?.length)return;
@@ -90,6 +100,7 @@ function renderDraftFileBadges(form,files={}){
  }
 }
 async function draftFilesFor(form,type,key='default',name){
+ await draftUploads.get(draftContextKey(type,key)+':'+name);
  const input=[...form.querySelectorAll('input[type=file]')].find(x=>x.name===name);
  if(input?.files?.length)return [...input.files];
  const items=(draftFileState.get(draftContextKey(type,key))||{})[name]||[],files=[];
@@ -98,8 +109,16 @@ async function draftFilesFor(form,type,key='default',name){
 }
 
 async function clearDraft(type,key='default'){
+ const ctx=draftContextKey(type,key);
+ await Promise.all([...draftUploads.entries()].filter(([name])=>name.startsWith(ctx+':')).map(([,upload])=>upload.catch(()=>{})));
+ const timer=draftTimers.get(ctx);if(timer){clearTimeout(timer);draftTimers.delete(ctx)}
+ for(const [id,formType] of Object.entries(DRAFT_FORMS)){
+  const form=document.getElementById(id);
+  if(form&&formType===type&&(id!=='correction'||(state.detail||'default')===key))form.dataset.autoDraft='false';
+ }
+ await draftWrites.get(ctx)?.catch(()=>{});
  try{localStorage.removeItem(draftLocalKey(type,key))}catch{}
- const ctx=draftContextKey(type,key),files=draftFileState.get(ctx)||{};
+ const files=draftFileState.get(ctx)||{};
  if(state.profile?.id&&state.project){
   if(!Object.keys(files).length){const q=await db.from('form_drafts').select('payload').eq('user_id',state.profile.id).eq('project_id',state.project).eq('form_type',type).eq('draft_key',key).maybeSingle();Object.assign(files,q.data?.payload?.__files||{})}
   const paths=Object.values(files).flat().map(x=>x.path).filter(Boolean);if(paths.length)await db.storage.from('draft-evidence').remove(paths);
@@ -127,15 +146,21 @@ async function enableAutoDraft(form,type,key='default'){
  form.dataset.autoDraft='initializing';
  form.inert=true;
  const schedule=()=>{
-  const timerKey=type+':'+key;clearTimeout(draftTimers.get(timerKey));
+  if(form.dataset.autoDraft!=='true')return;
+  const timerKey=draftContextKey(type,key);clearTimeout(draftTimers.get(timerKey));
   try{const payload=serializeDraftForm(form,type,key),record={payload,updated_at:new Date().toISOString()};localStorage.setItem(draftLocalKey(type,key),JSON.stringify(record))}catch{}
   setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
-  draftTimers.set(timerKey,setTimeout(()=>persistDraft(form,type,key),650));
+  draftTimers.set(timerKey,setTimeout(()=>{draftTimers.delete(timerKey);persistDraft(form,type,key).catch(()=>{})},650));
  };
  form.addEventListener('input',schedule);
  form.addEventListener('change',schedule);
  form.addEventListener('focusin',schedule);
- form.addEventListener('change',e=>{if(e.target?.type==='file'&&e.target.files?.length)uploadDraftFiles(form,type,key,e.target).catch(error)});
+ form.addEventListener('change',e=>{if(e.target?.type!=='file'||!e.target.files?.length||form.dataset.autoDraft!=='true')return;
+  const uploadKey=draftContextKey(type,key)+':'+e.target.name,previous=draftUploads.get(uploadKey)||Promise.resolve();
+  const upload=previous.catch(()=>{}).then(()=>uploadDraftFiles(form,type,key,e.target));
+  draftUploads.set(uploadKey,upload);
+  upload.catch(error).finally(()=>{if(draftUploads.get(uploadKey)===upload)draftUploads.delete(uploadKey)});
+ });
  if(activeDraftFlush)document.removeEventListener('visibilitychange',activeDraftFlush);
  activeDraftFlush=()=>{if(document.visibilityState==='hidden'&&form.isConnected)persistDraft(form,type,key).catch(()=>{})};
  document.addEventListener('visibilitychange',activeDraftFlush);
@@ -369,7 +394,7 @@ function observationsList(){const rows=state.observations.filter(o=>o.project_id
 function correctionsList(){const rows=state.observations.filter(o=>o.project_id===state.project&&o.status==='pending_verification');frame(`<section class="observations-shell"><div class="section-heading"><div><h1>${tr('Corrections','Correcciones')}</h1><p>${tr('Review completed corrective actions before final closure.','Revisa las acciones correctivas completadas antes del cierre final.')}</p></div></div><div class="review-banner"><strong>${rows.length}</strong><span>${tr('Awaiting Safety review','Esperando revisión de Safety')}</span></div><div class="obs-list">${rows.length?rows.map(o=>`<button class="obs-card correction-card" data-id="${o.id}"><div class="obs-card-top"><span class="badge ${esc(o.priority)}">${o.priority==='high'?tr('HIGH','ALTA'):o.priority==='medium'?tr('MEDIUM','MEDIA'):tr('LOW','BAJA')}</span><span class="obs-status">${tr('READY FOR REVIEW','LISTA PARA REVISIÓN')}</span></div><h3>${esc(o.area)}</h3><p class="obs-category">${esc(o.category)}</p><p>${esc(o.description)}</p><div class="obs-meta"><span>${esc(o.assignee?.name||tr('Unassigned','Sin asignar'))}</span><span>${fmt(o.created_at)}</span></div></button>`).join(''):`<div class="empty-state"><strong>${tr('No corrections awaiting review','No hay correcciones esperando revisión')}</strong><p>${tr('Completed corrections will appear here automatically.','Las correcciones completadas aparecerán aquí automáticamente.')}</p></div>`}</div></section>`);document.querySelectorAll('[data-id]').forEach(el=>el.onclick=async()=>{state.detail=el.dataset.id;await markViewed(state.detail);navigate('detail',state.detail)})}
 let presenceTimer=null;
 async function updateAppPresence(){if(!state.session||!state.profile)return;const payload={user_id:state.profile.id,last_seen_at:new Date().toISOString(),updated_at:new Date().toISOString()};try{if(navigator.geolocation&&!sessionStorage.getItem('ge_location_denied'))navigator.geolocation.getCurrentPosition(pos=>db.from('user_app_presence').upsert({...payload,latitude:pos.coords.latitude,longitude:pos.coords.longitude,location_accuracy_m:pos.coords.accuracy,location_updated_at:new Date().toISOString()}),()=>{sessionStorage.setItem('ge_location_denied','1')},{enableHighAccuracy:false,maximumAge:300000,timeout:5000});await db.from('user_app_presence').upsert(payload)}catch{}}
-function startAppPresence(){if(presenceTimer)clearInterval(presenceTimer);updateAppPresence();presenceTimer=setInterval(updateAppPresence,60000)}
+function startAppPresence(){if(presenceTimer)return;updateAppPresence();presenceTimer=setInterval(updateAppPresence,60000)}
 
 async function readStickerNumber(file){
  if(!file)return '';
