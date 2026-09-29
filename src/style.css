@@ -1301,3 +1301,30 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
  .ge-reference-jha .ewr-section-title{margin:0 -15px 10px;padding:6px 15px}
  .ewr-watermark{position:absolute!important;inset:1.25in .45in .8in}
 }
+
+
+/* JHA photo fidelity — never stretch or crop field evidence */
+.ge-reference-jha .ewr-evidence .report-photos figure,
+.ge-reference-jha .ewr-photo-card{display:flex;flex-direction:column;align-items:stretch}
+.ge-reference-jha .ewr-evidence .report-photos img,
+.ge-reference-jha .ewr-photo-card>img{
+ display:block!important;
+ width:100%!important;
+ height:auto!important;
+ max-width:100%!important;
+ max-height:none!important;
+ aspect-ratio:auto!important;
+ object-fit:contain!important;
+ object-position:center!important;
+ background:#f3f5f6;
+}
+@media print{
+ .ge-reference-jha .ewr-evidence .report-photos img,
+ .ge-reference-jha .ewr-photo-card>img{
+  width:100%!important;
+  height:auto!important;
+  max-height:none!important;
+  aspect-ratio:auto!important;
+  object-fit:contain!important;
+ }
+}
