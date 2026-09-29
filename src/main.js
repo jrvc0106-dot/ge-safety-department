@@ -428,7 +428,7 @@ const SAFETY_WALK_ITEMS=[
 ['Emergency / First Aid','First-aid supplies, emergency contacts, emergency access and response readiness'],
 ['Foreman Daily Report Compliance','Required daily field/safety reports, pre-task/JHA documentation, crew communication and follow-up items completed'],
 ['Training / Qualifications / Required Documentation','Workers performing regulated or specialized tasks have applicable training, qualification, authorization or documentation'],
-['New Worker / Site Orientation','New or transferred workers identified, site orientation completed, applicable hazards communicated and supervisor/foreman aware']
+['New Worker / Site Orientation','New or transferred workers identified, site orientation completed, applicable hazards communicated and supervisor/foreman aware'],
 ['Safety Communication / Crew Coordination','Daily safety expectations communicated; foreman, Safety, operators and crews have an effective method to report hazards, changes and emergency information'],
 ]
 
