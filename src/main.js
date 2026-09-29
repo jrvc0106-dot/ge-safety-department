@@ -433,7 +433,17 @@ const SAFETY_WALK_ITEMS=[
 ['Foreman Daily Report Compliance','Required daily field/safety reports, pre-task/JHA documentation, crew communication and follow-up items completed'],
 ['Training / Qualifications / Required Documentation','Workers performing regulated or specialized tasks have applicable training, qualification, authorization or documentation'],
 ['New Worker / Site Orientation','New or transferred workers identified, site orientation completed, applicable hazards communicated and supervisor/foreman aware'],
-['Safety Communication / Crew Coordination','Daily safety expectations communicated; foreman, Safety, operators and crews have an effective method to report hazards, changes and emergency information']
+['Safety Communication / Crew Coordination','Daily safety expectations communicated; foreman, Safety, operators and crews have an effective method to report hazards, changes and emergency information'],
+['Work Areas / Walking Surfaces Free of Trip Hazards — OSHA 1926.25','Work areas, stairs and passageways kept clear of loose debris, cords, scrap, tools and materials that can create slip or trip hazards'],
+['Scrap Lumber / Protruding Nails — OSHA 1926.25','Scrap/form lumber removed from active areas and protruding nails controlled so workers are not exposed to puncture, trip or impalement hazards'],
+['Combustible Scrap / Oily Waste — OSHA 1926.25','Combustible debris removed at regular intervals; oily, flammable or hazardous waste placed in appropriate covered containers where required'],
+['Access to Panels / Fire Equipment / Emergency Routes','Stored materials, debris and temporary work do not obstruct electrical panels, fire equipment, emergency access routes or required means of access'],
+['Tools / Materials Returned to Designated Storage','Tools, equipment and materials not in active use returned to designated locations and stored so they do not create struck-by, trip or collapse hazards'],
+['End-of-Shift Housekeeping Review — OSHA 1926.25 / G&E','Crew/foreman verifies work areas are left orderly, waste is controlled and identified hazards are corrected or formally reported before leaving the area'],
+['Safety Instructions / Posted Rules Followed — G&E / Applicable OSHA Controls','Employees follow posted warnings, barricades, required PPE and task-specific controls; unsafe acts or bypassing protective measures are addressed'],
+['No Horseplay / Unsafe Conduct — G&E Safety Rule','No horseplay, intentional misuse of equipment or conduct that creates an avoidable hazard for employees or the public'],
+['Smoking Only Where Permitted — G&E / Project Policy','No smoking in prohibited jobsite areas; designated smoking restrictions followed and cigarette waste disposed of safely'],
+['No Smoking / Open Flame in Fire-Hazard Areas — OSHA 1926.151(a)(3)','Smoking prohibited at or near operations that constitute a fire hazard and required No Smoking or Open Flame posting is present']
 ]
 
 
