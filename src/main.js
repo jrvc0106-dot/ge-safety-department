@@ -159,7 +159,7 @@ async function normalizeReportImage(file){
   const heic=/image\/hei[cf]/i.test(file.type)||/\.hei[cf]$/i.test(file.name);
   if(!heic)return file;
   if(typeof window.heic2any!=='function')throw new Error(tr('This iPhone HEIC photo could not be converted. Please try again after refreshing the app.','Esta foto HEIC de iPhone no pudo convertirse. Actualiza la app e intenta nuevamente.'));
-  const converted=await window.heic2any({blob:file,toType:'image/jpeg',quality:.9});
+  const converted=await window.heic2any({blob:file,toType:'image/jpeg',quality:.98});
   const blob=Array.isArray(converted)?converted[0]:converted;
   return new File([blob],(file.name||'photo').replace(/\.hei[cf]$/i,'')+'.jpg',{type:'image/jpeg',lastModified:Date.now()});
 }
@@ -215,12 +215,11 @@ async function buildReportPdf(){
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
   if(typeof window.html2pdf!=='function')throw new Error(tr('PDF service is still loading. Please try again.','El servicio PDF aún está cargando. Intente nuevamente.'));
   await waitForReportImages(report);
-  const equipmentPdf=report.classList.contains('equipment-pdf');
   const options={
     margin:[0.25,0.25,0.3,0.25],
     filename:reportPdfFilename(report),
-    image:{type:'jpeg',quality:equipmentPdf?0.995:0.98},
-    html2canvas:{scale:equipmentPdf?3:2,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,imageTimeout:20000},
+    image:{type:'jpeg',quality:0.995},
+    html2canvas:{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,imageTimeout:30000},
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
     pagebreak:{mode:['css','legacy'],avoid:['.report-photo','figure','.ewr-hazard','.report-section']}
   };
