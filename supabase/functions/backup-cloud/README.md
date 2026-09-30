@@ -28,7 +28,7 @@ Never enter provider secrets into the browser app or commit them to Git. Gemini 
 
 ## Storage and verification
 
-Apply ../backup-cloud-connections.sql. Deploy backup-cloud with gateway JWT verification disabled: POST explicitly validates auth.getUser and a stored Admin/Safety Director role plus project access. The public callback consumes a random one-use OAuth state with a ten-minute expiry, then rechecks the user's role and project access. A health response exposes configuration booleans only. Tables containing OAuth state, encrypted refresh tokens, destination preferences and export progress deny all browser/anonymous access.
+Apply ../../backup-cloud-connections.sql. Deploy backup-cloud with gateway JWT verification disabled: POST explicitly validates auth.getUser and a stored Admin/Safety Director role plus project access. The public callback consumes a random one-use OAuth state with a ten-minute expiry, then rechecks the user's role and project access. A health response exposes configuration booleans only. Tables containing OAuth state, encrypted refresh tokens, destination preferences and export progress deny all browser/anonymous access.
 
 Refresh tokens are AES-GCM encrypted with a key derived from the Supabase service-role secret. Rotating that secret requires reconnecting cloud accounts. Account disconnection removes this application's stored connection and falls back to Supabase; it does not delete external backup files or revoke the provider's account-wide app permissions.
 
