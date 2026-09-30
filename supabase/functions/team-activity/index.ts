@@ -7,9 +7,9 @@ Deno.serve(async(req)=>{
   const auth=req.headers.get("Authorization");if(!auth)throw new Error("Unauthorized");
   const url=Deno.env.get("SUPABASE_URL")!,anon=Deno.env.get("SUPABASE_ANON_KEY")!,service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const caller=createClient(url,anon,{global:{headers:{Authorization:auth}}});const {data:{user}}=await caller.auth.getUser();if(!user)throw new Error("Unauthorized");
-  const admin=createClient(url,service);const {data:profile}=await admin.from("profiles").select("role").eq("id",user.id).single();
-  if(profile?.role!=="admin")return new Response(JSON.stringify({error:"Admin access required"}),{status:403,headers:{...cors,"Content-Type":"application/json"}});
-  const {data:profiles,error:pe}=await admin.from("profiles").select("id,email,name,role,position").order("name");if(pe)throw pe;
+  const admin=createClient(url,service);const {data:profile}=await admin.from("profiles").select("role,removed_at").eq("id",user.id).single();
+  if(profile?.role!=="admin"||profile.removed_at)return new Response(JSON.stringify({error:"Admin access required"}),{status:403,headers:{...cors,"Content-Type":"application/json"}});
+  const {data:profiles,error:pe}=await admin.from("profiles").select("id,email,name,role,position").is("removed_at",null).order("name");if(pe)throw pe;
   const {data:{users},error:ue}=await admin.auth.admin.listUsers({page:1,perPage:1000});if(ue)throw ue;
   const [obs,corr,walks,disc,members,presence]=await Promise.all([admin.from("observations").select("created_by,created_at"),admin.from("corrective_actions").select("created_by,created_at"),admin.from("daily_safety_walks").select("created_by,created_at"),admin.from("safety_discipline").select("created_by,created_at"),admin.from("project_members").select("user_id,project_id,project:projects(name)"),admin.from("user_app_presence").select("user_id,last_seen_at,latitude,longitude,location_accuracy_m,location_updated_at")]);
   const activity=(id:string)=>{const sets=[["observations",obs.data||[]],["corrections",corr.data||[]],["daily_reports",walks.data||[]],["disciplinary_actions",disc.data||[]]] as const;let latest:string|null=null;const counts:any={};for(const [key,rows] of sets){const mine=rows.filter((x:any)=>x.created_by===id);counts[key]=mine.length;for(const x of mine)if(!latest||x.created_at>latest)latest=x.created_at}return {...counts,last_action_at:latest,total_actions:Object.values(counts).reduce((a:any,b:any)=>a+b,0)}};
