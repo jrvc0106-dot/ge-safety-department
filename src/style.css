@@ -1490,3 +1490,5 @@ article.report figure img{
 .ai-review-actions button{min-height:44px}
 #ai-writing-status{margin:8px 0 18px;font-size:.85rem;line-height:1.5}
 @media(max-width:600px){.ai-writing-review{padding:16px}.ai-review-columns{grid-template-columns:1fr}.ai-review-columns textarea{min-height:150px}.ai-review-actions button{flex:1}}
+
+.equipment-check > .ai-writing-tools{grid-column:1 / -1;margin-top:0}
