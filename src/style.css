@@ -1492,3 +1492,18 @@ article.report figure img{
 @media(max-width:600px){.ai-writing-review{padding:16px}.ai-review-columns{grid-template-columns:1fr}.ai-review-columns textarea{min-height:150px}.ai-review-actions button{flex:1}}
 
 .equipment-check > .ai-writing-tools{grid-column:1 / -1;margin-top:0}
+
+.backup-connection-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.backup-provider-card{border:1px solid #dbe3e9;border-radius:12px;padding:18px;background:#f8fafc;min-width:0}
+.backup-provider-card h3{margin:0 0 8px;color:#203746}
+.backup-provider-card p{overflow-wrap:anywhere;line-height:1.5}
+.backup-provider-card button{min-height:44px;margin:4px 8px 8px 0}
+.backup-provider-card details{margin-top:10px}
+.backup-provider-card summary{cursor:pointer;font-weight:600;min-height:32px}
+.backup-provider-card code{display:block;font-size:12px;overflow-wrap:anywhere;white-space:normal}
+#backup-primary-storage{width:100%;min-height:44px;font-size:16px;margin-top:8px}
+#backup-progress{min-height:24px;margin:12px 0;font-weight:600;overflow-wrap:anywhere}
+.backup-row{grid-template-columns:100px minmax(0,1fr) auto auto}
+.backup-row button{min-height:44px}
+.backup-row small{overflow-wrap:anywhere}
+@media(max-width:700px){.backup-connection-grid{grid-template-columns:1fr}.backup-row{grid-template-columns:1fr}.backup-row button{width:100%}}
