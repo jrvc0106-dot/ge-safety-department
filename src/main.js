@@ -218,7 +218,26 @@ function loadOptionalScript(name,src){
   return task;
 }
 const ensureHeicConverter=()=>loadOptionalScript('heic2any','https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js');
-const ensurePdfExporter=()=>loadOptionalScript('html2pdf','https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+let pdfExporterLoad;
+function ensurePdfExporter(){
+  if(!pdfExporterLoad)pdfExporterLoad=import('html2pdf.js').then(module=>module.default).catch(err=>{pdfExporterLoad=null;throw err});
+  return pdfExporterLoad;
+}
+const preparedReportPdfs=new WeakMap();
+let pdfActionBusy=false;
+function preparedReportPdf(report){
+  const cached=preparedReportPdfs.get(report);
+  return cached?.snapshot===report.innerHTML?cached:null;
+}
+function downloadReportPdf(blob,filename){
+  const u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),120000);
+}
+function pdfCanvasScale(width,height){
+  // Keep mobile canvas dimensions and memory within conservative limits.
+  return Math.min(3,8192/Math.max(width,height),Math.sqrt(4000000/(width*height)));
+}
 
 async function normalizeReportImage(file){
   if(!(file instanceof File)||!file.size)return file;
@@ -253,68 +272,107 @@ function currentReportIdentity(report){
  const reportType=map[state.page];if(!reportType||!state.project||!state.profile)return null;
  let reportNumber=(report.querySelector('.ewr-id strong')?.textContent||report.querySelector('.print-report-number b')?.textContent||report.querySelector('.eq-doc b')?.textContent||report.querySelector('.ir-title b')?.textContent||report.querySelector('.inventory-report-number b')?.textContent||report.querySelector('.dr-doc p')?.textContent?.split('·')[0]||'').trim();
  if(!reportNumber)reportNumber='DSR-'+localDateKey().replaceAll('-','')+'-'+String(state.project).slice(0,6).toUpperCase();
- return {reportType,reportNumber,sourceId:state.page==='report'?null:state.detail||null,title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim()};
+ return {projectId:state.project,creatorId:state.profile.id,sourcePage:state.page,reportType,reportNumber,sourceId:state.page==='report'?null:state.detail||null,title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim()};
 }
-async function registerFinalReport(blob,report){
- const meta=currentReportIdentity(report);if(!meta)return null;
+async function registerFinalReport(blob,report,meta=currentReportIdentity(report)){
+ if(!meta)return null;
  let nextVersion=1;
  if(meta.sourceId){
   const prior=await db.from('report_documents').select('version').eq('report_type',meta.reportType).eq('source_id',meta.sourceId).order('version',{ascending:false}).limit(1);
   if(prior.error)throw prior.error;
   nextVersion=(prior.data?.[0]?.version||0)+1;
  }else{
-  const prior=await db.from('report_documents').select('version').eq('project_id',state.project).eq('report_number',meta.reportNumber).order('version',{ascending:false}).limit(1);
+  const prior=await db.from('report_documents').select('version').eq('project_id',meta.projectId).eq('report_number',meta.reportNumber).order('version',{ascending:false}).limit(1);
   if(prior.error)throw prior.error;
   nextVersion=(prior.data?.[0]?.version||0)+1;
  }
  const revision=Math.max(0,nextVersion-1),safe=meta.reportNumber.replace(/[^a-z0-9_-]+/gi,'-');
- const path=`${state.project}/${meta.reportType}/${safe}-REV-${revision}-${Date.now()}.pdf`;
+ const path=`${meta.projectId}/${meta.reportType}/${safe}-REV-${revision}-${Date.now()}.pdf`;
  const stored=await db.storage.from('final-reports').upload(path,blob,{contentType:'application/pdf',cacheControl:'3600',upsert:false});if(stored.error)throw stored.error;
- const doc=await db.from('report_documents').insert({project_id:state.project,report_type:meta.reportType,source_id:meta.sourceId,report_number:meta.reportNumber,title:meta.title,document_status:'final',version:nextVersion,snapshot:{generated_at:new Date().toISOString(),language:state.lang,source_page:state.page,revision},pdf_path:path,created_by:state.profile.id,finalized_by:state.profile.id,finalized_at:new Date().toISOString()}).select('id,pdf_path,report_number,version').single();
+ const doc=await db.from('report_documents').insert({project_id:meta.projectId,report_type:meta.reportType,source_id:meta.sourceId,report_number:meta.reportNumber,title:meta.title,document_status:'final',version:nextVersion,snapshot:{generated_at:new Date().toISOString(),language:state.lang,source_page:meta.sourcePage,revision},pdf_path:path,created_by:meta.creatorId,finalized_by:meta.creatorId,finalized_at:new Date().toISOString()}).select('id,pdf_path,report_number,version').single();
  if(doc.error){await db.storage.from('final-reports').remove([path]);throw doc.error}
- const event=await db.from('report_document_events').insert({report_document_id:doc.data.id,actor_id:state.profile.id,event_type:nextVersion===1?'finalized':'revision_created',detail:{source_page:state.page,revision,previous_version:nextVersion>1?nextVersion-1:null}});
+ const event=await db.from('report_document_events').insert({report_document_id:doc.data.id,actor_id:meta.creatorId,event_type:nextVersion===1?'finalized':'revision_created',detail:{source_page:meta.sourcePage,revision,previous_version:nextVersion>1?nextVersion-1:null}});
  if(event.error)console.warn('Document event log failed',event.error);
  return {...doc.data,revision};
 }
 async function buildReportPdf(){
   const report=document.querySelector('article.report');
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
-  await ensurePdfExporter();
+  const cached=preparedReportPdf(report);if(cached)return cached;
+  const meta=currentReportIdentity(report),snapshot=report.innerHTML;
+  const html2pdf=await ensurePdfExporter();
   await waitForReportImages(report);
   const options={
-    margin:[0.25,0.25,0.3,0.25],
-    filename:reportPdfFilename(report),
+    margin:[0.25,0.25,0.3,0.25],filename:reportPdfFilename(report),
     image:{type:'jpeg',quality:0.995},
     html2canvas:{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,imageTimeout:30000},
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
     pagebreak:{mode:['css','legacy'],avoid:['.report-photo','figure','.ewr-hazard','.report-section']}
   };
-  const worker=window.html2pdf().set(options).from(report);
+  const worker=html2pdf().set(options).from(report).toContainer();
+  const container=await worker.get('container');
+  const width=Math.max(1,container.scrollWidth),height=Math.max(1,container.scrollHeight);
+  await worker.set({html2canvas:{...options.html2canvas,scale:pdfCanvasScale(width,height)}}).toCanvas();
+  const canvas=await worker.get('canvas');
+  if(!canvas.width||!canvas.height)throw new Error(tr('Unable to render the PDF. Please try again.','No se pudo generar el PDF. Intente nuevamente.'));
   const blob=await worker.outputPdf('blob');
-  await registerFinalReport(blob,report);
-  return {blob,filename:options.filename,report};
+  canvas.width=0;canvas.height=0;
+  if(!blob?.size)throw new Error(tr('The PDF is empty. Please try again.','El PDF está vacío. Intente nuevamente.'));
+  if(document.querySelector('article.report')!==report||report.innerHTML!==snapshot)throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
+  const prepared={blob,filename:options.filename,report,snapshot};
+  preparedReportPdfs.set(report,prepared);
+  // Archival failure must not prevent the user from obtaining their PDF.
+  registerFinalReport(blob,report,meta).catch(err=>{
+    console.warn('PDF cloud archive failed',err);
+    if(document.querySelector('article.report')===report)confirmAction(tr('PDF ready, but its cloud copy could not be saved. You can download or share it; reopen the report to retry saving the cloud copy.','PDF listo, pero no se pudo guardar su copia en la nube. Puede descargarlo o compartirlo; vuelva a abrir el reporte para reintentar guardar la copia en la nube.'),'error');
+  });
+  return prepared;
 }
 async function runPdfAction(action,button){
+  if(pdfActionBusy)return;
+  const report=document.querySelector('article.report');
+  let prepared=report&&preparedReportPdf(report),preview;
   const original=button?.innerHTML;
+  pdfActionBusy=true;
   try{
     if(button){button.disabled=true;button.textContent=tr('Preparing PDF…','Preparando PDF…')}
-    const {blob,filename,report}=await buildReportPdf();
-    if(action==='view'){
-      const u=URL.createObjectURL(blob);window.open(u,'_blank','noopener');setTimeout(()=>URL.revokeObjectURL(u),120000);return;
+    // Reserve the preview while the click still has browser activation.
+    if(action==='view'){preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
+    // A prepared PDF can be shared directly in this click, before any await.
+    if(action==='share'&&prepared){
+      const file=new File([prepared.blob],prepared.filename,{type:'application/pdf'});
+      if(navigator.share&&navigator.canShare?.({files:[file]})){
+        await navigator.share({title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim(),files:[file]});
+        confirmAction(tr('Sharing completed in the selected app.','Se completó la acción de compartir en la aplicación seleccionada.'));return;
+      }
+      downloadReportPdf(prepared.blob,prepared.filename);
+      confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));return;
     }
-    if(action==='download'){
-      const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+filename);return;
+    prepared=await buildReportPdf();
+    const {blob,filename}=prepared;
+    if(action==='view'&&preview&&!preview.closed){
+      const u=URL.createObjectURL(blob);preview.location.href=u;setTimeout(()=>URL.revokeObjectURL(u),120000);return;
     }
-    const file=new File([blob],filename,{type:'application/pdf'});
-    const title=(report.querySelector('h1')?.textContent||'G&E Safety Report').trim();
-    if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-      await navigator.share({title,text:tr('G&E Safety Department report','Reporte de G&E Safety Department'),files:[file]});confirmAction(tr('Sharing request completed. Confirm the send in the app you selected; delivery is not verified.','Solicitud de compartir completada. Confirma el envío en la aplicación elegida; la entrega no está verificada.'));return;
+    if(action==='share'){
+      const file=new File([blob],filename,{type:'application/pdf'});
+      if(!navigator.share||!navigator.canShare?.({files:[file]})){
+        downloadReportPdf(blob,filename);
+        confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));return;
+      }
+      confirmAction(tr('PDF ready. Tap “Share PDF now” to choose an app.','PDF listo. Pulse “Compartir PDF ahora” para elegir una aplicación.'));return;
     }
-    const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);
-    confirmAction(tr('PDF download started. Email prepared: attach the PDF and press Send in your email app. Sending is not yet confirmed.','Descarga del PDF iniciada. Correo preparado: adjunta el PDF y pulsa Enviar en tu correo. El envío aún no está confirmado.'));
-    location.href='mailto:?subject='+encodeURIComponent(title)+'&body='+encodeURIComponent(tr('The PDF report has been downloaded. Please attach it to this email.','El reporte PDF fue descargado. Por favor adjúntelo a este correo.'));
-  }catch(e){if(e?.name==='AbortError')confirmAction(tr('Sharing canceled. Sending was not confirmed.','Compartir cancelado. El envío no fue confirmado.'));else error(e)}
-  finally{if(button){button.disabled=false;button.innerHTML=original}}
+    downloadReportPdf(blob,filename);
+    confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+filename);
+  }catch(e){
+    if(preview&&!preview.closed)preview.close();
+    if(e?.name==='AbortError')confirmAction(tr('Sharing canceled.','Se canceló la acción de compartir.'));
+    else error(e);
+  }finally{
+    pdfActionBusy=false;
+    if(button){button.disabled=false;button.innerHTML=original}
+    const shareButton=document.querySelector('.pdf-share');
+    if(shareButton&&report&&preparedReportPdf(report))shareButton.textContent='↗ '+tr('Share PDF now','Compartir PDF ahora');
+  }
 }
 function installReportDocumentActions(){
   const report=document.querySelector('article.report');if(!report)return;
@@ -323,7 +381,7 @@ function installReportDocumentActions(){
   if(bar.dataset.pdfActions==='1')return;
   bar.dataset.pdfActions='1';
   const actions=document.createElement('div');actions.className='pdf-document-actions';
-  actions.innerHTML='<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button><button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button><button type="button" class="secondary pdf-share">↗ '+tr('Share / Email','Compartir / Correo')+'</button>';
+  actions.innerHTML='<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button><button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button><button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>';
   bar.appendChild(actions);
   actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
   actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
