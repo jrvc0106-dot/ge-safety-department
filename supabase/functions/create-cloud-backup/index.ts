@@ -11,7 +11,7 @@ Deno.serve(async req=>{
  try{
   const auth=await client.auth.getUser();if(auth.error||!auth.data?.user)return reply({ok:false,error:"Sign in again."},401);
   const user=auth.data.user,body=await req.json(),project=body.project_id;if(typeof project!=="string"||!/^[0-9a-f-]{36}$/i.test(project))throw Error("Select a valid project.");
-  const profile=checked(await admin.from("profiles").select("role").eq("id",user.id).single());if(!["admin","safety_director"].includes(profile?.role))return reply({ok:false,error:"Admin or Safety Director required."},403);
+  const profile=checked(await admin.from("profiles").select("role").eq("id",user.id).single());if(profile?.role!=="admin")return reply({ok:false,error:"Admin required."},403);
   const found=checked(await admin.from("projects").select("id").eq("id",project).maybeSingle());if(!found)return reply({ok:false,error:"Project access denied."},403);
   if(profile.role!=="admin"){const member=checked(await admin.from("project_members").select("project_id").eq("project_id",project).eq("user_id",user.id).maybeSingle());if(!member)return reply({ok:false,error:"Project access denied."},403);}
   const num="CB-"+new Date().toISOString().slice(0,10).replaceAll("-","")+"-"+crypto.randomUUID().slice(0,6).toUpperCase();

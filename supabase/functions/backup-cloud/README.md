@@ -28,7 +28,7 @@ Never enter provider secrets into the browser app or commit them to Git. Gemini 
 
 ## Storage and verification
 
-Apply ../../backup-cloud-connections.sql. Deploy backup-cloud with gateway JWT verification disabled: POST explicitly validates auth.getUser and a stored Admin/Safety Director role plus project access. The public callback consumes a random one-use OAuth state with a ten-minute expiry, then rechecks the user's role and project access. A health response exposes configuration booleans only. Tables containing OAuth state, encrypted refresh tokens, destination preferences and export progress deny all browser/anonymous access.
+Apply ../../backup-cloud-connections.sql. Deploy backup-cloud with gateway JWT verification disabled: POST explicitly validates auth.getUser and a stored Admin role plus project access. The public callback consumes a random one-use OAuth state with a ten-minute expiry, then rechecks the user's role and project access. A health response exposes configuration booleans only. Tables containing OAuth state, encrypted refresh tokens, destination preferences and export progress deny all browser/anonymous access.
 
 Refresh tokens are AES-GCM encrypted with a key derived from the Supabase service-role secret. Rotating that secret requires reconnecting cloud accounts. Account disconnection removes this application's stored connection and falls back to Supabase; it does not delete external backup files or revoke the provider's account-wide app permissions.
 
@@ -37,3 +37,9 @@ create-cloud-backup creates a local immutable snapshot with project records, des
 External copies use the verified snapshot and upload up to three files per request. A database lease blocks concurrent processing. Progress is saved after each provider-acknowledged upload and can be resumed from history. External completion means all files and the manifest were acknowledged at their expected size; Google/Dropbox end-to-end checksum verification is not claimed. Keep the page open during copying. A cloud-account change requires a new backup. A provider timeout followed by a successful upload but a failed database checkpoint may create a duplicate Google Drive file on retry; source records remain intact.
 
 Provider credentials are currently unconfigured; account authorization and real provider uploads must be verified after setup. Controlled tests cover authorization, OAuth replay protection, encrypted credentials, pagination/copy integrity, provider request formats, resumed copying and destination selection.
+
+## Local download and Admin access
+
+Only the Admin role can manage or access backups, including history and manifests. Apply ../../backup-admin-only.sql to enforce this in Postgres and Storage as well as the Edge Functions. Safety Director has no backup permission unless assigned Admin.
+
+The three destination choices shown in the app are Google Drive, Dropbox and Local (PC / Tablet / Phone). Local uses the existing verified Supabase snapshot as its source, then downloads every file and the manifest into a standard ZIP. Each file is checked against its SHA-256 digest and expected size before the Save ZIP link is shown. The user must tap that link to save through their device's download interface. Local download is limited to 200 MB per ZIP to constrain browser memory; larger backups require a cloud destination. Keep the page open. Local export requires connectivity while preparing and downloading; saved files are available offline. Automatic in-app restoration is not implemented.

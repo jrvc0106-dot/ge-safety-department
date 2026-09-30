@@ -14,7 +14,7 @@ async function encrypt(value){const iv=crypto.getRandomValues(new Uint8Array(12)
 async function decrypt(value){const [a,b]=value.split("."),bytes=s=>new Uint8Array(s.match(/../g).map(x=>parseInt(x,16)));return new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:bytes(a)},await cryptKey(),bytes(b)))}
 async function authorizeUser(id,project){
  const profile=must(await admin.from("profiles").select("role").eq("id",id).single());
- if(!["admin","safety_director"].includes(profile?.role))throw Error("Admin or Safety Director access required.");
+ if(profile?.role!=="admin")throw Object.assign(Error("Admin access required."),{status:403});
  const found=must(await admin.from("projects").select("id").eq("id",project).maybeSingle());if(!found)throw Error("Project access denied.");
  if(profile.role!=="admin"){const member=must(await admin.from("project_members").select("user_id").eq("project_id",project).eq("user_id",id).maybeSingle());if(!member)throw Error("Project access denied.")}
 }
@@ -66,6 +66,23 @@ Deno.serve(async req=>{
    const exports=backups.length?must(await admin.from("backup_cloud_exports").select("backup_id,provider,status,total_files,copied,error_message,completed_at").in("backup_id",backups.map(x=>x.id))):[];
    return json({provider:settings?.provider||"supabase",providers:providers.map(provider=>({provider,configured:Boolean(credentials(provider).id&&credentials(provider).secret),connection:connections.find(x=>x.provider===provider)||null})),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback()});
   }
+
+  if(body.action==="local_download"){
+   const backup=must(await admin.from("cloud_backups").select("*").eq("id",body.backup_id).eq("project_id",project).maybeSingle());
+   if(!backup||backup.status!=="completed"||!backup.verified_at||!backup.manifest_path)throw Error("A verified completed backup is required.");
+   if(backup.total_bytes>200*1024*1024)throw Error("Local backup limit is 200 MB. Use a cloud destination for larger backups.");
+   const downloaded=await admin.storage.from("cloud-backups").download(backup.manifest_path);
+   if(downloaded.error||!downloaded.data)throw Error("Backup manifest is unavailable.");
+   const manifest=JSON.parse(await downloaded.data.text());
+   if(manifest.format!=="G&E Safety Cloud Backup v2"||manifest.project_id!==project||manifest.backup_id!==backup.id||!Array.isArray(manifest.files)||manifest.files.length!==backup.file_count)throw Error("This backup cannot be downloaded locally. Create a new verified backup.");
+   const files=manifest.files.map(file=>({path:file.backup_path,name:file.backup_path?.slice(backup.id.length+1),size:file.size,sha256:file.sha256}));
+   files.push({path:backup.manifest_path,name:"manifest.json",size:downloaded.data.size,sha256:hex(new Uint8Array(await crypto.subtle.digest("SHA-256",await downloaded.data.arrayBuffer())))});
+   if(files.length>65535||files.some(file=>typeof file.path!=="string"||!file.path.startsWith(backup.id+"/")||!file.name||file.name.includes("\\")||file.name.split("/").some(part=>!part||part==="."||part==="..")||!Number.isSafeInteger(file.size)||file.size<0||!/^[a-f0-9]{64}$/.test(file.sha256)))throw Error("Invalid backup manifest.");
+   if(new Set(files.map(file=>file.name)).size!==files.length)throw Error("Duplicate backup files.");
+   const links=[];
+   for(let i=0;i<files.length;i+=100){const signed=await admin.storage.from("cloud-backups").createSignedUrls(files.slice(i,i+100).map(file=>file.path),900);if(signed.error||signed.data?.some(file=>file.error||!file.signedUrl))throw Error("Backup download could not be prepared.");links.push(...signed.data);}
+   return json({backup_number:backup.backup_number,total_bytes:files.reduce((sum,file)=>sum+file.size,0),files:files.map((file,i)=>({...file,url:links[i].signedUrl}))});
+  }
   if(!["supabase",...providers].includes(p))return json({error:"Select a supported provider."},400);
   if(body.action==="connect"){
    if(!providers.includes(p))return json({error:"Supabase is already available."},400);
@@ -114,7 +131,7 @@ Deno.serve(async req=>{
  }catch(error){
   const message=error?.name==="AbortError"?"The cloud request timed out. Retry to resume the copy.":error?.message||"Cloud backup is temporarily unavailable.";
   if(lease)await admin.from("backup_cloud_exports").update({status:"failed",error_message:message}).eq("backup_id",lease.backup_id).eq("provider",lease.provider).eq("lock_token",lease.token);
-  return json({error:message},400);
+  return json({error:message},error?.status||400);
  }finally{
   if(lease)await admin.from("backup_cloud_exports").update({lock_until:null,lock_token:null}).eq("backup_id",lease.backup_id).eq("provider",lease.provider).eq("lock_token",lease.token);
  }
