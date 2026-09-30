@@ -1472,3 +1472,21 @@ article.report figure img{
 @media(max-width:480px){.home-welcome{gap:8px;grid-template-columns:minmax(0,1fr) 105px auto}.home-welcome h1{font-size:20px}.home-welcome p{font-size:11px}.home-today-summary{min-width:0;padding:8px 6px}.home-today-temperature strong{font-size:23px}.home-today-summary time{font-size:10px}.home-today-condition{font-size:9px}}
 
 .team-member-edit{display:grid;gap:12px;padding:16px;margin:0 14px 14px;border:1px solid #dce2e5;border-radius:12px;background:#f6f8f9}.team-member-edit[hidden]{display:none!important}.team-edit-actions{display:flex;flex-wrap:wrap;gap:8px}.team-edit-actions button{min-height:44px}.team-edit-status{font-size:13px;overflow-wrap:anywhere}.team-user-card footer .team-edit-member{min-height:44px}
+
+/* Optional writing assistance: proposals never replace a note without review. */
+.ai-writing-tools{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.ai-writing-tools button{min-height:40px;padding:8px 12px;font-size:.82rem}
+.ai-writing-review{width:min(800px,calc(100vw - 24px));max-height:88dvh;overflow:auto;border:1px solid #dbe3ec;border-radius:18px;padding:24px;background:#fff;color:#172b4d;box-shadow:0 24px 80px #10263b33}
+.ai-writing-review::backdrop{background:#10263b99}
+.ai-review-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+.ai-review-heading h2{margin:0;font-size:1.2rem}
+.ai-review-heading button{min-width:44px;min-height:44px}
+.ai-review-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ai-review-columns label{display:flex;flex-direction:column;gap:8px;font-weight:600}
+.ai-review-columns textarea{width:100%;box-sizing:border-box;min-height:220px;resize:vertical;padding:12px;font:inherit;font-weight:400;border:1px solid #ccd8e5;border-radius:10px;background:#fff;color:inherit}
+.ai-review-columns textarea[readonly]{background:#f4f7fa}
+.ai-review-status{min-height:24px;font-size:.9rem;line-height:1.5}
+.ai-review-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-top:16px}
+.ai-review-actions button{min-height:44px}
+#ai-writing-status{margin:8px 0 18px;font-size:.85rem;line-height:1.5}
+@media(max-width:600px){.ai-writing-review{padding:16px}.ai-review-columns{grid-template-columns:1fr}.ai-review-columns textarea{min-height:150px}.ai-review-actions button{flex:1}}
