@@ -61,3 +61,12 @@ test('recovering an expired image does not falsely invalidate the finished PDF',
  const t=setup();t.context.waitForReportImages=async report=>{report.innerHTML+=' recovered image source'};
  const prepared=await t.context.buildReportPdf(true);assert.ok(prepared.blob.size);assert.equal(prepared.snapshot,t.report.innerHTML);
 });
+test('JHA first preview prepares in the app without opening about:blank, then opens the ready PDF synchronously',async()=>{
+ const t=setup(),opened=[];t.report.dataset={pdfViewMode:'ready-first'};const query=t.context.document.querySelector;t.context.document.querySelector=selector=>selector==='.pdf-share'?{textContent:''}:query(selector);t.context.window.open=url=>{opened.push(url);return {opener:{},closed:false}};
+ await t.context.runPdfAction('view',t.button);assert.deepEqual(opened,[]);assert.match(t.button.textContent,/View PDF now/);assert.ok(t.context.preparedReportPdf(t.report,true));
+ const pending=t.context.runPdfAction('view',t.button);assert.deepEqual(opened,['blob:pdf']);await pending;assert.equal(t.button.disabled,false);
+});
+test('JHA preview after download opens the existing PDF immediately and a blocked preview falls back to download',async()=>{
+ const t=setup(),opened=[];t.report.dataset={pdfViewMode:'ready-first'};await t.context.runPdfAction('download',t.button);t.context.window.open=url=>{opened.push(url);return null};
+ const pending=t.context.runPdfAction('view',t.button);assert.deepEqual(opened,['blob:pdf']);assert.equal(t.downloads.length,2);await pending;assert.ok(!opened.includes('about:blank'));
+});

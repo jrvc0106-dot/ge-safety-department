@@ -375,12 +375,20 @@ async function runPdfAction(action,button){
   if(pdfActionBusy)return;
   const report=document.querySelector('article.report');
   let prepared=report&&preparedReportPdf(report,true),preview;
+  const readyFirstView=action==='view'&&report?.dataset?.pdfViewMode==='ready-first';
   const original=button?.innerHTML;
   pdfActionBusy=true;
   try{
     if(button){button.disabled=true;button.textContent=tr('Preparing PDF…','Preparando PDF…')}
     // Reserve the preview while the click still has browser activation.
-    if(action==='view'){preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
+    if(action==='view'&&!readyFirstView){preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
+    if(readyFirstView&&prepared){
+      const url=URL.createObjectURL(prepared.blob);
+      preview=window.open(url,'_blank');
+      if(preview)preview.opener=null;
+      else{downloadReportPdf(prepared.blob,prepared.filename);confirmAction(tr('PDF ready. The browser blocked the preview, so the download was started.','PDF listo. El navegador bloqueó la vista; se inició la descarga.'))}
+      setTimeout(()=>URL.revokeObjectURL(url),600000);return;
+    }
     // A prepared PDF can be shared directly in this click, before any await.
     if(action==='share'&&prepared){
       const file=new File([prepared.blob],prepared.filename,{type:'application/pdf'});
@@ -393,6 +401,9 @@ async function runPdfAction(action,button){
     }
     prepared=await buildReportPdf(true);
     const {blob,filename}=prepared;
+    if(readyFirstView){
+      confirmAction(tr('PDF ready. Tap “View PDF now” to open it.','PDF listo. Pulse “Ver PDF ahora” para abrirlo.'));return;
+    }
     if(action==='view'&&preview&&!preview.closed){
       const u=URL.createObjectURL(blob);preview.location.href=u;setTimeout(()=>URL.revokeObjectURL(u),120000);return;
     }
@@ -413,6 +424,7 @@ async function runPdfAction(action,button){
   }finally{
     pdfActionBusy=false;
     if(button){button.disabled=false;button.innerHTML=original}
+    if(readyFirstView&&button&&report&&preparedReportPdf(report,true))button.textContent='◉ '+tr('View PDF now','Ver PDF ahora');
     const shareButton=document.querySelector('.pdf-share');
     if(shareButton&&report&&preparedReportPdf(report,true))shareButton.textContent='↗ '+tr('Share PDF now','Compartir PDF ahora');
   }
@@ -429,14 +441,14 @@ function installReportDocumentActions(){
   actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
   actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
   actions.querySelector('.pdf-share').onclick=e=>runPdfAction('share',e.currentTarget);
-  if(state.page==='safetyWalkReport')attachJhaPdfActions(actions,report,{
+  if(state.page==='safetyWalkReport'){report.dataset.pdfViewMode='ready-first';attachJhaPdfActions(actions,report,{
     run:runPdfAction,
     warm:()=>Promise.all([ensurePdfExporter(),import('./pdf-export.js')]),
     isCurrent:()=>state.page==='safetyWalkReport'&&document.querySelector('article.report')===report,
     scheduleIdle:task=>{if(window.requestIdleCallback)window.requestIdleCallback(task,{timeout:1500});else setTimeout(task,250)},
     nextTurn:()=>new Promise(resolve=>setTimeout(resolve,0)),
     progressText:(page,total)=>tr('Preparing PDF… ','Preparando PDF… ')+page+'/'+total
-  });
+  });}
 }
 const reportActionObserver=new MutationObserver(()=>{if(document.querySelector('article.report'))installReportDocumentActions()});
 reportActionObserver.observe(app,{childList:true,subtree:true});
