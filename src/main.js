@@ -185,11 +185,35 @@ function activateOperationalDrafts(){
  }
 }
 
+const optionalScriptLoads=new Map();
+function loadOptionalScript(name,src){
+  if(typeof window[name]==='function')return Promise.resolve();
+  if(optionalScriptLoads.has(name))return optionalScriptLoads.get(name);
+  const task=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    let timer;
+    const finish=err=>{
+      clearTimeout(timer);script.onload=null;script.onerror=null;
+      if(err){script.remove();reject(err)}else resolve();
+    };
+    script.async=true;script.src=src;
+    script.onload=()=>finish(typeof window[name]==='function'?null:new Error(tr('Unable to initialize the report tool. Please try again.','No se pudo iniciar la herramienta del reporte. Intente nuevamente.')));
+    script.onerror=()=>finish(new Error(tr('Unable to download the report tool. Check your connection and try again.','No se pudo descargar la herramienta del reporte. Revise su conexión e intente nuevamente.')));
+    timer=setTimeout(()=>finish(new Error(tr('The report tool download timed out. Please try again.','Se agotó el tiempo para descargar la herramienta del reporte. Intente nuevamente.'))),20000);
+    document.head.append(script);
+  });
+  optionalScriptLoads.set(name,task);
+  task.catch(()=>optionalScriptLoads.delete(name));
+  return task;
+}
+const ensureHeicConverter=()=>loadOptionalScript('heic2any','https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js');
+const ensurePdfExporter=()=>loadOptionalScript('html2pdf','https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
+
 async function normalizeReportImage(file){
   if(!(file instanceof File)||!file.size)return file;
   const heic=/image\/hei[cf]/i.test(file.type)||/\.hei[cf]$/i.test(file.name);
   if(!heic)return file;
-  if(typeof window.heic2any!=='function')throw new Error(tr('This iPhone HEIC photo could not be converted. Please try again after refreshing the app.','Esta foto HEIC de iPhone no pudo convertirse. Actualiza la app e intenta nuevamente.'));
+  await ensureHeicConverter();
   const converted=await window.heic2any({blob:file,toType:'image/jpeg',quality:.98});
   const blob=Array.isArray(converted)?converted[0]:converted;
   return new File([blob],(file.name||'photo').replace(/\.hei[cf]$/i,'')+'.jpg',{type:'image/jpeg',lastModified:Date.now()});
@@ -244,7 +268,7 @@ async function registerFinalReport(blob,report){
 async function buildReportPdf(){
   const report=document.querySelector('article.report');
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
-  if(typeof window.html2pdf!=='function')throw new Error(tr('PDF service is still loading. Please try again.','El servicio PDF aún está cargando. Intente nuevamente.'));
+  await ensurePdfExporter();
   await waitForReportImages(report);
   const options={
     margin:[0.25,0.25,0.3,0.25],
@@ -393,8 +417,9 @@ async function signedDisplayImage(bucket,path,expires=3600){
  const signed=await db.storage.from(bucket).createSignedUrl(path,expires);
  if(signed.error||!signed.data?.signedUrl)return '';
  const raw=signed.data.signedUrl;
- if(!/\.hei[cf](?:$|\?)/i.test(path)||typeof window.heic2any!=='function')return raw;
+ if(!/\.hei[cf](?:$|\?)/i.test(path))return raw;
  try{
+  await ensureHeicConverter();
   const response=await fetch(raw);if(!response.ok)throw new Error('image fetch failed');
   const source=await response.blob(),converted=await window.heic2any({blob:source,toType:'image/jpeg',quality:.9});
   const jpeg=Array.isArray(converted)?converted[0]:converted;
@@ -798,4 +823,16 @@ async function observationReport(){const id=state.detail;const [oq,pq,aq]=await 
 
 async function report(){const now=new Date(),dayKey=localDateKey(now),rows=state.observations.filter(o=>o.project_id===state.project&&localDateKey(o.created_at)===dayKey),project=state.projects.find(p=>p.id===state.project)||{},dateText=new Intl.DateTimeFormat(state.lang==='es'?'es-US':'en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).format(now),timeText=new Intl.DateTimeFormat(state.lang==='es'?'es-US':'en-US',{hour:'numeric',minute:'2-digit',second:'2-digit',timeZoneName:'short'}).format(now),high=rows.filter(o=>o.priority==='high').length,medium=rows.filter(o=>o.priority==='medium').length,low=rows.filter(o=>o.priority==='low').length,open=rows.filter(o=>o.status==='open').length,pending=rows.filter(o=>o.status==='pending_verification').length,closed=rows.filter(o=>o.status==='closed').length;frame(`<div class="no-print report-actions"><button class="secondary" id="back">← ${tr('Back','Atrás')}</button></div><article class="report professional-report"><header class="report-header"><img src="/ge-logo.png" alt="G&E Florida Contractors"><div class="report-title"><span>G&E FLORIDA CONTRACTORS</span><h1>${tr('Daily Safety Report','Reporte diario de seguridad')}</h1><p>G&E Safety Department</p></div><div class="report-number"><small>${tr('REPORT DATE','FECHA DEL REPORTE')}</small><strong>${esc(dayKey)}</strong></div></header><section class="report-info"><div><small>${tr('PROJECT / JOBSITE','PROYECTO / JOBSITE')}</small><strong>${esc(project.name||'—')}</strong></div><div><small>${tr('GENERAL CONTRACTOR','CONTRATISTA GENERAL')}</small><strong>${esc(project.general_contractor||'—')}</strong></div><div><small>${tr('JOBSITE ADDRESS','DIRECCIÓN DEL JOBSITE')}</small><strong>${esc(project.address||'—')}</strong></div><div><small>${tr('PREPARED BY','PREPARADO POR')}</small><strong>${esc(state.profile.name||state.profile.email||'—')}</strong></div><div><small>${tr('DATE','FECHA')}</small><strong>${esc(dateText)}</strong></div><div><small>${tr('TIME','HORA')}</small><strong>${esc(timeText)}</strong></div></section><section class="report-summary"><div><strong>${rows.length}</strong><span>${tr('Total Observations','Observaciones totales')}</span></div><div><strong>${open}</strong><span>${tr('Open','Abiertas')}</span></div><div><strong>${pending}</strong><span>${tr('In Progress','En proceso')}</span></div><div><strong>${closed}</strong><span>${tr('Closed','Cerradas')}</span></div></section><section class="priority-summary"><span class="priority-high">${tr('High','Alta')}: <strong>${high}</strong></span><span class="priority-medium">${tr('Medium','Media')}: <strong>${medium}</strong></span><span class="priority-low">${tr('Low','Baja')}: <strong>${low}</strong></span></section><div id="report-rows" class="professional-report-rows"></div><footer class="report-footer"><div><strong>G&E Safety Department</strong><br><span>${tr('Safety Today. A Safer Tomorrow.','Seguridad hoy. Un mañana más seguro.')}</span></div><div>${tr('Generated','Generado')}: ${esc(dateText)} · ${esc(timeText)}</div></footer></article>`);document.querySelector('#back').onclick=back;const box=document.querySelector('#report-rows');if(!rows.length){box.innerHTML=`<div class="report-empty">${tr('No safety observations were recorded for this project today.','No se registraron observaciones de seguridad para este proyecto hoy.')}</div>`;return}let i=0;for(const o of rows){i++;const [p,a]=await Promise.all([db.from('observation_photos').select('*').eq('observation_id',o.id),db.from('corrective_actions').select('*, author:profiles(name)').eq('observation_id',o.id).order('created_at')]);const signed=await Promise.all((p.data||[]).map(async x=>({...x,url:(await photoUrl(x.path)).data?.signedUrl})));const el=document.createElement('section');el.className='report-observation';el.innerHTML=`<div class="report-observation-head"><div><small>${tr('OBSERVATION','OBSERVACIÓN')} #${i}</small><h2>${esc(o.area)}</h2></div><div><span class="badge ${esc(o.priority)}">${esc(o.priority)}</span><span class="report-status">${esc(o.status.replaceAll('_',' '))}</span></div></div><div class="report-detail-grid"><p><small>${tr('CATEGORY','CATEGORÍA')}</small><strong>${esc(o.category)}</strong></p><p><small>${tr('REPORTED BY','REPORTADO POR')}</small><strong>${esc(o.creator?.name||'—')}</strong></p><p><small>${tr('ASSIGNED PERSON','PERSONA ASIGNADA')}</small><strong>${esc(o.assignee?.name||tr('Unassigned','Sin asignar'))}</strong></p><p><small>${tr('FOREMAN IN CHARGE','FOREMAN ENCARGADO')}</small><strong>${esc(o.foreman?.name||'—')}</strong></p><p><small>${tr('JOBSITE SAFETY','SAFETY DEL JOBSITE')}</small><strong>${esc(o.jobsite_safety?.name||'—')}</strong></p><p><small>${tr('DATE & TIME','FECHA Y HORA')}</small><strong>${esc(fmt(o.created_at))}</strong></p></div><div class="report-description"><small>${tr('OBSERVATION DETAILS','DETALLES DE LA OBSERVACIÓN')}</small><p>${esc(o.description)}</p></div>${signed.length?`<div class="report-photos">${signed.map(x=>`<figure><img src="${esc(x.url)}" alt="${esc(x.kind)}"><figcaption>${x.kind==='before'?tr('BEFORE / HAZARD','ANTES / PELIGRO'):tr('AFTER / CORRECTION','DESPUÉS / CORRECCIÓN')}</figcaption></figure>`).join('')}</div>`:''}${(a.data||[]).length?`<div class="report-corrections"><small>${tr('CORRECTIVE ACTION','ACCIÓN CORRECTIVA')}</small>${a.data.map(x=>`<p>${esc(x.comment)}<br><span>${esc(x.author?.name||'')} · ${esc(fmt(x.created_at))}</span></p>`).join('')}</div>`:''}`;box.append(el)}}
 window.addEventListener('popstate',e=>{if(!state.session)return;flushActiveDrafts();const h=e.state;if(h?.geSafety){restoringHistory=true;state.page=h.page||'home';state.detail=h.detail||null;render();restoringHistory=false}else if(state.page!=='home'){navigate('home',null,{replace:true})}});
-db?.auth.onAuthStateChange(event=>{if(event==='PASSWORD_RECOVERY')state.page='setPassword';setTimeout(()=>{if(state.session&&!history.state?.geSafety)history.replaceState({geSafety:true,page:state.page,detail:state.detail},'',location.href);refresh()},0)});refresh();
+db?.auth.onAuthStateChange((event,session)=>{
+  // Startup already calls refresh. Token renewal and returning to the tab must
+  // not fetch the dashboard again or replace a form the user is completing.
+  if(event==='INITIAL_SESSION')return;
+  if((event==='TOKEN_REFRESHED'||event==='SIGNED_IN')&&session?.user?.id===state.session?.user?.id){
+    state.session=session;return;
+  }
+  if(event==='PASSWORD_RECOVERY')state.page='setPassword';
+  setTimeout(()=>{
+    if(state.session&&!history.state?.geSafety)history.replaceState({geSafety:true,page:state.page,detail:state.detail},'',location.href);
+    refresh();
+  },0);
+});refresh();

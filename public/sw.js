@@ -18,6 +18,18 @@ self.addEventListener('fetch',event=>{
   const url=new URL(event.request.url);
   if(url.origin!==self.location.origin)return;
 
+  // Vite asset names include a content hash. The same URL is immutable.
+  if(/^\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/.test(url.pathname)){
+    event.respondWith(caches.open(CACHE).then(async cache=>{
+      const cached=await cache.match(event.request);
+      if(cached)return cached;
+      const response=await fetch(event.request);
+      if(response.ok)await cache.put(event.request,response.clone());
+      return response;
+    }));
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then(response=>{
