@@ -21,7 +21,7 @@ begin
  delete from public.project_members where user_id=p_member;
  delete from public.user_app_presence where user_id=p_member;
  -- Revoke refresh sessions and block new logins before final Auth removal.
- update auth.users set banned_until='infinity'::timestamptz where id=p_member;
+ update auth.users set banned_until=now()+interval '100 years' where id=p_member;
  delete from auth.sessions where user_id=p_member;
 end $$;
 revoke all on function private.remove_team_member(uuid,uuid) from public,anon,authenticated;
