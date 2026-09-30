@@ -252,13 +252,28 @@ async function normalizeReportImage(file){
 async function waitForReportImages(report){
   const imgs=[...report.querySelectorAll('img')];
   const failed=[];
-  await Promise.all(imgs.map((img,index)=>new Promise(resolve=>{
-    if(img.complete){if(img.naturalWidth<1)failed.push(index);return resolve()}
-    let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);if(!ok||img.naturalWidth<1)failed.push(index);resolve()};
+  const wait=img=>new Promise(resolve=>{
+    if(img.complete)return resolve(img.naturalWidth>0);
+    let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);resolve(ok&&img.naturalWidth>0)};
     const timer=setTimeout(()=>finish(false),12000);
     img.addEventListener('load',()=>finish(true),{once:true});
     img.addEventListener('error',()=>finish(false),{once:true});
-  })));
+  });
+  await Promise.all(imgs.map(async(img,index)=>{
+    if(await wait(img))return;
+    // Signed storage images can be valid while the browser cache still holds a
+    // failed request. Fetching once as a local blob removes that cache/CORS race
+    // without changing the report markup or its visual layout.
+    try{
+      const response=await fetch(img.currentSrc||img.src,{cache:'no-store'});
+      if(!response.ok)throw new Error('image fetch failed');
+      const blob=await response.blob();
+      if(!blob.size)throw new Error('empty image');
+      img.src=URL.createObjectURL(blob);
+      if(await wait(img))return;
+    }catch{}
+    failed.push(index);
+  }));
   if(failed.length)throw new Error(tr('PDF stopped because '+failed.length+' image(s) did not load. Please check your connection and try again.','El PDF se detuvo porque '+failed.length+' imagen(es) no cargaron. Verifique su conexión e intente nuevamente.'));
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 }
@@ -497,6 +512,18 @@ function login(mode='signIn'){const signup=mode==='signUp';app.innerHTML=`<div c
 function forgotPassword(){frame(`<section class="card narrow"><h1>${tr('Reset password','Restablecer contraseña')}</h1><form id="reset"><label>${tr('Company email','Correo de la compañía')}<input type="email" name="email" required></label><button>${tr('Send recovery link','Enviar enlace')}</button></form><p><button class="secondary" id="back-login">${tr('Back to sign in','Volver a entrar')}</button></p></section>`);document.querySelector('#back-login').onclick=()=>login();document.querySelector('#reset').onsubmit=async e=>{e.preventDefault();const email=String(new FormData(e.target).get('email')).trim();const {error:err}=await db.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin});if(err)return error(err);frame(`<section class="card narrow"><h1>${tr('Check your email','Revisa tu correo')}</h1><p>${tr('If this account exists, a recovery link was sent.','Si la cuenta existe, se envió un enlace de recuperación.')}</p></section>`)}}
 async function signedDisplayImage(bucket,path,expires=3600){
  if(!path)return '';
+ const downloaded=await db.storage.from(bucket).download(path);
+ if(!downloaded.error&&downloaded.data?.size){
+  let blob=downloaded.data;
+  if(/\.hei[cf](?:$|\?)/i.test(path)){
+   try{
+    await ensureHeicConverter();
+    const converted=await window.heic2any({blob,toType:'image/jpeg',quality:.9});
+    blob=Array.isArray(converted)?converted[0]:converted;
+   }catch{}
+  }
+  return URL.createObjectURL(blob);
+ }
  const signed=await db.storage.from(bucket).createSignedUrl(path,expires);
  if(signed.error||!signed.data?.signedUrl)return '';
  const raw=signed.data.signedUrl;
