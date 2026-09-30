@@ -45,3 +45,10 @@ test('canceled sharing restores controls and does not download',async()=>{
 test('preview PDF cannot satisfy a high quality download or share',async()=>{
  const t=setup();await t.context.buildReportPdf();assert.equal(t.context.preparedReportPdf(t.report,true),null);await t.context.buildReportPdf(true);assert.equal(t.context.preparedReportPdf(t.report,true).highQuality,true);
 });
+
+test('view, download and share all reuse the same final high resolution PDF',async()=>{
+ const t=setup({canShare:true});await t.context.runPdfAction('view',t.button);
+ const final=t.context.preparedReportPdf(t.report,true);assert.ok(final);assert.equal(final.highQuality,true);
+ await t.context.runPdfAction('download',t.button);assert.equal(t.context.preparedReportPdf(t.report,true).blob,final.blob);
+ await t.context.runPdfAction('share',t.button);assert.equal(t.shares.length,1);assert.equal(t.shares[0].files[0].size,final.blob.size);
+});

@@ -307,7 +307,7 @@ async function buildReportPdf(highQuality=false){
     image:{type:'jpeg',quality:0.995},
     html2canvas:{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,imageTimeout:30000},
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
-    pagebreak:{mode:['css','legacy'],avoid:['.report-photo','figure','.ewr-hazard','.report-section']}
+    pagebreak:{mode:['css','legacy'],avoid:['.report-photo','figure','.ewr-hazard','.report-section','.ewr-tr','tr','.ewr-header','.report-header','.dr-header','.ir-head','.eq-pdf-head','.inventory-report-head','.ewr-section-title','.ewr-signatures','.dr-signatures','.ewr-closeout','.report-footer','.ewr-footer','.dr-footer']}
   };
   const worker=html2pdf().set(options).from(report).toContainer();
   const container=await worker.get('container');
@@ -360,7 +360,7 @@ async function runPdfAction(action,button){
       downloadReportPdf(prepared.blob,prepared.filename);
       confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));return;
     }
-    prepared=await buildReportPdf(action!=='view');
+    prepared=await buildReportPdf(true);
     const {blob,filename}=prepared;
     if(action==='view'&&preview&&!preview.closed){
       const u=URL.createObjectURL(blob);preview.location.href=u;setTimeout(()=>URL.revokeObjectURL(u),120000);return;
