@@ -52,3 +52,12 @@ test('view, download and share all reuse the same final high resolution PDF',asy
  await t.context.runPdfAction('download',t.button);assert.equal(t.context.preparedReportPdf(t.report,true).blob,final.blob);
  await t.context.runPdfAction('share',t.button);assert.equal(t.shares.length,1);assert.equal(t.shares[0].files[0].size,final.blob.size);
 });
+
+test('an unfinished or failed report cannot export an incomplete PDF',async()=>{
+ const t=setup();t.report.dataset={loading:'true'};await assert.rejects(t.context.buildReportPdf(),/still loading/);assert.equal(t.context.preparedReportPdf(t.report),null);
+ t.report.dataset.loading='error';await assert.rejects(t.context.buildReportPdf(),/finish loading/);t.report.dataset.loading='false';assert.ok(await t.context.buildReportPdf());
+});
+test('recovering an expired image does not falsely invalidate the finished PDF',async()=>{
+ const t=setup();t.context.waitForReportImages=async report=>{report.innerHTML+=' recovered image source'};
+ const prepared=await t.context.buildReportPdf(true);assert.ok(prepared.blob.size);assert.equal(prepared.snapshot,t.report.innerHTML);
+});
