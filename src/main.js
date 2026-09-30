@@ -574,9 +574,11 @@ function weatherCodeLabel(code){
 }
 const homeWeatherCache=new Map();
 async function captureHomeWeather(project){
- const key=project?.id||project?.address||'default',cached=homeWeatherCache.get(key);
+ const key=[project?.id||'default',project?.address||'',project?.city||''].join(':'),cached=homeWeatherCache.get(key);
  if(cached&&Date.now()-cached.savedAt<600000)return cached.weather;
- let weather=null;
+ let weather=await captureJobsiteWeather(project);
+ if(weather){weather.location_source='project';homeWeatherCache.set(key,{weather,savedAt:Date.now()});return weather}
+ if(String(project?.address||'').trim())return null;
  try{
   const coordinates=await new Promise(resolve=>{
    if(!navigator.geolocation||!window.isSecureContext)return resolve(null);
@@ -594,18 +596,6 @@ async function captureHomeWeather(project){
    }finally{clearTimeout(timer)}
   }
  }catch{}
- if(!weather){
-  const address=String(project?.address||'').trim();
-  const parts=address.split(',').map(part=>part.trim()).filter(Boolean);
-  let city=String(project?.city||'').trim();
-  if(!city){
-   const cleaned=parts.map(part=>part.replace(/\b(?:FL|Florida)\b.*$/i,'').replace(/\b\d{5}(?:-\d{4})?\b/g,'').trim()).filter(part=>part&&!/\d/.test(part)&&!/^USA$|^United States$/i.test(part));
-   city=cleaned[cleaned.length-1]||'';
-  }
-  const candidate=city?{...project,address:city}:project;
-  weather=await captureJobsiteWeather(candidate);
-  if(weather)weather.location_source='project';
- }
  if(weather)homeWeatherCache.set(key,{weather,savedAt:Date.now()});
  return weather;
 }
@@ -613,8 +603,21 @@ async function captureHomeWeather(project){
 async function captureJobsiteWeather(project){
  const address=String(project?.address||'').trim();if(!address)return null;
  try{
-  const geo=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(address)+'&count=1&language=en&format=json').then(r=>{if(!r.ok)throw Error('geocoding');return r.json()});
-  const place=geo?.results?.[0];if(!place)return null;
+  const postalCodes=[...address.matchAll(/\b\d{5}(?:-\d{4})?\b/g)].map(match=>match[0].slice(0,5));
+  const parts=address.split(',').map(part=>part.trim());
+  const city=String(project?.city||'').trim()||parts.map(part=>part.replace(/\b(?:FL|Florida)\b.*$/i,'').replace(/\b\d{5}(?:-\d{4})?\b/g,'').trim()).filter(part=>part&&!/\d/.test(part)&&!/^USA$|^United States$/i.test(part)).pop();
+  const queries=[...new Set([postalCodes.at(-1),city,address].filter(Boolean))];
+  let place=null;
+  for(const query of queries){
+   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
+   try{
+    const response=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(query)+'&count=5&countryCode=US&language=en&format=json',{signal:controller.signal});
+    if(!response.ok)continue;
+    const geo=await response.json();place=geo?.results?.[0];
+    if(place)break;
+   }catch{}finally{clearTimeout(timer)}
+  }
+  if(!place)return null;
   const url='https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(place.latitude)+'&longitude='+encodeURIComponent(place.longitude)+'&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto';
   const wx=await fetch(url).then(r=>{if(!r.ok)throw Error('weather');return r.json()}),cur=wx?.current;if(!cur)return null;
   return {condition_code:cur.weather_code,temperature_f:cur.temperature_2m,apparent_temperature_f:cur.apparent_temperature,humidity_pct:cur.relative_humidity_2m,wind_mph:cur.wind_speed_10m,gust_mph:cur.wind_gusts_10m,observed_at:cur.time||new Date().toISOString(),source:'Open-Meteo',location_label:[place.name,place.admin1].filter(Boolean).join(', '),jobsite_address:address};
