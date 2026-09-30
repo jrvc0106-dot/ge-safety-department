@@ -225,9 +225,9 @@ function ensurePdfExporter(){
 }
 const preparedReportPdfs=new WeakMap();
 let pdfActionBusy=false;
-function preparedReportPdf(report){
+function preparedReportPdf(report,highQuality=false){
   const cached=preparedReportPdfs.get(report);
-  return cached?.snapshot===report.innerHTML?cached:null;
+  return cached?.snapshot===report.innerHTML&&(!highQuality||cached.highQuality)?cached:null;
 }
 function downloadReportPdf(blob,filename){
   const u=URL.createObjectURL(blob),a=document.createElement('a');
@@ -295,10 +295,10 @@ async function registerFinalReport(blob,report,meta=currentReportIdentity(report
  if(event.error)console.warn('Document event log failed',event.error);
  return {...doc.data,revision};
 }
-async function buildReportPdf(){
+async function buildReportPdf(highQuality=false){
   const report=document.querySelector('article.report');
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
-  const cached=preparedReportPdf(report);if(cached)return cached;
+  const cached=preparedReportPdf(report,highQuality);if(cached)return cached;
   const meta=currentReportIdentity(report),snapshot=report.innerHTML;
   const html2pdf=await ensurePdfExporter();
   await waitForReportImages(report);
@@ -311,15 +311,27 @@ async function buildReportPdf(){
   };
   const worker=html2pdf().set(options).from(report).toContainer();
   const container=await worker.get('container');
-  const width=Math.max(1,container.scrollWidth),height=Math.max(1,container.scrollHeight);
-  await worker.set({html2canvas:{...options.html2canvas,scale:pdfCanvasScale(width,height)}}).toCanvas();
-  const canvas=await worker.get('canvas');
-  if(!canvas.width||!canvas.height)throw new Error(tr('Unable to render the PDF. Please try again.','No se pudo generar el PDF. Intente nuevamente.'));
-  const blob=await worker.outputPdf('blob');
-  canvas.width=0;canvas.height=0;
+  let blob;
+  if(highQuality){
+    try{
+      if(document.fonts?.ready)await document.fonts.ready;
+      const {renderPaginatedPdf}=await import('./pdf-export.js');
+      blob=await renderPaginatedPdf(container,await worker.get('pageSize'),options);
+    }finally{
+      const overlay=await worker.get('overlay');overlay?.remove();
+    }
+  }else{
+    const width=Math.max(1,container.scrollWidth),height=Math.max(1,container.scrollHeight);
+    await worker.set({html2canvas:{...options.html2canvas,scale:pdfCanvasScale(width,height)}}).toCanvas();
+    const canvas=await worker.get('canvas');
+    try{
+      if(!canvas.width||!canvas.height)throw new Error(tr('Unable to render the PDF. Please try again.','No se pudo generar el PDF. Intente nuevamente.'));
+      blob=await worker.outputPdf('blob');
+    }finally{canvas.width=0;canvas.height=0}
+  }
   if(!blob?.size)throw new Error(tr('The PDF is empty. Please try again.','El PDF está vacío. Intente nuevamente.'));
   if(document.querySelector('article.report')!==report||report.innerHTML!==snapshot)throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
-  const prepared={blob,filename:options.filename,report,snapshot};
+  const prepared={blob,filename:options.filename,report,snapshot,highQuality};
   preparedReportPdfs.set(report,prepared);
   // Archival failure must not prevent the user from obtaining their PDF.
   registerFinalReport(blob,report,meta).catch(err=>{
@@ -331,7 +343,7 @@ async function buildReportPdf(){
 async function runPdfAction(action,button){
   if(pdfActionBusy)return;
   const report=document.querySelector('article.report');
-  let prepared=report&&preparedReportPdf(report),preview;
+  let prepared=report&&preparedReportPdf(report,true),preview;
   const original=button?.innerHTML;
   pdfActionBusy=true;
   try{
@@ -348,7 +360,7 @@ async function runPdfAction(action,button){
       downloadReportPdf(prepared.blob,prepared.filename);
       confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));return;
     }
-    prepared=await buildReportPdf();
+    prepared=await buildReportPdf(action!=='view');
     const {blob,filename}=prepared;
     if(action==='view'&&preview&&!preview.closed){
       const u=URL.createObjectURL(blob);preview.location.href=u;setTimeout(()=>URL.revokeObjectURL(u),120000);return;
@@ -371,7 +383,7 @@ async function runPdfAction(action,button){
     pdfActionBusy=false;
     if(button){button.disabled=false;button.innerHTML=original}
     const shareButton=document.querySelector('.pdf-share');
-    if(shareButton&&report&&preparedReportPdf(report))shareButton.textContent='↗ '+tr('Share PDF now','Compartir PDF ahora');
+    if(shareButton&&report&&preparedReportPdf(report,true))shareButton.textContent='↗ '+tr('Share PDF now','Compartir PDF ahora');
   }
 }
 function installReportDocumentActions(){
