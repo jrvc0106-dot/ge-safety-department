@@ -1,7 +1,9 @@
-# Writing proposals
+# Gemini writing proposals
 
-Set OPENAI_API_KEY in Supabase Edge Function secrets before enabling generation. Never place the key in Vite environment variables or client code. Optional OPENAI_WRITING_MODEL overrides the default pinned gpt-4.1-mini-2025-04-14 model.
+Create a Gemini API key for a Google AI Studio project whose Billing Tier is Free Tier. Do not enable billing if you want to stay on the free tier: a key connected to a paid project can generate charges. The application cannot determine the key's billing tier. Google controls model availability and quotas and may use free-tier input/output to improve its products; avoid confidential text.
 
-Apply ../../ai-writing-limit.sql and deploy improve-writing with gateway JWT verification disabled: the handler explicitly verifies the bearer token through auth.getUser, checks project access, and reserves one of 30 daily requests per user before contacting OpenAI. GET returns only configuration readiness. POST action=status requires authentication.
+Set GEMINI_API_KEY in Supabase Edge Function secrets. Never put it in Vite variables or browser code. This function uses gemini-3.5-flash-lite through generateContent, with no OpenAI fallback, no automatic retries and no paid upgrade. Quota errors leave the original note unchanged.
 
-The interface preserves original notes in operational drafts, offers an editable proposal, requires explicit acceptance, and supports restoring the original. The Settings switch controls visibility per browser. OpenAI requests use store:false; this does not override provider retention policies. No note text or credentials are logged by this function.
+Apply ../../ai-writing-limit.sql and deploy improve-writing with gateway JWT verification disabled: the handler verifies the bearer token through auth.getUser, checks project access, and reserves one of 30 requests per user per UTC day. This app limit does not guarantee availability within Google's project-wide quota. GET returns only readiness; POST action=status requires authentication. Readiness indicates a configured key, not a validated key or billing tier.
+
+The interface preserves original notes in operational drafts, requires review and explicit acceptance, supports restoration, and has a browser-local Settings switch. No note content or credentials are logged. Setting a secret does not require redeployment. Provider requests remain untested until the owner supplies a valid key.
