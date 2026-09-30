@@ -1,3 +1,4 @@
+import {attachJhaPdfActions} from './jha-pdf-actions.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
 import { createClient } from '@supabase/supabase-js';
@@ -338,6 +339,7 @@ async function buildReportPdf(highQuality=false){
     jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
     pagebreak:{mode:['css','legacy'],avoid:['.report-photo','figure','.ewr-hazard','.report-section','.ewr-tr','tr','.ewr-header','.report-header','.dr-header','.ir-head','.eq-pdf-head','.inventory-report-head','.ewr-section-title','.ewr-signatures','.dr-signatures','.ewr-closeout','.report-footer','.ewr-footer','.dr-footer']}
   };
+  if(meta?.sourcePage==='safetyWalkReport'&&report.jhaPdfProgress)options.onPageRendered=report.jhaPdfProgress;
   const worker=html2pdf().set(options).from(report).toContainer();
   const container=await worker.get('container');
   let blob;
@@ -427,6 +429,14 @@ function installReportDocumentActions(){
   actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
   actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
   actions.querySelector('.pdf-share').onclick=e=>runPdfAction('share',e.currentTarget);
+  if(state.page==='safetyWalkReport')attachJhaPdfActions(actions,report,{
+    run:runPdfAction,
+    warm:()=>Promise.all([ensurePdfExporter(),import('./pdf-export.js')]),
+    isCurrent:()=>state.page==='safetyWalkReport'&&document.querySelector('article.report')===report,
+    scheduleIdle:task=>{if(window.requestIdleCallback)window.requestIdleCallback(task,{timeout:1500});else setTimeout(task,250)},
+    nextTurn:()=>new Promise(resolve=>setTimeout(resolve,0)),
+    progressText:(page,total)=>tr('Preparing PDF… ','Preparando PDF… ')+page+'/'+total
+  });
 }
 const reportActionObserver=new MutationObserver(()=>{if(document.querySelector('article.report'))installReportDocumentActions()});
 reportActionObserver.observe(app,{childList:true,subtree:true});

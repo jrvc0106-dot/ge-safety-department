@@ -21,6 +21,10 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
     }finally{
       if(canvas){canvas.width=0;canvas.height=0}
     }
+    // JHA exports yield only after releasing the page canvas, keeping tablet
+    // controls responsive without increasing peak memory or changing quality.
+    if(options.onPageRendered)await options.onPageRendered(index+1,Math.ceil(totalHeight/pageHeight));
   }
   return pdf.output('blob');
 }
+
