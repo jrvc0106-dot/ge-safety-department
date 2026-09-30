@@ -26,5 +26,5 @@ Deno.serve(async(req)=>{
   const {error:pErr}=await admin.from("profiles").upsert({id:uid,email:cleanEmail,name:cleanName||cleanEmail.split("@")[0],role},{onConflict:"id"});if(pErr)throw pErr;
   const {error:mErr}=await admin.from("project_members").upsert({project_id,user_id:uid},{onConflict:"project_id,user_id"});if(mErr)throw mErr;
   return Response.json({ok:true,email:cleanEmail,existing,action:existing?"project_access_added":"invitation_sent"},{headers:{...cors,"Content-Type":"application/json"}});
- }catch(e){return Response.json({error:e instanceof Error?e.message:String(e)},{status:400,headers:{...cors,"Content-Type":"application/json"}})}
+ }catch(e){return Response.json({error:e instanceof Error?e.message:String(e),code:(e as {code?:string})?.code},{status:400,headers:{...cors,"Content-Type":"application/json"}})}
 });
