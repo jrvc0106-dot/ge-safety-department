@@ -1,4 +1,6 @@
 import {attachJhaPdfActions} from './jha-pdf-actions.js';
+import html2pdf from 'html2pdf.js';
+import {renderPaginatedPdf} from './pdf-export.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
 import { createClient } from '@supabase/supabase-js';
@@ -231,7 +233,7 @@ function loadOptionalScript(name,src){
 const ensureHeicConverter=()=>loadOptionalScript('heic2any','https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js');
 let pdfExporterLoad;
 function ensurePdfExporter(){
-  if(!pdfExporterLoad)pdfExporterLoad=import('html2pdf.js').then(module=>module.default).catch(err=>{pdfExporterLoad=null;throw err});
+  if(!pdfExporterLoad)pdfExporterLoad=Promise.resolve(html2pdf);
   return pdfExporterLoad;
 }
 const preparedReportPdfs=new WeakMap();
@@ -346,7 +348,6 @@ async function buildReportPdf(highQuality=false){
   if(highQuality){
     try{
       if(document.fonts?.ready)await document.fonts.ready;
-      const {renderPaginatedPdf}=await import('./pdf-export.js');
       blob=await renderPaginatedPdf(container,await worker.get('pageSize'),options);
     }finally{
       const overlay=await worker.get('overlay');overlay?.remove();
@@ -448,7 +449,7 @@ function installReportDocumentActions(){
   actions.querySelector('.pdf-share').onclick=e=>runPdfAction('share',e.currentTarget);
   if(state.page==='safetyWalkReport'){report.dataset.pdfViewMode='ready-first';attachJhaPdfActions(actions,report,{
     run:runPdfAction,
-    warm:()=>Promise.all([ensurePdfExporter(),import('./pdf-export.js')]),
+    warm:()=>ensurePdfExporter(),
     isCurrent:()=>state.page==='safetyWalkReport'&&document.querySelector('article.report')===report,
     scheduleIdle:task=>{if(window.requestIdleCallback)window.requestIdleCallback(task,{timeout:1500});else setTimeout(task,250)},
     nextTurn:()=>new Promise(resolve=>setTimeout(resolve,0)),
