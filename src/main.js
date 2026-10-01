@@ -389,6 +389,11 @@ async function runPdfAction(action,button){
       else{downloadReportPdf(prepared.blob,prepared.filename);confirmAction(tr('PDF ready. The browser blocked the preview, so the download was started.','PDF listo. El navegador bloqueó la vista; se inició la descarga.'))}
       setTimeout(()=>URL.revokeObjectURL(url),600000);return;
     }
+    // Download a ready JHA directly during the click, preserving Safari activation.
+    if(action==='download'&&report?.dataset?.pdfViewMode==='ready-first'&&prepared){
+      downloadReportPdf(prepared.blob,prepared.filename);
+      confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+prepared.filename);return;
+    }
     // A prepared PDF can be shared directly in this click, before any await.
     if(action==='share'&&prepared){
       const file=new File([prepared.blob],prepared.filename,{type:'application/pdf'});
