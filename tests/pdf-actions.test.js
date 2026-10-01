@@ -14,6 +14,7 @@ function setup({archiveFails=false,canShare=false}={}){
  const actions=source.slice(source.indexOf('async function buildReportPdf('),source.indexOf('function installReportDocumentActions()')).replace("await import('./pdf-export.js')",'({renderPaginatedPdf:mockRenderPdf})');
  vm.runInContext(helpers+'\n'+actions,context);
  context.ensurePdfExporter=async()=>()=>worker;
+ context.renderPaginatedPdf=async()=>blob;
  return {context,report,button,messages,downloads,shares};
 }
 test('cloud archive failure still downloads and repeated exports reuse the PDF',async()=>{
