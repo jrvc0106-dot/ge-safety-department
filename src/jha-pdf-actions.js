@@ -1,6 +1,9 @@
 // Attach only to the JHA report. Preparation remains on demand, so merely
 // opening a report never generates or archives a new PDF revision.
 export function attachJhaPdfActions(actions,report,{run,warm,isCurrent,scheduleIdle,nextTurn,progressText}){
+ // JHA preview should complete from the original tap. runPdfAction reserves the
+ // Safari preview window synchronously, then fills it as soon as rendering ends.
+ report.dataset.pdfViewMode='single-click';
  const buttons=['view','download','share'].map(action=>({action,button:actions.querySelector('.pdf-'+action)}));
  let busy=false,warming;
  const preload=()=>{
@@ -11,6 +14,8 @@ export function attachJhaPdfActions(actions,report,{run,warm,isCurrent,scheduleI
  scheduleIdle(preload);
  for(const {action,button} of buttons){
   button.addEventListener('pointerenter',preload,{passive:true});
+  button.addEventListener('pointerdown',preload,{passive:true});
+  button.addEventListener('touchstart',preload,{passive:true});
   button.addEventListener('focus',preload);
   button.onclick=async event=>{
    if(busy||!isCurrent())return;
