@@ -22,7 +22,11 @@ export function parseQrValue(raw){
  if(!/^[\p{L}\p{N} _.-]{1,100}$/u.test(value))throw Error('Enter the sticker or asset number / Ingrese el sticker o número de equipo');
  return {type,value:value.trim().toUpperCase()};
 }
-export function summarizeProjects(projects,observations){return projects.map(p=>{const rows=observations.filter(o=>o.project_id===p.id);return {project:p.name,open:rows.filter(o=>o.status==='open').length,review:rows.filter(o=>o.status==='pending_verification').length,closed:rows.filter(o=>o.status==='closed').length,high:rows.filter(o=>o.priority==='high'&&o.status!=='closed').length}})}
+export function summarizeProjects(projects,observations){
+ const totals=new Map(projects.map(p=>[p.id,{project:p.name,open:0,review:0,closed:0,high:0}]));
+ for(const o of observations){const row=totals.get(o.project_id);if(!row)continue;if(o.status==='open')row.open++;if(o.status==='pending_verification')row.review++;if(o.status==='closed')row.closed++;if(o.priority==='high'&&o.status!=='closed')row.high++}
+ return projects.map(p=>totals.get(p.id));
+}
 export function toolReportHtml(record,project,images=[],tr=(en)=>en){
  const d=TOOL_DEFINITIONS[record.kind];if(!d)throw Error('Unknown report');const e=escapeHtml,p=record.payload||{};
  const section=(title,body)=>`<section class="ewr-section"><div class="ewr-section-title"><h2>${e(title)}</h2></div>${body}</section>`;

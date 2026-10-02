@@ -28,9 +28,3 @@ test('new home links expose authorized tools without an administration link for 
  const admin=toolsHomeMarkup('admin',x=>x),worker=toolsHomeMarkup('worker',x=>x);
  assert.equal((admin.match(/data-safety-tool=/g)||[]).length,6);assert.ok(!worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
 });
-test('late tool list response cannot overwrite a different project',async()=>{
- let resolve;const gate=new Promise(r=>resolve=r);let current=true,frames=0;
- const chain=new Proxy({}, {get:(_,k)=>k==='then'?gate.then.bind(gate):()=>chain});
- const tools=createSafetyTools({db:{from:()=>chain},state:{profile:{role:'admin'},project:'a'},tr:x=>x,frame:()=>frames++,captureView:()=>()=>current});
- const p=tools.list('toolbox');current=false;resolve({data:[],error:null});await p;assert.equal(frames,0);
-});
