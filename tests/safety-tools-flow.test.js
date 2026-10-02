@@ -14,9 +14,9 @@ function setup(options={}){
  return {ctx,tools:createSafetyTools(ctx),writes,nav,errors,dom,state,hold:p=>pending=p};
 }
 for(const kind of ['toolbox','safety_net','emergency','director','hazard'])test(`${kind}: incomplete form saves to original project and opens matching report`,async()=>{
- const t=setup();await t.tools.form(kind);const f=document.querySelector('form');assert.ok(f);if(f.elements.topic)f.elements.topic.value='Sample topic';
- await f.onsubmit({preventDefault(){}});assert.deepEqual(t.errors,[]);assert.equal(t.writes.length,1);assert.equal(t.writes[0].payload.project_id,'job-a');assert.equal(t.writes[0].payload.kind,kind);assert.equal(t.nav[0][0],'safetyToolReport');
- await t.tools.report(t.writes[0].payload.id);assert.ok(document.querySelector('article.report'));assert.match(document.querySelector('h1').textContent,/By G&E$/);t.dom.window.close();
+ const t=setup();await t.tools.form(kind);const f=document.querySelector('form');assert.ok(f);if(f.elements.topic)f.elements.topic.value='Sample topic';f.elements.jha_safety_name.value='Assigned Safety';f.elements.jha_safety_signature.value='[[[0.1,0.2],[0.3,0.4]]]';
+ await f.onsubmit({preventDefault(){}});assert.deepEqual(t.errors,[]);assert.equal(t.writes.length,1);assert.equal(t.writes[0].payload.project_id,'job-a');assert.equal(t.writes[0].payload.kind,kind);assert.equal(t.writes[0].payload.payload.approvals.safety.name,'Assigned Safety');assert.equal(t.writes[0].payload.payload.approvals.safety.strokes.length,1);assert.equal(t.nav[0][0],'safetyToolReport');
+ await t.tools.report(t.writes[0].payload.id);assert.ok(document.querySelector('article.report'));assert.match(document.querySelector('h1').textContent,/By G&E$/);assert.match(document.querySelector('article.report').textContent,/Assigned Safety/);assert.equal(document.querySelectorAll('.report-signatures img').length,1);t.dom.window.close();
 });
 test('QR lookup requires a matching record, saves a snapshot and renders a report',async()=>{
  const t=setup();await t.tools.form('qr');const f=document.querySelector('form');await f.onsubmit({preventDefault(){}});assert.equal(t.writes.length,0);assert.equal(t.errors.length,1);
@@ -57,3 +57,4 @@ test('report photos load in bounded parallel batches without changing their orde
  let active=0,peak=0;t.ctx.signedDisplayImage=async(bucket,path)=>{active++;peak=Math.max(peak,active);await new Promise(r=>setImmediate(r));active--;return 'https://example.invalid/'+path};
  await createSafetyTools(t.ctx).report(t.writes[0].payload.id);assert.equal(peak,4);assert.deepEqual([...document.querySelectorAll('.ewr-photo-card img')].map(x=>x.getAttribute('src')),Array.from({length:7},(_,i)=>'https://example.invalid/'+i));t.dom.window.close();
 });
+

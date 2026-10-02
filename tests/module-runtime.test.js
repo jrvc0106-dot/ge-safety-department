@@ -1,3 +1,4 @@
+import {reportApprovals,reportSignaturesReport} from '../src/report-signatures.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -30,7 +31,7 @@ for(const name of ['inventoryPage','inventoryReport','safetyWalkReport','observa
  test(`${name} ignores a late response after changing screen or project`,async()=>{
   const gate=deferred(),frames=[],messages=[];const state={session:{user:{id:'user'}},profile:{id:'user',role:'admin'},project:'old',page:name,detail:'record',projects:[{id:'old'}],observations:[]};
   const query=new Proxy({}, {get:(_,key)=>key==='then'?gate.promise.then.bind(gate.promise):()=>query});
-  const context=vm.createContext({state,db:{from:()=>query},document:{querySelector:()=>null},frame:html=>frames.push(html),error:e=>messages.push(e),tr:x=>x,esc:x=>x,console});
+  const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},state,db:{from:()=>query},document:{querySelector:()=>null},frame:html=>frames.push(html),error:e=>messages.push(e),tr:x=>x,esc:x=>x,console});
   vm.runInContext('let renderRevision=0;'+fn('captureView')+'\n'+fn(name),context);
   const pending=context[name]();state.page='home';state.project='new';gate.resolve({data:[],error:Error('old connection')});await pending;
   assert.equal(frames.length,0);assert.equal(messages.length,0);
@@ -38,7 +39,7 @@ for(const name of ['inventoryPage','inventoryReport','safetyWalkReport','observa
 }
 function draftContext(){
  const state={profile:{id:'owner'},project:'job-a',detail:null},writes=[],local=new Map();
- const context=vm.createContext({state,db:{from:()=>({upsert:async value=>{writes.push(value);return {error:null}}})},document:{activeElement:null},localStorage:{setItem:(k,v)=>local.set(k,v)},tr:x=>x,console,clearTimeout,setTimeout});
+ const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},state,db:{from:()=>({upsert:async value=>{writes.push(value);return {error:null}}})},document:{activeElement:null},localStorage:{setItem:(k,v)=>local.set(k,v)},tr:x=>x,console,clearTimeout,setTimeout});
  vm.runInContext(source.slice(source.indexOf('const DRAFT_FORMS='),source.indexOf('const optionalScriptLoads=')),context);
  context.setDraftStatus=()=>{};context.renderDraftFileBadges=()=>{};
  const form={dataset:{autoDraft:'true'},isConnected:false,elements:[{name:'notes',type:'textarea',value:'original report',tagName:'TEXTAREA'}],querySelectorAll:()=>[]};
@@ -59,11 +60,11 @@ test('concurrent draft evidence fields retain both sets of photos after a jobsit
 });
 test('duplicate form submission invokes one write and restores buttons after failure',async()=>{
  const gate=deferred(),button={disabled:false},messages=[];let saves=0;const form={dataset:{},isConnected:true,querySelectorAll:()=>[button],onsubmit:async()=>{saves++;await gate.promise;throw Error('offline')}};
- const context=vm.createContext({document:{querySelectorAll:()=>[form]},error:err=>messages.push(err.message)});vm.runInContext(fn('installFormSubmissionGuards'),context);context.installFormSubmissionGuards();
+ const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},document:{querySelectorAll:()=>[form]},error:err=>messages.push(err.message)});vm.runInContext(fn('installFormSubmissionGuards'),context);context.installFormSubmissionGuards();
  const event={preventDefault(){}};const first=form.onsubmit(event);await form.onsubmit(event);assert.equal(saves,1);assert.equal(button.disabled,true);gate.resolve();await first;assert.equal(button.disabled,false);assert.deepEqual(messages,['offline']);
 });
 test('sticker OCR releases its bitmap on success and detector failure',async()=>{
- let closed=0;const context=vm.createContext({window:{TextDetector:true},createImageBitmap:async()=>({close(){closed++}}),TextDetector:class{async detect(){return [{rawValue:'GE12345'}]}}});vm.runInContext(fn('readStickerNumber'),context);
+ let closed=0;const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},window:{TextDetector:true},createImageBitmap:async()=>({close(){closed++}}),TextDetector:class{async detect(){return [{rawValue:'GE12345'}]}}});vm.runInContext(fn('readStickerNumber'),context);
  assert.equal(await context.readStickerNumber({}),'GE12345');context.TextDetector=class{async detect(){throw Error('unsupported')}};assert.equal(await context.readStickerNumber({}), '');assert.equal(closed,2);
 });
 test('JHA batches the full checklist, matches shuffled IDs to photos and saves its original jobsite',async()=>{
@@ -71,7 +72,7 @@ test('JHA batches the full checklist, matches shuffled IDs to photos and saves i
  const state={session:{user:{id:'user'}},profile:{id:'user',role:'admin'},project:'job-a',page:'safetyWalk',projects:[{id:'job-a',name:'A'}]};
  const items=Array.from({length:40},(_,i)=>['Category '+i,'Check '+i]);
  const db={from(table){let payload;const q={insert(value){payload=value;calls.push({table,payload});return q},select(){return q},single:async()=>({data:{id:'walk'}}),then(resolve,reject){return Promise.resolve({data:table==='daily_safety_walk_items'?payload.map(item=>({id:'item-'+item.sort_order,sort_order:item.sort_order})).reverse():null}).then(resolve,reject)}};return q},storage:{from:()=>({upload:async path=>{paths.push(path);return {}},remove:async()=>({})})}};
- const context=vm.createContext({state,db,document:{querySelector:()=>form},SAFETY_WALK_ITEMS:items,jhaSignatureFields,jhaApprovals,attachJhaSignatures(){},frame(){},tr:x=>x,esc:x=>x,fmt:()=>'',FormData:class{get(name){return name==='jha_safety_name'?'Safety A':name==='jha_superintendent_name'?'Superintendent B':name==='jha_safety_signature'?'[[[0.1,0.2],[0.4,0.5]]]':name==='jha_superintendent_signature'?'[[[0.6,0.7]]]':name==='overall_status'?'safe':name.startsWith('status_')?'safe':''}},draftFilesFor:async(_,__,___,name)=>name==='photos_2'?[{type:'image/jpeg',size:10,name:'photo.jpg'}]:[],captureJobsiteWeather:()=>weather.promise,normalizeReportImage:async file=>file,crypto:{randomUUID:()=> 'uuid'},clearDraft:async(...args)=>assert.equal(args[2],form),savedAction(){},navigate:(...args)=>redirects.push(args),error:err=>errors.push(err)});
+ const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},state,db,document:{querySelector:()=>form},SAFETY_WALK_ITEMS:items,jhaSignatureFields,jhaApprovals,attachJhaSignatures(){},frame(){},tr:x=>x,esc:x=>x,fmt:()=>'',FormData:class{get(name){return name==='jha_safety_name'?'Safety A':name==='jha_superintendent_name'?'Superintendent B':name==='jha_safety_signature'?'[[[0.1,0.2],[0.4,0.5]]]':name==='jha_superintendent_signature'?'[[[0.6,0.7]]]':name==='overall_status'?'safe':name.startsWith('status_')?'safe':''}},draftFilesFor:async(_,__,___,name)=>name==='photos_2'?[{type:'image/jpeg',size:10,name:'photo.jpg'}]:[],captureJobsiteWeather:()=>weather.promise,normalizeReportImage:async file=>file,crypto:{randomUUID:()=> 'uuid'},clearDraft:async(...args)=>assert.equal(args[2],form),savedAction(){},navigate:(...args)=>redirects.push(args),error:err=>errors.push(err)});
  vm.runInContext('let renderRevision=0;'+fn('captureView')+'\n'+fn('safetyWalk'),context);await context.safetyWalk();const pending=form.onsubmit({preventDefault(){},target:form});await tick();state.project='job-b';state.page='home';weather.resolve({});await pending;
  assert.deepEqual(errors,[]);const saved=calls.find(x=>x.table==='daily_safety_walks').payload;assert.equal(saved.project_id,'job-a');assert.equal(saved.approvals.safety.name,'Safety A');assert.equal(saved.approvals.superintendent.name,'Superintendent B');assert.deepEqual(saved.approvals.safety.strokes,[[[.1,.2],[.4,.5]]]);assert.deepEqual(saved.approvals.superintendent.strokes,[[[.6,.7]]]);const checklist=calls.filter(x=>x.table==='daily_safety_walk_items');assert.equal(checklist.length,1);assert.equal(checklist[0].payload.length,40);assert.equal(paths.length,1);assert.ok(paths[0].startsWith('walk/item-2/'));assert.deepEqual(redirects,[]);
 });
@@ -86,12 +87,12 @@ test('daily report batches related queries and remains nonexportable until rows 
  const rows=['one','two'].map(id=>({id,project_id:'job',created_at:'2026-09-30T12:00:00Z',area:id,category:'Safety',description:'Hazard',priority:'high',status:'open'}));
  const state={session:{user:{id:'user'}},profile:{id:'user',name:'Inspector'},project:'job',page:'report',projects:[{id:'job'}],observations:rows,lang:'en'};
  const db={from(table){const query={select(){return this},in(column,ids){queries.push({table,column,ids});return this},order(){return this},then(resolve,reject){return gate.promise.then(()=>({data:table==='observation_photos'?[{observation_id:'two',path:'photo',kind:'before'}]:[]})).then(resolve,reject)}};return query}};
- const context=vm.createContext({state,db,document:{querySelector:selector=>selector==='#back'?back:selector==='#report-rows'?box:report,createElement:()=>({})},frame(){},back(){},localDateKey:()=> '2026-09-30',photoUrl:async()=>({data:{signedUrl:'blob:photo'}}),tr:x=>x,esc:x=>x,fmt:x=>x,Intl});
+ const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},state,db,document:{querySelector:selector=>selector==='#back'?back:selector==='#report-rows'?box:report,createElement:()=>({})},frame(){},back(){},localDateKey:()=> '2026-09-30',photoUrl:async()=>({data:{signedUrl:'blob:photo'}}),tr:x=>x,esc:x=>x,fmt:x=>x,Intl});
  vm.runInContext('let renderRevision=0;'+fn('captureView')+'\n'+fn('report'),context);const pending=context.report();await tick();assert.equal(report.dataset.loading,'true');assert.equal(queries.length,2);assert.equal(queries[0].ids.length,2);gate.resolve();await pending;assert.equal(sections.length,2);assert.equal(report.dataset.loading,'false');assert.ok(!sections[0].innerHTML.includes('blob:photo'));assert.ok(sections[1].innerHTML.includes('blob:photo'));
 });
 test('report date filters use original timestamps for both English and Spanish display dates',()=>{
  let rowNode;function walk(n){if(!n||typeof n!=='object')return;if(n.type==='FunctionDeclaration'&&n.id.name==='row'&&n.params.some(p=>p.name==='timestamp'||p.left?.name==='timestamp'))rowNode=n;for(const v of Object.values(n))if(Array.isArray(v))v.forEach(walk);else if(v&&typeof v==='object')walk(v)}walk(ast);assert.ok(rowNode);
- const context=vm.createContext({esc:x=>x,docMeta:()=>'',tr:x=>x});vm.runInContext(source.slice(rowNode.start,rowNode.end),context);const timestamp='2026-09-30T15:00:00Z';
+ const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},esc:x=>x,docMeta:()=>'',tr:x=>x});vm.runInContext(source.slice(rowNode.start,rowNode.end),context);const timestamp='2026-09-30T15:00:00Z';
  for(const lang of ['en-US','es-US']){const displayed=new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(new Date(timestamp)),html=context.row('walk','x','Walk',displayed,'safe','daily_safety_walk',timestamp);assert.ok(html.includes(`data-time="${new Date(timestamp).getTime()}"`));assert.ok(html.includes(displayed));}
 });
 

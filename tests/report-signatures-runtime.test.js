@@ -1,0 +1,26 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {JSDOM} from 'jsdom';
+import {readFileSync} from 'node:fs';
+import {parseAst} from 'rollup/parseAst';
+import vm from 'node:vm';
+import {mountReportSignatures,reportApprovals,restoreReportSignatures,reportSignaturesReport} from '../src/report-signatures.js';
+const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=parseAst(source);
+const fn=name=>{const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);return source.slice(node.start,node.end)};
+for(const [name,kind,table] of [['equipmentInspection','equipment','equipment_inspections'],['discipline','discipline','safety_discipline'],['newObservation','observation','observations']])test(`${kind}: complete form saves all role names and strokes on its own record`,async()=>{
+ const dom=new JSDOM('<main></main>');for(const key of ['document','Event','FormData'])globalThis[key]=key==='document'?dom.window.document:dom.window[key];
+ dom.window.HTMLCanvasElement.prototype.getContext=()=>({clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}});
+ const writes=[],errors=[];const db={from(table){let payload;const q={select(){return q},eq(){return q},order(){return q},insert(p){payload=p;writes.push({table,payload});return q},update(){return q},delete(){return q},single:async()=>({data:{id:'new-id'}}),then(resolve,reject){return Promise.resolve({data:payload?{id:'new-id'}:[],error:null}).then(resolve,reject)}};return q},storage:{from:()=>({remove:async()=>({})})}};
+ const context=vm.createContext({state:{project:'job-a',profile:{id:'owner',name:'Safety',role:'admin'},projects:[{id:'job-a',name:'Job A'}]},db,document,Event,FormData,File:dom.window.File,mountReportSignatures,reportApprovals,captureView:()=>()=>true,frame:html=>{document.querySelector('main').innerHTML=html;for(const f of document.forms)for(const el of f.elements)if(el.name&&!(el.name in f))Object.defineProperty(f,el.name,{value:f.elements.namedItem(el.name),configurable:true})},tr:x=>x,esc:x=>String(x??''),fmt:()=>'',error:e=>errors.push(e.message),equipmentInspectionTypes:{forklift:{name:'Forklift',ref:'Reference',items:['Pre-use check']}},draftFilesFor:async()=>[],clearDraft:async()=>{},confirmAction(){},savedAction(){},navigate(){},back(){},load:async()=>{},render(){},localDateKey:()=> '2026-10-02',crypto:{randomUUID:()=> 'abc123'},console});
+ vm.runInContext(fn(name),context);await context[name]();const form=document.querySelector('form');
+ const roles=kind==='discipline'?['safety','employee','foreman']:['safety','foreman'];const approvals=Object.fromEntries(roles.map(r=>[r,{name:'Edited '+r,strokes:[[[.1,.2],[.4,.5]]]}]));restoreReportSignatures(form,kind,approvals);
+ if(form.elements.employee_name)form.elements.employee_name.value='Worker';if(form.elements.area)form.elements.area.value='Area';
+ await form.onsubmit({preventDefault(){},target:form});assert.deepEqual(errors,[]);const saved=writes.find(w=>w.table===table&&w.payload)?.payload;assert.ok(saved);assert.equal(saved.project_id,'job-a');assert.deepEqual(saved.approvals,approvals);dom.window.close();
+});
+for(const [name,kind,table] of [['equipmentInspectionReport','equipment','equipment_inspections'],['disciplineReport','discipline','safety_discipline'],['observationReport','observation','observations']])test(`${kind}: saved signatures appear in the actual PDF-ready report template`,async()=>{
+ const roles=kind==='discipline'?['safety','employee','foreman']:['safety','foreman'];const approvals=Object.fromEntries(roles.map(role=>[role,{name:'Saved '+role,strokes:[[[.1,.2],[.3,.4]]]}]));
+ const record={id:'record',project_id:'job',approvals,checklist:[],photos:[],created_at:'2026-10-02T12:00:00Z',incident_date:'2026-10-02T12:00:00Z',priority:'low',status:'open',description:'Description',overall_status:'approved',action_level:'coaching',employee_name:'Worker'};
+ const dom=new JSDOM('<main></main>');let html='';const db={from(name){const q={select(){return q},eq(){return q},order(){return q},single:async()=>({data:record}),then(resolve,reject){return Promise.resolve({data:name===table?record:[]}).then(resolve,reject)}};return q}};
+ const context=vm.createContext({db,state:{detail:'record',projects:[{id:'job',name:'Job'}],lang:'en'},document:dom.window.document,captureView:()=>()=>true,frame:value=>{html=value;dom.window.document.querySelector('main').innerHTML=value},reportSignaturesReport,tr:x=>x,esc:x=>String(x??''),fmt:x=>x,localDateKey:()=> '2026-10-02',equipmentInspectionTypes:{},back(){},error:e=>{throw e},Intl});
+ vm.runInContext(fn(name),context);await context[name]();for(const role of roles)assert.ok(html.includes('Saved '+role));assert.equal(dom.window.document.querySelectorAll('.report-signatures img').length,roles.length);dom.window.close();
+});

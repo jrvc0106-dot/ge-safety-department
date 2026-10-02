@@ -1,3 +1,4 @@
+import {reportApprovals,reportSignaturesReport} from '../src/report-signatures.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -9,7 +10,7 @@ function setup(files=[],draftFails=false){
  const writes=[],uploads=[],errors=[],redirects=[],button={disabled:false},form={dataset:{},querySelector:()=>button};
  const state={project:'original-job',profile:{id:'owner'},page:'inventory'};
  const db={from(table){const q={insert(payload){writes.push({table,payload});return q},update(){return q},delete(){return q},eq(){return q},select(){return q},single:async()=>({data:{id:'item'},error:null}),then(resolve,reject){return Promise.resolve({error:null}).then(resolve,reject)}};return q},storage:{from:()=>({upload:async path=>{uploads.push(path);return {error:null}},remove:async()=>({error:null})})}};
- const context=vm.createContext({state,db,document:{querySelector:()=>form},captureView:()=>()=>state.project==='original-job',frame(){},simplifyInventoryForm(){},tr:x=>x,esc:x=>x,INVENTORY_CATEGORIES:{tools:{}},inventoryLabel:x=>x,FormData:class{get(name){return {category:'tools',item_name:'Hammer',quantity:'1',condition:'good',status:'active',assigned_to:'Team'}[name]||''}},draftFilesFor:async(_,__,___,name)=>{if(draftFails)throw Error('Draft unavailable');return name==='photos'?files:[]},normalizeReportImage:async file=>file,crypto:{randomUUID:()=> 'uuid'},clearDraft:async()=>{},confirmAction(){},navigate:(...args)=>redirects.push(args),error:err=>errors.push(err.message),console});
+ const context=vm.createContext({reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},state,db,document:{querySelector:()=>form},captureView:()=>()=>state.project==='original-job',frame(){},simplifyInventoryForm(){},tr:x=>x,esc:x=>x,INVENTORY_CATEGORIES:{tools:{}},inventoryLabel:x=>x,FormData:class{get(name){return {category:'tools',item_name:'Hammer',quantity:'1',condition:'good',status:'active',assigned_to:'Team'}[name]||''}},draftFilesFor:async(_,__,___,name)=>{if(draftFails)throw Error('Draft unavailable');return name==='photos'?files:[]},normalizeReportImage:async file=>file,crypto:{randomUUID:()=> 'uuid'},clearDraft:async()=>{},confirmAction(){},navigate:(...args)=>redirects.push(args),error:err=>errors.push(err.message),console});
  vm.runInContext(fn('inventoryItemForm'),context);context.inventoryItemForm();
  return {context,state,form,button,writes,uploads,errors,redirects,submit:()=>form.onsubmit({preventDefault(){}})};
 }
@@ -21,6 +22,7 @@ test('inventory still saves without optional photos',async()=>{const t=setup();a
 test('valid inventory photos remain linked to the created item',async()=>{const t=setup([{size:12,type:'image/jpeg',name:'photo.jpg'}]);await t.submit();assert.deepEqual(t.errors,[]);assert.equal(t.uploads[0],'original-job/item/uuid.jpeg');assert.equal(t.writes.find(x=>x.table==='inventory_item_photos').payload.inventory_item_id,'item')});
 test('inventory report surfaces photo query errors instead of rendering missing evidence',async()=>{
  const errors=[],frames=[];const state={project:'job',profile:{name:'Safety'},projects:[]};
- const context=vm.createContext({state,captureView:()=>()=>true,localDateKey:()=> '2026-09-30',error:e=>errors.push(e.message),frame:html=>frames.push(html),db:{from:table=>{const q={select(){return q},eq(){return q},order(){return q},in(){return q},then(resolve,reject){return Promise.resolve(table==='inventory_items'?{data:[{id:'one',quantity:1}],error:null}:{data:null,error:Error('Photos unavailable')}).then(resolve,reject)}};return q}}});
+ const context=vm.createContext({reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},state,captureView:()=>()=>true,localDateKey:()=> '2026-09-30',error:e=>errors.push(e.message),frame:html=>frames.push(html),db:{from:table=>{const q={select(){return q},eq(){return q},order(){return q},in(){return q},then(resolve,reject){return Promise.resolve(table==='inventory_items'?{data:[{id:'one',quantity:1}],error:null}:{data:null,error:Error('Photos unavailable')}).then(resolve,reject)}};return q}}});
  vm.runInContext(fn('inventoryReport'),context);await context.inventoryReport();assert.deepEqual(errors,['Photos unavailable']);assert.equal(frames.length,0);
 });
+

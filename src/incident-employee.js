@@ -1,7 +1,8 @@
+import {reportSignaturesReport} from './report-signatures.js';
 export function orientationSnapshot(value){
  try{const o=typeof value==='string'?JSON.parse(value):value;if(!o||typeof o!=='object'||!o.sticker_number)return null;
  const fields=['id','sticker_number','employee_name','employee_company','employee_position','orientation_date','project_id','employee_profile_id','notes','orientation_photo_path','sticker_photo_path','orientation_document_photo_path'];
- return {...Object.fromEntries(fields.map(k=>[k,typeof o[k]==='string'?o[k]:null])),certificate_photo_paths:Array.isArray(o.certificate_photo_paths)?o.certificate_photo_paths.filter(p=>typeof p==='string'):[]};
+ return {...Object.fromEntries(fields.map(k=>[k,typeof o[k]==='string'?o[k]:null])),...(o.approvals&&typeof o.approvals==='object'?{approvals:o.approvals}:{}),certificate_photo_paths:Array.isArray(o.certificate_photo_paths)?o.certificate_photo_paths.filter(p=>typeof p==='string'):[]};
  }catch{return null}
 }
 export async function orientationEvidence(o,sign,tr){
@@ -10,7 +11,7 @@ export async function orientationEvidence(o,sign,tr){
 }
 export function renderOrientationRecord(o,photos,{tr,esc}){
  const fields=[[tr('Sticker Number','Número de Sticker'),o.sticker_number],[tr('Employee Name','Nombre del Empleado'),o.employee_name],[tr('Company','Compañía'),o.employee_company],[tr('Position / Trade','Cargo / Oficio'),o.employee_position],[tr('Orientation Date','Fecha de Orientación'),o.orientation_date],[tr('Notes','Notas'),o.notes]];
- return '<dl class="ir-detail-grid">'+fields.map(([k,v])=>'<div><dt>'+esc(k)+'</dt><dd>'+esc(v||'—')+'</dd></div>').join('')+'</dl>'+(photos.length?'<div class="ir-photos">'+photos.map(p=>'<figure>'+(p.url?'<img src="'+esc(p.url)+'" alt="'+esc(p.label)+'">':'<p>'+tr('Image unavailable. Retry loading the record.','Imagen no disponible. Vuelva a cargar la ficha.')+'</p>')+'<figcaption>'+esc(p.label)+'</figcaption></figure>').join('')+'</div>':'');
+ return '<dl class="ir-detail-grid">'+fields.map(([k,v])=>'<div><dt>'+esc(k)+'</dt><dd>'+esc(v||'—')+'</dd></div>').join('')+'</dl>'+(photos.length?'<div class="ir-photos">'+photos.map(p=>'<figure>'+(p.url?'<img src="'+esc(p.url)+'" alt="'+esc(p.label)+'">':'<p>'+tr('Image unavailable. Retry loading the record.','Imagen no disponible. Vuelva a cargar la ficha.')+'</p>')+'<figcaption>'+esc(p.label)+'</figcaption></figure>').join('')+'</div>':'')+(o.approvals?reportSignaturesReport('orientation',o.approvals,tr):'');
 }
 export function attachIncidentEmployee(form,{db,tr,esc,sign,isCurrent,onError}){
  const picker=form.elements.namedItem('employee_sticker'),snapshot=form.elements.namedItem('employee_orientation_snapshot'),panel=form.querySelector('[data-employee-record]'),status=form.querySelector('[data-employee-status]'),button=form.querySelector('[data-employee-find]'),list=form.querySelector('#incident-sticker-list');let version=0,pending=false;
@@ -35,3 +36,4 @@ export function attachIncidentEmployee(form,{db,tr,esc,sign,isCurrent,onError}){
  form.addEventListener('submit',e=>{if(pending){e.preventDefault();e.stopImmediatePropagation();status.textContent=tr('Wait for the employee record to finish loading.','Espere a que termine de cargar la ficha del empleado.')}},true);
  (async()=>{try{let offset=0;while(isCurrent()){const q=await db.from('safety_orientations').select('sticker_number,employee_name').order('sticker_number').range(offset,offset+499);if(!isCurrent())return;if(q.error)throw q.error;for(const o of q.data||[]){const option=document.createElement('option');option.value=o.sticker_number;option.label=o.employee_name;list.append(option)}if((q.data||[]).length<500)break;offset+=500}}catch{if(isCurrent())status.textContent=tr('Suggestions unavailable. Enter a sticker number and select Load employee.','Sugerencias no disponibles. Escriba un sticker y seleccione Cargar empleado.')}})();
 }
+
