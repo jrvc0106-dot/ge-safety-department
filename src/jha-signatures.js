@@ -62,6 +62,6 @@ export function jhaSignaturesReport(approvals,tr,roles=defaultRoles,labelFor=rol
   const record=approvals?.[role]||{},strokes=signatureStrokes(record.strokes),label=labelFor(role,tr);
   const paths=strokes.map(s=>s.length===1?`<circle cx="${s[0][0]*900}" cy="${s[0][1]*300}" r="1.5" fill="#202830"/>`:`<path d="M${s.map(p=>`${p[0]*900},${p[1]*300}`).join(' L')}"/>`).join('');
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300"><g fill="none" stroke="#202830" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;
-  return `<div>${strokes.length?`<img class="jha-report-signature" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" alt="${label}: ${tr('Digital signature','Firma digital')}">`:'<span class="jha-signature-space"></span>'}<strong>${esc(record.name||'—')}</strong><small>${label}</small></div>`;
+  return `<div>${strokes.length?`<img class="jha-report-signature" data-signature-strokes="${esc(JSON.stringify(strokes))}" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" alt="${label}: ${tr('Digital signature','Firma digital')}">`:'<span class="jha-signature-space"></span>'}<strong>${esc(record.name||'—')}</strong><small>${label}</small></div>`;
  }).join('')+'</div>';
 }

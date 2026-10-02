@@ -13,6 +13,7 @@ import {renderIncidentReport} from './incident-report-template.js';
 import {simplifyInventoryForm} from './inventory-ui.js';
 import {createPdfLoader} from './pdf-loader.js';
 import {optimizePhoto} from './photo-optimizer.js';
+import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
 import { createClient } from '@supabase/supabase-js';
@@ -387,6 +388,7 @@ async function buildReportPdf(highQuality=false){
   if(report.jhaPdfProgress)options.onPageRendered=report.jhaPdfProgress;
   const worker=html2pdf().set(options).from(report).toContainer();
   const container=await worker.get('container');
+  try{await rasterizePdfSignatures(container)}catch(err){(await worker.get('overlay'))?.remove();throw err}
   let blob;
   if(highQuality){
     try{

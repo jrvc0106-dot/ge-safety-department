@@ -15,12 +15,24 @@ function setup({archiveFails=false,canShare=false}={}){
  vm.runInContext(helpers+'\n'+actions,context);
  context.ensurePdfExporter=async()=>()=>worker;
  context.renderPaginatedPdf=async()=>blob;
+ context.rasterizePdfSignatures=async()=>{};
  return {context,report,button,messages,downloads,shares};
 }
 test('cloud archive failure still downloads and repeated exports reuse the PDF',async()=>{
  const t=setup({archiveFails:true});await t.context.runPdfAction('download',t.button);await Promise.resolve();
  assert.equal(t.downloads.length,1);assert.ok(t.messages.some(m=>m[0].includes('cloud copy')));
  await t.context.runPdfAction('download',t.button);assert.equal(t.downloads.length,2);assert.equal(t.button.disabled,false);
+});
+
+test('download rasterizes saved signatures in the PDF clone before page rendering',async()=>{
+ const t=setup();let rasterized=false,rendered=false;
+ t.context.rasterizePdfSignatures=async container=>{assert.ok(container);rasterized=true};
+ t.context.renderPaginatedPdf=async()=>{assert.equal(rasterized,true);rendered=true;return new Blob(['%PDF-1.4 signed'],{type:'application/pdf'})};
+ const snapshot=t.report.innerHTML;await t.context.runPdfAction('download',t.button);assert.equal(rendered,true);assert.equal(t.downloads.length,1);assert.equal(t.report.innerHTML,snapshot);
+});
+test('a signature rendering failure stops download and restores its control for retry',async()=>{
+ const t=setup();t.context.rasterizePdfSignatures=async()=>{throw Error('Unable to render the saved digital signature.')};
+ await t.context.runPdfAction('download',t.button);assert.equal(t.downloads.length,0);assert.equal(t.button.disabled,false);assert.ok(t.messages.some(m=>m[0].includes('saved digital signature')));assert.equal(t.context.preparedReportPdf(t.report),null);
 });
 test('sharing prepares once, then invokes native sharing directly from the next click',async()=>{
  const t=setup({canShare:true});await t.context.runPdfAction('share',t.button);assert.equal(t.shares.length,0);assert.match(t.button.textContent,/Share PDF now/);
