@@ -11,8 +11,8 @@ import {attachJhaPdfActions} from './jha-pdf-actions.js';
 import {ACCIDENT_MECHANISMS,attachIncidentOptions} from './incident-options.js';
 import {renderIncidentReport} from './incident-report-template.js';
 import {simplifyInventoryForm} from './inventory-ui.js';
-import html2pdf from 'html2pdf.js';
-import {renderPaginatedPdf} from './pdf-export.js';
+import {createPdfLoader} from './pdf-loader.js';
+import {optimizePhoto} from './photo-optimizer.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
 import { createClient } from '@supabase/supabase-js';
@@ -258,10 +258,11 @@ function loadOptionalScript(name,src){
   return task;
 }
 const ensureHeicConverter=()=>loadOptionalScript('heic2any','https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js');
-let pdfExporterLoad;
-function ensurePdfExporter(){
-  if(!pdfExporterLoad)pdfExporterLoad=Promise.resolve(html2pdf);
-  return pdfExporterLoad;
+let renderPaginatedPdf;
+const loadPdfTools=createPdfLoader(()=>import('./pdf-tools.js'));
+async function ensurePdfExporter(){
+  try{const tools=await loadPdfTools();renderPaginatedPdf=tools.renderPaginatedPdf;return tools.html2pdf}
+  catch{throw new Error(tr('PDF tools could not load. Check your connection and try again.','No se pudieron cargar las herramientas PDF. Revise su conexión e intente nuevamente.'))}
 }
 const preparedReportPdfs=new WeakMap();
 const jhaReportImageUrls=new WeakMap();
@@ -289,11 +290,11 @@ function pdfCanvasScale(width,height){
 async function normalizeReportImage(file){
   if(!(file instanceof File)||!file.size)return file;
   const heic=/image\/hei[cf]/i.test(file.type)||/\.hei[cf]$/i.test(file.name);
-  if(!heic)return file;
+  if(!heic)return optimizePhoto(file);
   await ensureHeicConverter();
   const converted=await window.heic2any({blob:file,toType:'image/jpeg',quality:.98});
   const blob=Array.isArray(converted)?converted[0]:converted;
-  return new File([blob],(file.name||'photo').replace(/\.hei[cf]$/i,'')+'.jpg',{type:'image/jpeg',lastModified:Date.now()});
+  return optimizePhoto(new File([blob],(file.name||'photo').replace(/\.hei[cf]$/i,'')+'.jpg',{type:'image/jpeg',lastModified:Date.now()}));
 }
 async function waitForReportImages(report){
   const imgs=[...report.querySelectorAll('img')];
