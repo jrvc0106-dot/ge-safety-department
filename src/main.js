@@ -1,3 +1,5 @@
+import {attachJhaPhotos,jhaPhotoController} from './jha-photos.js';
+import './jha-photos.css';
 import {mountReportSignatures,reportApprovals,reportSignaturesReport} from './report-signatures.js';
 import {attachAggregateSignatures} from './aggregate-signatures.js';
 import {jhaSignatureFields,attachJhaSignatures,jhaApprovals,jhaSignaturesReport} from './jha-signatures.js';
@@ -129,8 +131,9 @@ async function uploadDraftFiles(form,type,key,input){
   if(up.error)throw up.error;
   saved.push({path,name:file.name,type:file.type,size:file.size});
  }
- Object.assign(all,draftFileState.get(ctx)||{});all[input.name]=saved;draftFileState.set(ctx,all);renderDraftFileBadges(form,all);await persistDraft(form,type,key);
- if(old.length)await db.storage.from('draft-evidence').remove(old.map(x=>x.path));
+ Object.assign(all,draftFileState.get(ctx)||{});all[input.name]=type==='daily_safety_walk'?[...old,...saved]:saved;draftFileState.set(ctx,all);renderDraftFileBadges(form,all);await persistDraft(form,type,key);
+ if(old.length&&type!=='daily_safety_walk')await db.storage.from('draft-evidence').remove(old.map(x=>x.path));
+ return saved;
 }
 function renderDraftFileBadges(form,files={}){
  form.querySelectorAll('.draft-file-restored').forEach(x=>x.remove());
@@ -140,6 +143,7 @@ function renderDraftFileBadges(form,files={}){
  }
 }
 async function draftFilesFor(form,type,key='default',name){
+ if(type==='daily_safety_walk'&&jhaPhotoController(form))return jhaPhotoController(form).files(name);
  await draftUploads.get(formDraftKey(form,type,key)+':'+name);
  const input=[...form.querySelectorAll('input[type=file]')].find(x=>x.name===name);
  if(input?.files?.length)return [...input.files];
@@ -200,7 +204,7 @@ async function enableAutoDraft(form,type,key='default'){
  form.addEventListener('input',schedule);
  form.addEventListener('change',schedule);
  form.addEventListener('focusin',schedule);
- form.addEventListener('change',e=>{if(e.target?.type!=='file'||!e.target.files?.length||form.dataset.autoDraft!=='true')return;
+ form.addEventListener('change',e=>{if(type==='daily_safety_walk'||e.target?.type!=='file'||!e.target.files?.length||form.dataset.autoDraft!=='true')return;
   const uploadKey=formDraftKey(form,type,key)+':'+e.target.name,previous=draftUploads.get(uploadKey)||Promise.resolve();
   const input={name:e.target.name,files:[...e.target.files]};
   const upload=previous.catch(()=>{}).then(()=>uploadDraftFiles(form,type,key,input));
@@ -214,6 +218,13 @@ async function enableAutoDraft(form,type,key='default'){
  try{restored=await restoreDraft(form,type,key)}
  finally{form.inert=false}
  form.dataset.autoDraft='true';
+ if(type==='daily_safety_walk')attachJhaPhotos(form,{
+  list:name=>(draftFileState.get(formDraftKey(form,type,key))||{})[name]||[],
+  add:(name,files)=>uploadDraftFiles(form,type,key,{name,files}),
+  remove:async(name,item)=>{const ctx=formDraftKey(form,type,key),all=draftFileState.get(ctx)||{},previous=all[name]||[];all[name]=previous.filter(photo=>photo.path!==item.path);draftFileState.set(ctx,all);try{await persistDraft(form,type,key)}catch(err){all[name]=previous;throw err}renderDraftFileBadges(form,all);await db.storage.from('draft-evidence').remove([item.path])},
+  preview:item=>signedDisplayImage('draft-evidence',item.path,3600),
+  download:async item=>{const result=await db.storage.from('draft-evidence').download(item.path);if(result.error)throw result.error;return new File([result.data],item.name,{type:item.type||result.data.type})},tr,onError:error
+ });
  return restored;
 }
 function activateOperationalDrafts(){

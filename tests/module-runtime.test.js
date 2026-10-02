@@ -68,6 +68,8 @@ test('concurrent draft evidence fields retain both sets of photos after a jobsit
  const first=t.context.uploadDraftFiles(t.form,'daily_safety_walk','default',{name:'photos_0',files:[file('first.jpg')]});
  t.state.project='job-b';const second=t.context.uploadDraftFiles(t.form,'daily_safety_walk','default',{name:'photos_1',files:[file('second.jpg')]});await second;gate.resolve();await first;
  const files=t.context.serializeDraftForm(t.form,'daily_safety_walk').__files;assert.equal(files.photos_0.length,1);assert.equal(files.photos_1.length,1);assert.ok(paths.every(path=>path.startsWith('owner/job-a/')));
+ await t.context.uploadDraftFiles(t.form,'daily_safety_walk','default',{name:'photos_0',files:[file('third.jpg')]});
+ const appended=t.context.serializeDraftForm(t.form,'daily_safety_walk').__files;assert.deepEqual(Array.from(appended.photos_0,x=>x.name),['first.jpg','third.jpg']);assert.equal(appended.photos_1.length,1);
 });
 test('duplicate form submission invokes one write and restores buttons after failure',async()=>{
  const gate=deferred(),button={disabled:false},messages=[];let saves=0;const form={dataset:{},isConnected:true,querySelectorAll:()=>[button],onsubmit:async()=>{saves++;await gate.promise;throw Error('offline')}};
