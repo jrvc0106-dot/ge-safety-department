@@ -1,0 +1,8 @@
+.jha-approval-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin:20px 0}
+.jha-approval{min-width:0;padding:16px;border:1px solid #cfd6da;border-radius:8px;background:#fff}
+.jha-approval canvas{display:block;width:100%;height:auto;aspect-ratio:3/1;background:#fff;border:1px solid #aeb8bf;border-radius:6px;touch-action:none}
+.jha-approval small{display:block;margin:8px 0;color:#52616b}
+.jha-signed-approvals>div{break-inside:avoid}
+.jha-signed-approvals .jha-report-signature,.jha-signed-approvals .jha-signature-space{display:block;width:100%;height:80px;object-fit:contain;object-position:left center;margin:0 0 5px}
+.jha-signed-approvals strong{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:760px){.jha-approval-fields{grid-template-columns:1fr}}

@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {jhaSignatureFields,jhaApprovals} from '../src/jha-signatures.js';
 import {parseAst} from 'rollup/parseAst';
 import {createImageCache,createTaskQueue} from '../src/image-cache.js';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=parseAst(source);
@@ -70,9 +71,9 @@ test('JHA batches the full checklist, matches shuffled IDs to photos and saves i
  const state={session:{user:{id:'user'}},profile:{id:'user',role:'admin'},project:'job-a',page:'safetyWalk',projects:[{id:'job-a',name:'A'}]};
  const items=Array.from({length:40},(_,i)=>['Category '+i,'Check '+i]);
  const db={from(table){let payload;const q={insert(value){payload=value;calls.push({table,payload});return q},select(){return q},single:async()=>({data:{id:'walk'}}),then(resolve,reject){return Promise.resolve({data:table==='daily_safety_walk_items'?payload.map(item=>({id:'item-'+item.sort_order,sort_order:item.sort_order})).reverse():null}).then(resolve,reject)}};return q},storage:{from:()=>({upload:async path=>{paths.push(path);return {}},remove:async()=>({})})}};
- const context=vm.createContext({state,db,document:{querySelector:()=>form},SAFETY_WALK_ITEMS:items,frame(){},tr:x=>x,esc:x=>x,fmt:()=>'',FormData:class{get(name){return name==='overall_status'?'safe':name.startsWith('status_')?'safe':''}},draftFilesFor:async(_,__,___,name)=>name==='photos_2'?[{type:'image/jpeg',size:10,name:'photo.jpg'}]:[],captureJobsiteWeather:()=>weather.promise,normalizeReportImage:async file=>file,crypto:{randomUUID:()=> 'uuid'},clearDraft:async(...args)=>assert.equal(args[2],form),savedAction(){},navigate:(...args)=>redirects.push(args),error:err=>errors.push(err)});
+ const context=vm.createContext({state,db,document:{querySelector:()=>form},SAFETY_WALK_ITEMS:items,jhaSignatureFields,jhaApprovals,attachJhaSignatures(){},frame(){},tr:x=>x,esc:x=>x,fmt:()=>'',FormData:class{get(name){return name==='jha_safety_name'?'Safety A':name==='jha_superintendent_name'?'Superintendent B':name==='jha_safety_signature'?'[[[0.1,0.2],[0.4,0.5]]]':name==='jha_superintendent_signature'?'[[[0.6,0.7]]]':name==='overall_status'?'safe':name.startsWith('status_')?'safe':''}},draftFilesFor:async(_,__,___,name)=>name==='photos_2'?[{type:'image/jpeg',size:10,name:'photo.jpg'}]:[],captureJobsiteWeather:()=>weather.promise,normalizeReportImage:async file=>file,crypto:{randomUUID:()=> 'uuid'},clearDraft:async(...args)=>assert.equal(args[2],form),savedAction(){},navigate:(...args)=>redirects.push(args),error:err=>errors.push(err)});
  vm.runInContext('let renderRevision=0;'+fn('captureView')+'\n'+fn('safetyWalk'),context);await context.safetyWalk();const pending=form.onsubmit({preventDefault(){},target:form});await tick();state.project='job-b';state.page='home';weather.resolve({});await pending;
- assert.deepEqual(errors,[]);assert.equal(calls.find(x=>x.table==='daily_safety_walks').payload.project_id,'job-a');const checklist=calls.filter(x=>x.table==='daily_safety_walk_items');assert.equal(checklist.length,1);assert.equal(checklist[0].payload.length,40);assert.equal(paths.length,1);assert.ok(paths[0].startsWith('walk/item-2/'));assert.deepEqual(redirects,[]);
+ assert.deepEqual(errors,[]);const saved=calls.find(x=>x.table==='daily_safety_walks').payload;assert.equal(saved.project_id,'job-a');assert.equal(saved.approvals.safety.name,'Safety A');assert.equal(saved.approvals.superintendent.name,'Superintendent B');assert.deepEqual(saved.approvals.safety.strokes,[[[.1,.2],[.4,.5]]]);assert.deepEqual(saved.approvals.superintendent.strokes,[[[.6,.7]]]);const checklist=calls.filter(x=>x.table==='daily_safety_walk_items');assert.equal(checklist.length,1);assert.equal(checklist[0].payload.length,40);assert.equal(paths.length,1);assert.ok(paths[0].startsWith('walk/item-2/'));assert.deepEqual(redirects,[]);
 });
 test('clearing a submitted draft removes only that form owner’s draft after navigating away',async()=>{
  const t=draftContext(),filters=[],removed=[];t.context.draftOwner(t.form,'incident','default');t.state.project='job-b';t.state.profile={id:'another'};
@@ -93,3 +94,4 @@ test('report date filters use original timestamps for both English and Spanish d
  const context=vm.createContext({esc:x=>x,docMeta:()=>'',tr:x=>x});vm.runInContext(source.slice(rowNode.start,rowNode.end),context);const timestamp='2026-09-30T15:00:00Z';
  for(const lang of ['en-US','es-US']){const displayed=new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(new Date(timestamp)),html=context.row('walk','x','Walk',displayed,'safe','daily_safety_walk',timestamp);assert.ok(html.includes(`data-time="${new Date(timestamp).getTime()}"`));assert.ok(html.includes(displayed));}
 });
+
