@@ -1,7 +1,7 @@
-// Attach only to the JHA report. Preparation remains on demand, so merely
+// Shared by all final reports. Preparation remains on demand, so merely
 // opening a report never generates or archives a new PDF revision.
 export function attachJhaPdfActions(actions,report,{run,warm,isCurrent,scheduleIdle,nextTurn,progressText}){
- // JHA preview should complete from the original tap. runPdfAction reserves the
+ // Report previews should complete from the original tap. runPdfAction reserves the
  // Safari preview window synchronously, then fills it as soon as rendering ends.
  report.dataset.pdfViewMode='single-click';
  const buttons=['view','download','share'].map(action=>({action,button:actions.querySelector('.pdf-'+action)}));

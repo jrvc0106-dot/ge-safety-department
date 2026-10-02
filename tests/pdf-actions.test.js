@@ -122,3 +122,12 @@ test('report navigation observer releases JHA resources when the report is repla
  assert.equal(t.context.preparedReportPdf(t.report,true),null);
  assert.equal(vm.runInContext('activeJhaPdfReport',t.context),null);
 });
+
+for(const page of ['report','observationReport','disciplineReport','incidentReport','equipmentInspectionReport','inventoryReport','safetyToolReport'])test(`${page} installs all three guarded PDF actions and tracks resources for release`,()=>{
+ const buttons=Object.fromEntries(['view','download','share'].map(action=>['.pdf-'+action,{}]));
+ const actions={querySelector:selector=>buttons[selector]},report={},bar={dataset:{},appendChild(){}};let attached=false;
+ const context=vm.createContext({state:{page},document:{querySelector:selector=>selector==='article.report'?report:bar,createElement:()=>actions},tr:x=>x,runPdfAction(){},attachJhaPdfActions:(installed,tracked,options)=>{assert.equal(installed,actions);assert.equal(tracked,report);assert.equal(options.isCurrent(),true);attached=true},window:{},setTimeout});
+ const start=source.indexOf('function installReportDocumentActions()'),end=source.indexOf('const reportActionObserver=');
+ vm.runInContext('let activeJhaPdfReport=null;'+source.slice(start,end),context);context.installReportDocumentActions();
+ assert.equal(attached,true);assert.equal(vm.runInContext('activeJhaPdfReport',context),report);
+});

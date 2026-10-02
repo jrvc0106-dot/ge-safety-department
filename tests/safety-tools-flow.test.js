@@ -58,3 +58,17 @@ test('report photos load in bounded parallel batches without changing their orde
  await createSafetyTools(t.ctx).report(t.writes[0].payload.id);assert.equal(peak,4);assert.deepEqual([...document.querySelectorAll('.ewr-photo-card img')].map(x=>x.getAttribute('src')),Array.from({length:7},(_,i)=>'https://example.invalid/'+i));t.dom.window.close();
 });
 
+test('saved safety tool report survives draft cleanup failure and opens normally',async()=>{
+ const t=setup();t.ctx.clearDraft=async()=>{throw Error('Draft cleanup offline')};const tools=createSafetyTools(t.ctx);
+ await tools.form('hazard');await document.querySelector('form').onsubmit({preventDefault(){}});
+ assert.equal(t.writes.length,1);assert.equal(t.errors.length,0);assert.equal(t.nav[0][0],'safetyToolReport');t.dom.window.close();
+});
+
+for(const failure of ['empty','rejected'])test(`QR final report preserves evidence integrity when an orientation image is ${failure}`,async()=>{
+ const t=setup();await t.tools.form('hazard');await document.querySelector('form').onsubmit({preventDefault(){}});
+ t.writes[0].payload.kind='qr';t.writes[0].payload.payload.lookup_evidence=[{bucket:'orientation-photos',path:'face',label:'Employee Face ID'}];
+ t.ctx.signedDisplayImage=async()=>{if(failure==='rejected')throw Error('Evidence unavailable');return ''};
+ document.querySelector('main').innerHTML='<p>Previous view</p>';
+ await assert.rejects(createSafetyTools(t.ctx).report(t.writes[0].payload.id),/Evidence/);
+ assert.equal(document.querySelector('article.report'),null);t.dom.window.close();
+});

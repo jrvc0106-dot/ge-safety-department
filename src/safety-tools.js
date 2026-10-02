@@ -79,14 +79,14 @@ export function createSafetyTools(ctx){
      const saved=await db.from(table).insert({id,project_id:projectId,created_by:userId,kind,report_number:reportNumber,payload:values,photos:uploaded}).select('id').single();
      if(saved.error){const existing=await db.from(table).select('id').eq('id',id).maybeSingle();if(!existing.data)throw saved.error}stored=true;
     }
-    await clearDraft('safety_tool_'+kind,'default',f);confirmAction(tr('Report saved successfully.','Reporte guardado correctamente.'));if(current())navigate('safetyToolReport',id);
+    await clearDraft('safety_tool_'+kind,'default',f).catch(err=>console.warn('Saved report draft cleanup failed',err));confirmAction(tr('Report saved successfully.','Reporte guardado correctamente.'));if(current())navigate('safetyToolReport',id);
    }catch(e){if(!stored&&uploaded.length)await db.storage.from(bucket).remove(uploaded.map(x=>x.path));error(e)}finally{delete f.dataset.submitting;button.disabled=false;f.inert=false}
   };
  }
  async function report(id){
   stop();const current=captureView(),project=state.project;const q=await db.from(table).select('*,creator:profiles!safety_tool_records_created_by_fkey(name)').eq('id',id).eq('project_id',project).single();if(!current())return;if(q.error)throw q.error;assertKind(q.data.kind);
   const r=q.data,photos=[...(r.photos||[]).map(x=>({...x,bucket})),...(r.payload.lookup_evidence||[])],images=[];
-  for(let n=0;n<photos.length;n+=4){if(!current())return;const batch=await Promise.all(photos.slice(n,n+4).map(async photo=>{let url;try{url=await signedDisplayImage(photo.bucket,photo.path)}catch(e){if(photo.bucket===bucket)throw e}if(!url&&photo.bucket===bucket)throw Error(tr('Evidence failed to load. Please retry.','No se pudo cargar la evidencia. Reintente.'));return {...photo,url:url||''}}));images.push(...batch)}if(!current())return;
+  for(let n=0;n<photos.length;n+=4){if(!current())return;const batch=await Promise.all(photos.slice(n,n+4).map(async photo=>{const url=await signedDisplayImage(photo.bucket,photo.path);if(!url)throw Error(tr('Evidence failed to load. Please retry.','No se pudo cargar la evidencia. Reintente.'));return {...photo,url:url||''}}));images.push(...batch)}if(!current())return;
   frame(`<div class="report-actions"><button id="st-back" class="secondary">← ${tr('Saved reports','Reportes guardados')}</button><button id="st-another">＋ ${tr('New report','Nuevo reporte')}</button></div>`+toolReportHtml(r,state.projects.find(p=>p.id===project)||{},images,tr));
   document.querySelector('#st-back').onclick=()=>navigate('safetyTool',r.kind);const another=document.querySelector('#st-another');another.hidden=!canCreateTool(r.kind,state.profile.role);another.onclick=()=>navigate('safetyToolForm',r.kind);
  }
