@@ -30,3 +30,13 @@ test('invalid or injected signature coordinates are rejected without executing o
  for(const value of ['bad',[[['<script>',.2]]],[[[Infinity,.2]]],[[[-1,.2]]],[[[1.2,.2]]],{},Array(501).fill([[.2,.3]])])assert.deepEqual(signatureStrokes(value),[]);
  assert.deepEqual(signatureStrokes('[[[0,1]]]'),[[[0,1]]]);
 });
+test('continuous signing groups draft notifications while retaining every point before submission',()=>{
+ const t=fixture();let notifications=0,repaints=0;
+ t.form.addEventListener('input',()=>notifications++);
+ const canvas=t.form.querySelector('[data-jha-signature="safety"]');canvas.getContext('2d').clearRect=()=>repaints++;
+ t.pointer('safety','pointerdown',10,10);
+ for(let i=1;i<=100;i++)t.pointer('safety','pointermove',10+i,10+i/2);
+ const saved=jhaApprovals(new t.dom.window.FormData(t.form));assert.equal(saved.safety.strokes[0].length,101);
+ assert.equal(notifications,1);assert.equal(repaints,1);
+ t.pointer('safety','pointerup',110,60);assert.equal(notifications,2);
+});

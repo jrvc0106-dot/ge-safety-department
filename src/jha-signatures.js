@@ -19,26 +19,35 @@ export function attachJhaSignatures(form){
   const canvas=form.querySelector(`[data-jha-signature="${role}"]`),input=form.elements.namedItem(`jha_${role}_signature`);
   if(!canvas||!input)continue;
   const ctx=canvas.getContext('2d');if(!ctx)continue;
-  let strokes=signatureStrokes(input.value),pointer=null,stroke=null;
+  let strokes=signatureStrokes(input.value),pointer=null,stroke=null,saveTimer=null;
+  let pointCount=strokes.reduce((n,s)=>n+s.length,0);
   const draw=()=>{
    ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#202830';ctx.fillStyle='#202830';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';
    for(const s of strokes){ctx.beginPath();ctx.moveTo(s[0][0]*canvas.width,s[0][1]*canvas.height);for(const p of s.slice(1))ctx.lineTo(p[0]*canvas.width,p[1]*canvas.height);if(s.length===1){ctx.arc(s[0][0]*canvas.width,s[0][1]*canvas.height,1.5,0,Math.PI*2);ctx.fill()}else ctx.stroke()}
   };
-  const save=()=>{input.value=JSON.stringify(strokes);input.dispatchEvent(new Event('input',{bubbles:true}))};
+  const notify=()=>{clearTimeout(saveTimer);saveTimer=null;input.dispatchEvent(new Event('input',{bubbles:true}))};
+  const save=(immediate=true)=>{
+   // Keep current strokes available to submit and visibility-triggered draft saves.
+   input.value=JSON.stringify(strokes);
+   if(immediate)notify();else if(saveTimer===null)saveTimer=setTimeout(()=>{saveTimer=null;if(input.isConnected)notify()},180);
+  };
   const point=e=>{const r=canvas.getBoundingClientRect();return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))].map(n=>Math.round(n*10000)/10000)};
-  input.addEventListener('change',()=>{strokes=signatureStrokes(input.value);pointer=null;stroke=null;draw()});
+  input.addEventListener('change',()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()});
   canvas.addEventListener('pointerdown',e=>{
-   if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0)||strokes.length>=500)return;
-   e.preventDefault();pointer=e.pointerId;stroke=[point(e)];strokes.push(stroke);canvas.setPointerCapture?.(pointer);draw();save();
+   if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0)||strokes.length>=500||pointCount>=20000)return;
+   e.preventDefault();pointer=e.pointerId;stroke=[point(e)];strokes.push(stroke);pointCount++;canvas.setPointerCapture?.(pointer);draw();save();
   });
   canvas.addEventListener('pointermove',e=>{
    if(e.pointerId!==pointer||!stroke)return;e.preventDefault();
-   if(strokes.reduce((n,s)=>n+s.length,0)>=20000)return;
-   stroke.push(point(e));draw();save();
+   if(pointCount>=20000)return;
+   const previous=stroke[stroke.length-1],next=point(e);
+   if(previous[0]===next[0]&&previous[1]===next[1])return;
+   stroke.push(next);pointCount++;
+   ctx.beginPath();ctx.moveTo(previous[0]*canvas.width,previous[1]*canvas.height);ctx.lineTo(next[0]*canvas.width,next[1]*canvas.height);ctx.stroke();save(false);
   });
   const finish=e=>{if(e.pointerId!==pointer)return;pointer=null;stroke=null;save()};
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,finish);
-  form.querySelector(`[data-jha-clear="${role}"]`).onclick=()=>{strokes=[];pointer=null;stroke=null;draw();save()};
+  form.querySelector(`[data-jha-clear="${role}"]`).onclick=()=>{strokes=[];pointCount=0;pointer=null;stroke=null;draw();save()};
   draw();
  }
 }
