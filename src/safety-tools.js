@@ -1,0 +1,94 @@
+import {TOOL_DEFINITIONS,canCreateTool,canReadTool,parseQrValue,summarizeProjects,toolReportHtml,escapeHtml as esc} from './safety-tools-model.js';
+
+export function toolsHomeMarkup(role,tr){
+ return `<section class="st-home"><h2>${tr('New tools','Nuevas herramientas')}</h2><div class="home-actions">${Object.entries(TOOL_DEFINITIONS).filter(([k])=>canReadTool(k,role)).map(([k,d])=>`<button class="home-action st-tool" data-safety-tool="${k}"><span class="action-icon">${d.icon}</span><span>${tr(d.en,d.es)}</span></button>`).join('')}</div></section>`;
+}
+export function createSafetyTools(ctx){
+ const {db,state,tr,frame,navigate,captureView,error,confirmAction,enableAutoDraft,draftFilesFor,clearDraft,normalizeReportImage,signedDisplayImage}=ctx;
+ const table='safety_tool_records',bucket='safety-tool-evidence';
+ let cameraCleanup=()=>{};
+ function stop(){cameraCleanup();cameraCleanup=()=>{}}
+ function assertKind(kind){if(!canReadTool(kind,state.profile?.role))throw Error(tr('Access not available for this role.','Acceso no disponible para este rol.'));return TOOL_DEFINITIONS[kind]}
+ const field=([name,en,es,type='text'])=>`<label>${tr(en,es)}${type==='textarea'?`<textarea name="${name}" maxlength="12000" rows="3"></textarea>`:type==='priority'?`<select name="${name}"><option value="low">${tr('Low','Baja')}</option><option value="medium">${tr('Medium','Media')}</option><option value="high">${tr('High','Alta')}</option></select>`:`<input name="${name}" type="${type}" ${type==='number'?'min="0" max="1440"':'maxlength="500"'}>`}</label>`;
+ function bindHome(){document.querySelectorAll('[data-safety-tool]').forEach(b=>b.onclick=()=>navigate('safetyTool',b.dataset.safetyTool))}
+ async function list(kind){
+  stop();const d=assertKind(kind),current=captureView(),project=state.project;
+  const q=await db.from(table).select('id,kind,report_number,created_at,payload').eq('project_id',project).eq('kind',kind).order('created_at',{ascending:false}).limit(100);
+  if(!current())return;if(q.error)throw q.error;
+  frame(`<section class="card st-shell"><h1>${tr(d.en,d.es)}</h1><p>${esc(state.projects.find(p=>p.id===project)?.name||'')}</p>${canCreateTool(kind,state.profile.role)?`<button id="st-new">＋ ${tr(kind==='qr'?'New lookup':'New report',kind==='qr'?'Nueva consulta':'Nuevo reporte')}</button>`:''}<h2>${tr('Saved reports','Reportes guardados')}</h2><input id="st-search" type="search" placeholder="${tr('Search saved reports','Buscar reportes guardados')}"><div class="st-records">${q.data.length?q.data.map(r=>`<button class="report-record" data-tool-record="${r.id}"><strong>${esc(r.report_number)}</strong><span>${esc(r.payload.topic||r.payload.location||r.payload.lookup?.employee_name||'')} · ${esc(new Date(r.created_at).toLocaleString())}</span><span>${tr('Open report','Abrir reporte')} ›</span></button>`).join(''):`<p>${tr('No saved reports yet.','Todavía no hay reportes guardados.')}</p>`}</div><p class="st-hint">${tr('Showing up to 100 most recent records.','Se muestran hasta los 100 registros más recientes.')}</p></section>`);
+  const button=document.querySelector('#st-new');if(button)button.onclick=()=>navigate('safetyToolForm',kind);
+  document.querySelectorAll('[data-tool-record]').forEach(b=>b.onclick=()=>navigate('safetyToolReport',b.dataset.toolRecord));
+  document.querySelector('#st-search').oninput=e=>{document.querySelectorAll('[data-tool-record]').forEach(b=>b.hidden=!b.textContent.toLowerCase().includes(e.target.value.toLowerCase()))};
+ }
+ async function form(kind){
+  stop();const d=assertKind(kind);if(!canCreateTool(kind,state.profile.role))throw Error(tr('Your role cannot create this report.','Su rol no puede crear este reporte.'));
+  const current=captureView(),projectId=state.project,userId=state.profile.id,preparedBy=state.profile.name||'';
+  const id=crypto.randomUUID();let stored=false,lookup=null,lookupType='employee',lookupPhotos=[],lookupVersion=0,summary=null;
+  if(kind==='director'){
+   // Query every permitted project's rows with pagination, rather than using
+   // the dashboard's potentially capped observation cache.
+   const rows=[];for(const p of state.projects){for(let n=0;;n+=500){const q=await db.from('observations').select('project_id,status,priority').eq('project_id',p.id).order('id').range(n,n+499);if(!current())return;if(q.error)throw q.error;rows.push(...q.data);if(q.data.length<500)break}}
+   summary=summarizeProjects(state.projects,rows);
+  }
+  if(!current())return;
+  frame(`<section class="card st-shell"><h1>${tr(d.en,d.es)}</h1><p>${esc(state.projects.find(p=>p.id===projectId)?.name||'')}</p><form id="st-${kind}-form" data-auto-draft="initializing"><input type="hidden" name="signatures"><input type="hidden" name="lookup"><input type="hidden" name="lookup_type"><input type="hidden" name="lookup_evidence"><label>${tr('Weather (optional)','Clima (opcional)')}<input name="weather" maxlength="150"></label>${d.fields.map(field).join('')}${d.checklist?`<fieldset><legend>${tr('Inspection checklist','Checklist de inspección')}</legend>${d.checklist.map(([en,es],i)=>`<label>${tr(en,es)}<select name="check_${i}"><option value="">${tr('Not recorded','Sin registrar')}</option><option value="reviewed">${tr('Reviewed','Revisado')}</option><option value="follow_up">${tr('Follow-up required','Requiere seguimiento')}</option><option value="na">N/A</option></select></label>`).join('')}</fieldset>`:''}${kind==='director'?`<div class="st-summary">${summary.map(x=>`<div><strong>${esc(x.project)}</strong><span>${tr('Open','Abiertas')}: ${x.open} · ${tr('Review','Revisión')}: ${x.review} · ${tr('Closed','Cerradas')}: ${x.closed} · ${tr('High','Alta')}: ${x.high}</span></div>`).join('')}</div>`:''}${kind==='qr'?`<fieldset><legend>${tr('Employee or equipment lookup','Consulta de empleado o equipo')}</legend><select id="st-lookup-type"><option value="employee">${tr('Employee sticker','Sticker del empleado')}</option><option value="equipment">${tr('Equipment asset number','Número del equipo')}</option></select><input id="st-code" maxlength="500" placeholder="${tr('Sticker or asset number','Sticker o número de equipo')}"><div class="st-controls"><button type="button" id="st-find">${tr('Look up','Consultar')}</button><button type="button" id="st-camera">${tr('Scan with camera','Escanear con cámara')}</button><button type="button" id="st-stop" hidden>${tr('Stop camera','Detener cámara')}</button></div><label>${tr('QR image from gallery','Imagen QR de la galería')}<input id="st-qr-file" type="file" accept="image/*"></label><video id="st-video" playsinline muted hidden></video><p id="st-qr-status" role="status"></p><div id="st-lookup-result"></div></fieldset>`:''}<label>${tr('Photos / supporting documents (images)','Fotos / documentos de respaldo (imágenes)')}<input name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple></label><p>${tr('Up to 12 images per report, 10 MB per image.','Hasta 12 imágenes por reporte, 10 MB por imagen.')}</p><fieldset><legend>${tr('Signatures (optional)','Firmas (opcionales)')}</legend><p>${tr('Each person should sign their own acknowledgment.','Cada persona debe firmar su propio reconocimiento.')}</p>${[0,1].map(i=>`<div class="st-sign-pad"><label>${tr(i?'Supervisor / reviewer name':'Prepared by / inspector name',i?'Nombre del supervisor / revisor':'Nombre del preparador / inspector')}<input name="signer_${i}" maxlength="150"></label><canvas width="600" height="160" data-sign-pad="${i}" aria-label="${tr('Signature','Firma')} ${i+1}"></canvas><button type="button" class="secondary" data-clear-sign="${i}">${tr('Clear signature','Borrar firma')}</button></div>`).join('')}</fieldset><button type="submit">${tr('Save and open report','Guardar y abrir reporte')}</button><p class="st-hint">${tr('Reports may be saved with incomplete fields. A blank field is not an approval.','Se permite guardar campos incompletos. Un campo vacío no constituye una aprobación.')}</p></form></section>`);
+  const f=document.getElementById(`st-${kind}-form`);await enableAutoDraft(f,'safety_tool_'+kind);if(!current())return;
+  bindSignatures(f);
+  const chosen=()=>{try{return JSON.parse(f.elements.lookup.value||'null')}catch{return null}};
+  if(kind==='qr'){
+   const code=document.querySelector('#st-code'),type=document.querySelector('#st-lookup-type'),result=document.querySelector('#st-lookup-result'),status=document.querySelector('#st-qr-status');
+   lookup=chosen();try{lookupPhotos=JSON.parse(f.elements.lookup_evidence.value||'[]')}catch{lookupPhotos=[]}lookupType=f.elements.lookup_type.value||'employee';type.value=lookupType;
+   const show=()=>{result.innerHTML=lookup?`<dl>${Object.entries(lookup).map(([k,v])=>`<dt>${esc(k.replaceAll('_',' '))}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`:''};show();
+   const invalidate=()=>{lookupVersion++;lookup=null;lookupPhotos=[];f.elements.lookup_evidence.value='';f.elements.lookup.value='';f.elements.lookup.dispatchEvent(new Event('input',{bubbles:true}));show()};code.oninput=invalidate;type.onchange=invalidate;
+   const find=async()=>{const token=++lookupVersion;try{let parsed=parseQrValue(code.value);if(!/^GE:|^https?:/i.test(code.value))parsed.type=type.value;lookup=null;lookupPhotos=[];f.elements.lookup.value='';show();status.textContent=tr('Searching…','Buscando…');
+    const employee=parsed.type==='employee';let q=employee?await db.from('safety_orientations').select('*').eq('project_id',projectId).eq('sticker_number',parsed.value).maybeSingle():await db.from('equipment_inspections').select('id,asset_id,equipment_name,equipment_type,inspection_at,overall_status,removed_from_service,defects_found,corrective_action').eq('project_id',projectId).eq('asset_id',parsed.value).order('inspection_at',{ascending:false}).limit(1).maybeSingle();
+    if(!current()||token!==lookupVersion)return;if(q.error)throw q.error;if(!q.data){status.textContent=tr('No accessible record in this project.','No hay un registro accesible en este proyecto.');return}
+    const o=q.data;lookupType=parsed.type;lookup=employee?{employee_name:o.employee_name,sticker_number:o.sticker_number,company:o.employee_company||'',position:o.employee_position||'',orientation_date:o.orientation_date||'',certificate_photos:(o.certificate_photo_paths||[]).length}:{asset_id:o.asset_id,equipment_name:o.equipment_name,equipment_type:o.equipment_type,inspection_at:o.inspection_at,overall_status:o.overall_status,removed_from_service:o.removed_from_service?tr('Yes','Sí'):tr('No','No'),defects_found:o.defects_found||'',corrective_action:o.corrective_action||''};
+    if(employee)lookupPhotos=[['Employee Face ID',o.orientation_photo_path],['Sticker',o.sticker_photo_path],['Orientation',o.orientation_document_photo_path],...(o.certificate_photo_paths||[]).map((path,i)=>['Certificate '+(i+1),path])].filter(([,p])=>p).map(([label,path])=>({bucket:'orientation-photos',path,label}));
+    f.elements.lookup_evidence.value=JSON.stringify(lookupPhotos);f.elements.lookup.value=JSON.stringify(lookup);f.elements.lookup_type.value=lookupType;f.elements.lookup.dispatchEvent(new Event('input',{bubbles:true}));show();status.textContent=tr('Record found. Review before saving.','Registro encontrado. Revise antes de guardar.');
+   }catch(e){if(current()&&token===lookupVersion){status.textContent=e.message;error(e)}}};
+   document.querySelector('#st-find').onclick=find;code.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();find()}};
+   const decode=async(source)=>{const {default:jsQR}=await import('jsqr');const canvas=document.createElement('canvas');const w=source.videoWidth||source.width,h=source.videoHeight||source.height;const scale=Math.min(1,1600/Math.max(w,h));canvas.width=Math.round(w*scale);canvas.height=Math.round(h*scale);const c=canvas.getContext('2d',{willReadFrequently:true});c.drawImage(source,0,0,canvas.width,canvas.height);const pixels=c.getImageData(0,0,canvas.width,canvas.height);const found=jsQR(pixels.data,pixels.width,pixels.height);canvas.width=canvas.height=0;return found?.data};
+   document.querySelector('#st-qr-file').onchange=async e=>{try{const file=e.target.files?.[0];if(!file)return;const bitmap=await createImageBitmap(await normalizeReportImage(file));let value;try{value=await decode(bitmap)}finally{bitmap.close()}if(!current())return;if(value){invalidate();code.value=value;await find()}else status.textContent=tr('QR not detected. Enter the number manually.','QR no detectado. Ingrese el número manualmente.')}catch(e){error(e)}};
+   document.querySelector('#st-camera').onclick=async()=>{try{stop();const video=document.querySelector('#st-video'),stopButton=document.querySelector('#st-stop');let active=true,timer,stream;const cleanup=()=>{active=false;clearTimeout(timer);stream?.getTracks().forEach(t=>t.stop());video.srcObject=null;video.hidden=true;stopButton.hidden=true;document.removeEventListener('visibilitychange',hidden)};const hidden=()=>{if(document.hidden)cleanup()};cameraCleanup=cleanup;document.addEventListener('visibilitychange',hidden);
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});if(!current()||!active){cleanup();return}video.srcObject=stream;video.hidden=false;stopButton.hidden=false;await video.play();const scan=async()=>{if(!active||!current()){cleanup();return}try{if(video.readyState>=2){const value=await decode(video);if(value){cleanup();invalidate();code.value=value;await find();return}}}catch(e){cleanup();error(e);return}timer=setTimeout(scan,400)};scan();
+   }catch(e){stop();status.textContent=tr('Camera unavailable. Use a QR image or enter the number.','Cámara no disponible. Use una imagen QR o ingrese el número.');error(e)}};
+   document.querySelector('#st-stop').onclick=stop;
+  }
+  f.onsubmit=async e=>{
+   e.preventDefault();if(f.dataset.submitting==='true')return;f.dataset.submitting='true';const button=f.querySelector('button[type=submit]');button.disabled=true;
+   const uploaded=[];
+   try{
+    if(kind==='qr'&&!lookup)throw Error(tr('Look up an employee or equipment before saving.','Consulte un empleado o equipo antes de guardar.'));
+    const values=Object.fromEntries(new FormData(f));delete values.photos;delete values.lookup;delete values.lookup_type;delete values.lookup_evidence;
+    values.signatures=JSON.parse(values.signatures||'[]');values.prepared_by=preparedBy;
+    if(kind==='director')values.summary=summary;
+    if(kind==='qr'){values.lookup=lookup;values.lookup_type=lookupType;values.lookup_evidence=lookupPhotos}
+    const photos=await draftFilesFor(f,'safety_tool_'+kind,'default','photos');if(photos.length>12)throw Error(tr('Maximum 12 images per report.','Máximo 12 imágenes por reporte.'));
+    if(!stored){
+     for(const raw of photos){if(raw.size>10*1024*1024)throw Error(tr('Each image must be 10 MB or less.','Cada imagen debe pesar 10 MB o menos.'));const file=await normalizeReportImage(raw);if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)throw Error(tr('Use a supported image up to 10 MB.','Use una imagen compatible de hasta 10 MB.'));const path=`${projectId}/${userId}/${id}/${crypto.randomUUID()}.${file.type.split('/')[1]}`;const up=await db.storage.from(bucket).upload(path,file,{contentType:file.type});if(up.error)throw up.error;uploaded.push({path,label:raw.name})}
+     const reportNumber=d.prefix+'-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+id.slice(0,8).toUpperCase();
+     const saved=await db.from(table).insert({id,project_id:projectId,created_by:userId,kind,report_number:reportNumber,payload:values,photos:uploaded}).select('id').single();
+     if(saved.error){const existing=await db.from(table).select('id').eq('id',id).maybeSingle();if(!existing.data)throw saved.error}stored=true;
+    }
+    await clearDraft('safety_tool_'+kind,'default',f);confirmAction(tr('Report saved successfully.','Reporte guardado correctamente.'));if(current())navigate('safetyToolReport',id);
+   }catch(e){if(!stored&&uploaded.length)await db.storage.from(bucket).remove(uploaded.map(x=>x.path));error(e)}finally{delete f.dataset.submitting;button.disabled=false}
+  };
+ }
+ function bindSignatures(form){
+  const hidden=form.elements.signatures;let entries;try{entries=JSON.parse(hidden.value||'[]')}catch{entries=[]}
+  const update=()=>{entries=[0,1].map(i=>({...entries[i],name:form.elements['signer_'+i].value}));hidden.value=JSON.stringify(entries);hidden.dispatchEvent(new Event('input',{bubbles:true}))};
+  form.querySelectorAll('[data-sign-pad]').forEach(canvas=>{const i=Number(canvas.dataset.signPad),c=canvas.getContext('2d');let drawing=false;if(entries[i]?.image){const img=new Image();img.onload=()=>c.drawImage(img,0,0,600,160);img.src=entries[i].image}form.elements['signer_'+i].oninput=update;
+   const pos=e=>{const r=canvas.getBoundingClientRect();return [(e.clientX-r.left)*canvas.width/r.width,(e.clientY-r.top)*canvas.height/r.height]};
+   canvas.onpointerdown=e=>{drawing=true;canvas.setPointerCapture(e.pointerId);c.beginPath();c.moveTo(...pos(e));e.preventDefault()};canvas.onpointermove=e=>{if(drawing){c.lineWidth=2;c.lineCap='round';c.lineTo(...pos(e));c.stroke();e.preventDefault()}};const done=()=>{if(!drawing)return;drawing=false;entries[i]={...entries[i],image:canvas.toDataURL('image/png')};update()};canvas.onpointerup=done;canvas.onpointercancel=done;
+   form.querySelector(`[data-clear-sign="${i}"]`).onclick=()=>{c.clearRect(0,0,600,160);entries[i]={...entries[i],image:''};update()};
+  });
+ }
+ async function report(id){
+  stop();const current=captureView(),project=state.project;const q=await db.from(table).select('*,creator:profiles!safety_tool_records_created_by_fkey(name)').eq('id',id).eq('project_id',project).single();if(!current())return;if(q.error)throw q.error;assertKind(q.data.kind);
+  const r=q.data,images=[];for(const photo of [...(r.photos||[]).map(x=>({...x,bucket})),...(r.payload.lookup_evidence||[])]){let url;try{url=await signedDisplayImage(photo.bucket,photo.path)}catch(e){if(photo.bucket===bucket)throw e}if(!url&&photo.bucket===bucket)throw Error(tr('Evidence failed to load. Please retry.','No se pudo cargar la evidencia. Reintente.'));images.push({...photo,url:url||''})}if(!current())return;
+  frame(`<div class="report-actions"><button id="st-back" class="secondary">← ${tr('Saved reports','Reportes guardados')}</button><button id="st-another">＋ ${tr('New report','Nuevo reporte')}</button></div>`+toolReportHtml(r,state.projects.find(p=>p.id===project)||{},images,tr));
+  document.querySelector('#st-back').onclick=()=>navigate('safetyTool',r.kind);const another=document.querySelector('#st-another');another.hidden=!canCreateTool(r.kind,state.profile.role);another.onclick=()=>navigate('safetyToolForm',r.kind);
+ }
+ return {list,form,report,bindHome,stop};
+}
