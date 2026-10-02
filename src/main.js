@@ -264,6 +264,13 @@ function ensurePdfExporter(){
   return pdfExporterLoad;
 }
 const preparedReportPdfs=new WeakMap();
+const jhaReportImageUrls=new WeakMap();
+let activeJhaPdfReport=null;
+function releaseJhaPdfResources(report){
+  preparedReportPdfs.delete(report);
+  for(const url of jhaReportImageUrls.get(report)||[])URL.revokeObjectURL(url);
+  jhaReportImageUrls.delete(report);
+}
 let pdfActionBusy=false;
 function preparedReportPdf(report,highQuality=false){
   const cached=preparedReportPdfs.get(report);
@@ -308,7 +315,15 @@ async function waitForReportImages(report){
       if(!response.ok)throw new Error('image fetch failed');
       const blob=await response.blob();
       if(!blob.size)throw new Error('empty image');
-      img.src=URL.createObjectURL(blob);
+      const isJha=report.dataset?.pdfViewMode==='single-click';
+      if(isJha&&document.querySelector('article.report')!==report)return;
+      const url=URL.createObjectURL(blob);
+      if(isJha){
+        let urls=jhaReportImageUrls.get(report);
+        if(!urls){urls=new Set();jhaReportImageUrls.set(report,urls)}
+        urls.add(url);
+      }
+      img.src=url;
       if(await wait(img))return;
     }catch{}
     failed.push(index);
@@ -403,22 +418,26 @@ async function runPdfAction(action,button){
   if(pdfActionBusy)return;
   const report=document.querySelector('article.report');
   let prepared=report&&preparedReportPdf(report,true),preview;
+  const isJha=report?.dataset?.pdfViewMode==='single-click';
   const readyFirstView=action==='view'&&report?.dataset?.pdfViewMode==='ready-first';
   const original=button?.innerHTML;
   pdfActionBusy=true;
   try{
     if(button){button.disabled=true;button.textContent=tr('Preparing PDF…','Preparando PDF…')}
     // Reserve the preview while the click still has browser activation.
-    if(action==='view'&&!readyFirstView){preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
-    if(readyFirstView&&prepared){
+    if(action==='view'&&!readyFirstView&&!(isJha&&prepared)){
+      try{preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
+      catch(e){if(!isJha)throw e}
+    }
+    if((readyFirstView||(isJha&&action==='view'))&&prepared){
       const url=URL.createObjectURL(prepared.blob);
-      preview=window.open(url,'_blank');
+      try{preview=window.open(url,'_blank')}catch(e){if(!isJha)throw e}
       if(preview)preview.opener=null;
       else{downloadReportPdf(prepared.blob,prepared.filename);confirmAction(tr('PDF ready. The browser blocked the preview, so the download was started.','PDF listo. El navegador bloqueó la vista; se inició la descarga.'))}
       setTimeout(()=>URL.revokeObjectURL(url),600000);return;
     }
     // Download a ready JHA directly during the click, preserving Safari activation.
-    if(action==='download'&&report?.dataset?.pdfViewMode==='ready-first'&&prepared){
+    if(action==='download'&&(isJha||report?.dataset?.pdfViewMode==='ready-first')&&prepared){
       downloadReportPdf(prepared.blob,prepared.filename);
       confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+prepared.filename);return;
     }
@@ -438,13 +457,29 @@ async function runPdfAction(action,button){
       confirmAction(tr('PDF ready. Tap “View PDF now” to open it.','PDF listo. Pulse “Ver PDF ahora” para abrirlo.'));return;
     }
     if(action==='view'&&preview&&!preview.closed){
-      const u=URL.createObjectURL(blob);preview.location.href=u;setTimeout(()=>URL.revokeObjectURL(u),120000);return;
+      const u=URL.createObjectURL(blob);
+      try{preview.location.href=u}
+      catch(e){
+        URL.revokeObjectURL(u);
+        if(!isJha)throw e;
+        preview.close();downloadReportPdf(blob,filename);
+        confirmAction(tr('PDF ready. The browser blocked the preview, so the download was started.','PDF listo. El navegador bloqueó la vista; se inició la descarga.'));return;
+      }
+      setTimeout(()=>URL.revokeObjectURL(u),120000);return;
     }
     if(action==='share'){
       const file=new File([blob],filename,{type:'application/pdf'});
       if(!navigator.share||!navigator.canShare?.({files:[file]})){
         downloadReportPdf(blob,filename);
         confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));return;
+      }
+      // Safari may expire activation during a long first render. Share immediately
+      // when it is still valid; otherwise keep the prepared file for the next tap.
+      if(isJha&&navigator.userActivation?.isActive){
+        try{
+          await navigator.share({title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim(),files:[file]});
+          confirmAction(tr('Sharing completed in the selected app.','Se completó la acción de compartir en la aplicación seleccionada.'));return;
+        }catch(e){if(e?.name!=='NotAllowedError')throw e}
       }
       confirmAction(tr('PDF ready. Tap “Share PDF now” to choose an app.','PDF listo. Pulse “Compartir PDF ahora” para elegir una aplicación.'));return;
     }
@@ -474,7 +509,7 @@ function installReportDocumentActions(){
   actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
   actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
   actions.querySelector('.pdf-share').onclick=e=>runPdfAction('share',e.currentTarget);
-  if(state.page==='safetyWalkReport'){report.dataset.pdfViewMode='ready-first';attachJhaPdfActions(actions,report,{
+  if(state.page==='safetyWalkReport'){activeJhaPdfReport=report;attachJhaPdfActions(actions,report,{
     run:runPdfAction,
     warm:()=>ensurePdfExporter(),
     isCurrent:()=>state.page==='safetyWalkReport'&&document.querySelector('article.report')===report,
@@ -483,7 +518,11 @@ function installReportDocumentActions(){
     progressText:(page,total)=>tr('Preparing PDF… ','Preparando PDF… ')+page+'/'+total
   });}
 }
-const reportActionObserver=new MutationObserver(()=>{if(document.querySelector('article.report'))installReportDocumentActions()});
+const reportActionObserver=new MutationObserver(()=>{
+  const report=document.querySelector('article.report');
+  if(activeJhaPdfReport&&activeJhaPdfReport!==report){releaseJhaPdfResources(activeJhaPdfReport);activeJhaPdfReport=null}
+  if(report)installReportDocumentActions();
+});
 reportActionObserver.observe(app,{childList:true,subtree:true});
 function flushActiveDrafts(){
  const active=[...document.querySelectorAll('form[data-auto-draft="true"],form[data-auto-draft="initializing"]')];

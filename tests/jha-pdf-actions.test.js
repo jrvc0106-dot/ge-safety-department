@@ -5,7 +5,7 @@ function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{reso
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function setup(run=async()=>{}){
  const buttons=Object.fromEntries(['view','download','share'].map(action=>[action,{disabled:false,textContent:action,events:{},addEventListener(name,listener){this.events[name]=listener}}]));
- const actions={querySelector:selector=>buttons[selector.replace('.pdf-','')]},report={};let idle,current=true,warmCalls=0,turns=0;
+ const actions={querySelector:selector=>buttons[selector.replace('.pdf-','')]},report={dataset:{}};let idle,current=true,warmCalls=0,turns=0;
  attachJhaPdfActions(actions,report,{run,warm:async()=>{warmCalls++},isCurrent:()=>current,scheduleIdle:task=>idle=task,nextTurn:async()=>{turns++},progressText:(page,total)=>`Preparing PDF ${page}/${total}`});
  return {buttons,report,idle:()=>idle(),leave:()=>current=false,get warmCalls(){return warmCalls},get turns(){return turns}};
 }
@@ -16,7 +16,7 @@ test('scheduled JHA preload is skipped after leaving the report',async()=>{
  const t=setup();t.leave();await t.idle();assert.equal(t.warmCalls,0);
 });
 test('JHA preload retries after a temporary network failure',async()=>{
- let idle,calls=0;const button={addEventListener(){}};attachJhaPdfActions({querySelector:()=>button},{},{run:async()=>{},warm:async()=>{if(++calls===1)throw Error('offline')},isCurrent:()=>true,scheduleIdle:task=>idle=task,nextTurn:async()=>{},progressText:()=>''});
+ let idle,calls=0;const button={addEventListener(){}};attachJhaPdfActions({querySelector:()=>button},{dataset:{}},{run:async()=>{},warm:async()=>{if(++calls===1)throw Error('offline')},isCurrent:()=>true,scheduleIdle:task=>idle=task,nextTurn:async()=>{},progressText:()=>''});
  await idle();await idle();assert.equal(calls,2);
 });
 for(const action of ['view','download','share']){

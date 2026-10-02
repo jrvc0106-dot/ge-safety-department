@@ -71,3 +71,54 @@ test('JHA preview after download opens the existing PDF immediately and a blocke
  const t=setup(),opened=[];t.report.dataset={pdfViewMode:'ready-first'};await t.context.runPdfAction('download',t.button);t.context.window.open=url=>{opened.push(url);return null};
  const pending=t.context.runPdfAction('view',t.button);assert.deepEqual(opened,['blob:pdf']);assert.equal(t.downloads.length,2);await pending;assert.ok(!opened.includes('about:blank'));
 });
+
+for(const action of ['view','download']){
+ test(`prepared single-click JHA ${action} executes before returning to the event loop`,async()=>{
+  const t=setup();t.report.dataset={pdfViewMode:'single-click'};await t.context.buildReportPdf(true);
+  const opened=[];t.context.window.open=url=>{opened.push(url);return {closed:false}};
+  t.context.buildReportPdf=()=>{throw Error('must reuse the ready PDF')};
+  const pending=t.context.runPdfAction(action,t.button);
+  if(action==='view')assert.deepEqual(opened,['blob:pdf']);else assert.equal(t.downloads.length,1);
+  await pending;
+ });
+}
+test('single-click JHA falls back to download when opening a cached preview throws',async()=>{
+ const t=setup();t.report.dataset={pdfViewMode:'single-click'};await t.context.buildReportPdf(true);
+ t.context.window.open=()=>{throw Error('Safari blocked popup')};await t.context.runPdfAction('view',t.button);
+ assert.equal(t.downloads.length,1);assert.equal(t.button.disabled,false);
+});
+test('single-click JHA falls back if Safari refuses to navigate the reserved window',async()=>{
+ const t=setup();t.report.dataset={pdfViewMode:'single-click'};let closed=false;
+ t.context.window.open=()=>({closed:false,close(){closed=true},location:{set href(value){throw Error('navigation blocked')}}});
+ await t.context.runPdfAction('view',t.button);assert.equal(t.downloads.length,1);assert.ok(closed);
+});
+test('leaving JHA releases its cached PDF and recovered image URLs without revoking an open preview',async()=>{
+ const t=setup(),revoked=[];t.report.dataset={pdfViewMode:'single-click'};await t.context.buildReportPdf(true);
+ t.context.URL.revokeObjectURL=url=>revoked.push(url);
+ t.context.reportForCleanup=t.report;
+ vm.runInContext("jhaReportImageUrls.set(reportForCleanup,new Set(['blob:recovered-photo']))",t.context);
+ t.context.releaseJhaPdfResources(t.report);assert.equal(t.context.preparedReportPdf(t.report,true),null);
+ assert.deepEqual(revoked,['blob:recovered-photo']);
+ t.context.releaseJhaPdfResources(t.report);assert.equal(revoked.length,1);
+});
+test('first JHA share uses native sharing if activation survives rendering',async()=>{
+ const t=setup({canShare:true});t.report.dataset={pdfViewMode:'single-click'};t.context.navigator.userActivation={isActive:true};
+ await t.context.runPdfAction('share',t.button);assert.equal(t.shares.length,1);assert.equal(t.downloads.length,0);
+});
+test('expired Safari activation keeps JHA PDF ready for a second sharing tap',async()=>{
+ const t=setup({canShare:true});t.report.dataset={pdfViewMode:'single-click'};t.context.navigator.userActivation={isActive:true};
+ t.context.navigator.share=()=>Promise.reject(Object.assign(Error('activation expired'),{name:'NotAllowedError'}));
+ await t.context.runPdfAction('share',t.button);assert.match(t.button.textContent,/Share PDF now/);assert.equal(t.downloads.length,0);assert.ok(t.context.preparedReportPdf(t.report,true));assert.equal(t.button.disabled,false);
+});
+
+test('report navigation observer releases JHA resources when the report is replaced',async()=>{
+ const t=setup();t.report.dataset={pdfViewMode:'single-click'};await t.context.buildReportPdf(true);
+ t.context.reportForCleanup=t.report;t.context.installReportDocumentActions=()=>{};
+ t.context.MutationObserver=class{constructor(callback){this.callback=callback}};
+ const observerSource=source.slice(source.indexOf('const reportActionObserver='),source.indexOf('reportActionObserver.observe('));
+ vm.runInContext('activeJhaPdfReport=reportForCleanup;'+observerSource,t.context);
+ t.context.document.querySelector=()=>null;
+ vm.runInContext('reportActionObserver.callback()',t.context);
+ assert.equal(t.context.preparedReportPdf(t.report,true),null);
+ assert.equal(vm.runInContext('activeJhaPdfReport',t.context),null);
+});
