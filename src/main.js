@@ -298,6 +298,7 @@ async function normalizeReportImage(file){
   return optimizePhoto(new File([blob],(file.name||'photo').replace(/\.hei[cf]$/i,'')+'.jpg',{type:'image/jpeg',lastModified:Date.now()}));
 }
 async function waitForReportImages(report){
+  const isDailyJha=state.page==='safetyWalkReport';
   const imgs=[...report.querySelectorAll('img')];
   const failed=[];
   const wait=img=>new Promise(resolve=>{
@@ -331,7 +332,10 @@ async function waitForReportImages(report){
     failed.push(index);
   }));
   if(failed.length)throw new Error(tr('PDF stopped because '+failed.length+' image(s) did not load. Please check your connection and try again.','El PDF se detuvo porque '+failed.length+' imagen(es) no cargaron. Verifique su conexión e intente nuevamente.'));
-  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  // Opening the JHA preview can hide this tab; animation frames may then stop.
+  // Loaded images already have dimensions, so yield without requiring a repaint.
+  if(isDailyJha)await new Promise(resolve=>setTimeout(resolve,0));
+  else await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 }
 function reportPdfFilename(report){
   const title=(report.querySelector('h1')?.textContent||'G&E Safety Report').trim().replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');
@@ -420,6 +424,7 @@ async function buildReportPdf(highQuality=false){
 async function runPdfAction(action,button){
   if(pdfActionBusy)return;
   const report=document.querySelector('article.report');
+  const isDailyJha=state.page==='safetyWalkReport';
   let prepared=report&&preparedReportPdf(report,true),preview;
   const isJha=report?.dataset?.pdfViewMode==='single-click';
   const readyFirstView=action==='view'&&report?.dataset?.pdfViewMode==='ready-first';
@@ -448,8 +453,14 @@ async function runPdfAction(action,button){
     if(action==='share'&&prepared){
       const file=new File([prepared.blob],prepared.filename,{type:'application/pdf'});
       if(navigator.share&&navigator.canShare?.({files:[file]})){
-        await navigator.share({title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim(),files:[file]});
-        confirmAction(tr('Sharing completed in the selected app.','Se completó la acción de compartir en la aplicación seleccionada.'));return;
+        try{
+          await navigator.share({title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim(),files:[file]});
+          confirmAction(tr('Sharing completed in the selected app.','Se completó la acción de compartir en la aplicación seleccionada.'));return;
+        }catch(e){
+          // Some browsers advertise file sharing but deny it at submission.
+          // Keep the JHA attachment available; cancellation must not download it.
+          if(!isDailyJha||e?.name!=='NotAllowedError')throw e;
+        }
       }
       downloadReportPdf(prepared.blob,prepared.filename);
       confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));return;
