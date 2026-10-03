@@ -3,14 +3,22 @@ import {attachJhaPdfActions} from '../src/jha-pdf-actions.js';
 import {renderPaginatedPdf} from '../src/pdf-export.js';
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject}}
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-function setup(run=async()=>{}){
- const buttons=Object.fromEntries(['view','download','share'].map(action=>[action,{disabled:false,textContent:action,events:{},addEventListener(name,listener){this.events[name]=listener}}]));
+function setup(run=async()=>{},{includeView=true}={}){
+ const actionsList=includeView?['view','download','share']:['download','share'];
+ const buttons=Object.fromEntries(actionsList.map(action=>[action,{disabled:false,textContent:action,events:{},addEventListener(name,listener){this.events[name]=listener}}]));
  const actions={querySelector:selector=>buttons[selector.replace('.pdf-','')]},report={dataset:{}};let idle,current=true,warmCalls=0,turns=0;
  attachJhaPdfActions(actions,report,{run,warm:async()=>{warmCalls++},isCurrent:()=>current,scheduleIdle:task=>idle=task,nextTurn:async()=>{turns++},progressText:(page,total)=>`Preparing PDF ${page}/${total}`});
  return {buttons,report,idle:()=>idle(),leave:()=>current=false,get warmCalls(){return warmCalls},get turns(){return turns}};
 }
 test('opening JHA only preloads dependencies once and never generates a PDF',async()=>{
  let generated=0;const t=setup(async()=>generated++);assert.equal(t.warmCalls,0);await t.idle();await t.buttons.view.events.pointerenter();await t.buttons.share.events.focus();assert.equal(t.warmCalls,1);assert.equal(generated,0);
+});
+test('JHA final report keeps download and share actions without a view control',async()=>{
+ const calls=[],t=setup(async action=>calls.push(action),{includeView:false});
+ assert.deepEqual(Object.keys(t.buttons),['download','share']);
+ await t.buttons.download.onclick({currentTarget:t.buttons.download});
+ await t.buttons.share.onclick({currentTarget:t.buttons.share});
+ assert.deepEqual(calls,['download','share']);
 });
 test('scheduled JHA preload is skipped after leaving the report',async()=>{
  const t=setup();t.leave();await t.idle();assert.equal(t.warmCalls,0);

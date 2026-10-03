@@ -4,7 +4,7 @@ export function attachJhaPdfActions(actions,report,{run,warm,isCurrent,scheduleI
  // Report previews should complete from the original tap. runPdfAction reserves the
  // Safari preview window synchronously, then fills it as soon as rendering ends.
  report.dataset.pdfViewMode='single-click';
- const buttons=['view','download','share'].map(action=>({action,button:actions.querySelector('.pdf-'+action)}));
+ const buttons=['view','download','share'].map(action=>({action,button:actions.querySelector('.pdf-'+action)})).filter(item=>item.button);
  let busy=false,warming;
  const preload=()=>{
   if(!isCurrent())return;
