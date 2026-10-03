@@ -16,6 +16,7 @@ function setup({archiveFails=false,canShare=false}={}){
  context.ensurePdfExporter=async()=>()=>worker;
  context.renderPaginatedPdf=async()=>blob;
  context.rasterizePdfSignatures=async()=>{};
+ context.state={page:'safetyWalkReport'};
  return {context,report,button,messages,downloads,shares};
 }
 test('cloud archive failure still downloads and repeated exports reuse the PDF',async()=>{
@@ -53,6 +54,20 @@ test('long mobile reports respect canvas dimensions and memory limits',()=>{
 });
 test('canceled sharing restores controls and does not download',async()=>{
  const t=setup({canShare:true});await t.context.buildReportPdf(true);t.context.navigator.share=()=>Promise.reject(Object.assign(Error('Canceled'),{name:'AbortError'}));await t.context.runPdfAction('share',t.button);assert.equal(t.downloads.length,0);assert.equal(t.button.disabled,false);assert.ok(t.messages.some(m=>m[0]==='Sharing canceled.'));
+});
+
+test('JHA prepared sharing falls back to the PDF attachment when native sharing is denied',async()=>{
+ const t=setup({canShare:true});t.report.dataset={pdfViewMode:'single-click'};await t.context.buildReportPdf(true);
+ t.context.navigator.share=()=>Promise.reject(Object.assign(Error('file sharing denied'),{name:'NotAllowedError'}));
+ await t.context.runPdfAction('share',t.button);
+ assert.equal(t.downloads.length,1);assert.equal(t.button.disabled,false);assert.ok(t.messages.some(m=>m[0].includes('Attach this file')));
+ assert.ok(t.context.preparedReportPdf(t.report,true));
+});
+
+test('native sharing denial in other modules retains the existing behavior',async()=>{
+ const t=setup({canShare:true});t.context.state.page='inventoryReport';t.report.dataset={pdfViewMode:'single-click'};await t.context.buildReportPdf(true);
+ t.context.navigator.share=()=>Promise.reject(Object.assign(Error('file sharing denied'),{name:'NotAllowedError'}));
+ await t.context.runPdfAction('share',t.button);assert.equal(t.downloads.length,0);assert.ok(t.messages.some(m=>m[1]==='error'));
 });
 
 test('preview PDF cannot satisfy a high quality download or share',async()=>{

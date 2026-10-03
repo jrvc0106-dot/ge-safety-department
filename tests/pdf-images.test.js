@@ -13,6 +13,7 @@ function contextFor(img,fetchImpl){
     requestAnimationFrame:callback=>callback(),
     setTimeout,
     clearTimeout,
+    state:{page:'safetyWalkReport'},
     tr:en=>en
   });
   vm.runInContext(functionSource,context);
@@ -25,6 +26,16 @@ test('failed report images are recovered through a local blob before PDF renderi
   const {context,report}=contextFor(img,async()=>({ok:true,blob:async()=>new Blob(['photo'],{type:'image/jpeg'})}));
   await context.waitForReportImages(report);
   assert.equal(assigned,'blob:report-image');
+});
+
+test('JHA image preparation completes when preview moves the app to a background tab',async()=>{
+  const img={complete:true,naturalWidth:120};
+  const {context,report}=contextFor(img,async()=>{throw Error('already loaded')});
+  context.requestAnimationFrame=()=>{};
+  let timer;
+  try{
+    await Promise.race([context.waitForReportImages(report),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('PDF preparation stalled in hidden tab')),150)})]);
+  }finally{clearTimeout(timer)}
 });
 
 test('a truly unavailable report image still prevents an incomplete PDF',async()=>{
