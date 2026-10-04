@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
 import {parseAst} from 'rollup/parseAst';
+import {effectiveWalkStatus} from '../src/daily-walk-report-status.js';
 
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const ast=parseAst(source);
@@ -35,6 +36,7 @@ function makeReportContext(){
   }};
   const context=vm.createContext({
     db,
+    effectiveWalkStatus,
     state:{detail:record.id,project:record.project_id,projects:[{id:record.project_id,name:'Test Project',address:'Test Site'}],profile:{id:'inspector'},lang:'en'},
     captureView:()=>()=>true,
     signedDisplayImage:async(_bucket,path)=>`data:image/jpeg;base64,${path}`,
