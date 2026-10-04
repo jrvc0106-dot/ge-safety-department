@@ -80,6 +80,16 @@ test('medical follow-up links a jobsite incident, records only operational statu
  await tools.report(saved.id);const report=document.querySelector('article.report');assert.ok(report);assert.match(report.textContent,/Case Worker/);assert.match(report.textContent,/No ladder work/);assert.match(report.textContent,/CONFIDENTIAL/);assert.equal(report.dataset.toolKind,'medical_followup');t.dom.window.close();
 });
 
+test('medical follow-up shows progress, then gives a path to create a missing incident report',async()=>{
+ const t=setup({incidents:[]});let release;t.hold(new Promise(resolve=>release=resolve));
+ const opening=t.tools.form('medical_followup');
+ assert.match(document.querySelector('main').textContent,/Loading eligible injury \\/ illness reports/);
+ release({data:[],error:null});await opening;
+ assert.match(document.querySelector('main').textContent,/No eligible injury \\/ illness reports/);
+ document.querySelector('#st-medical-create-incident').click();assert.deepEqual(t.nav[0],['incident']);
+ t.dom.window.close();
+});
+
 for(const failure of ['empty','rejected'])test(`QR final report preserves evidence integrity when an orientation image is ${failure}`,async()=>{
  const t=setup();await t.tools.form('hazard');await document.querySelector('form').onsubmit({preventDefault(){}});
  t.writes[0].payload.kind='qr';t.writes[0].payload.payload.lookup_evidence=[{bucket:'orientation-photos',path:'face',label:'Employee Face ID'}];
