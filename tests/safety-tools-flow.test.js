@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
-import {createSafetyTools} from '../src/safety-tools.js';
+import {createSafetyTools,toolsHomeMarkup} from '../src/safety-tools.js';
+import {canCreateTool,canReadTool} from '../src/safety-tools-model.js';
 
 function setup(options={}){
  const dom=new JSDOM('<main></main>',{url:'https://test.invalid'});
@@ -97,4 +98,21 @@ for(const failure of ['empty','rejected'])test(`QR final report preserves eviden
  document.querySelector('main').innerHTML='<p>Previous view</p>';
  await assert.rejects(createSafetyTools(t.ctx).report(t.writes[0].payload.id),/Evidence/);
  assert.equal(document.querySelector('article.report'),null);t.dom.window.close();
+});
+
+test('assigned Safety coordinators can open, create, and read medical follow-up in their selected project',async()=>{
+ const t=setup();t.state.profile.role='safety';
+ assert.equal(canReadTool('medical_followup','safety'),true);assert.equal(canCreateTool('medical_followup','safety'),true);
+ assert.equal(canReadTool('medical_followup','worker'),false);assert.equal(canReadTool('director','safety'),false);
+ assert.match(toolsHomeMarkup('safety',x=>x),/data-safety-tool="medical_followup"/);
+ await t.tools.list('medical_followup');assert.ok(document.querySelector('#st-new'));
+ document.querySelector('#st-new').onclick();assert.deepEqual(t.nav[0],['safetyToolForm','medical_followup']);
+ await t.tools.form('medical_followup');const f=document.querySelector('#st-medical_followup-form');
+ f.elements.employee_name.value='Case Worker';f.elements.event_date.value='2026-10-04';f.elements.current_condition_summary.value='Employee-reported status';
+ await f.onsubmit({preventDefault(){}});
+ assert.equal(t.errors.length,0);const saved=t.writes.find(x=>x.name==='employee_medical_followups').payload;
+ assert.equal(saved.project_id,'job-a');assert.equal(saved.employee_name,'Case Worker');assert.equal(saved.incident_id,undefined);
+ await t.tools.report(saved.id);assert.equal(document.querySelector('article.report')?.dataset.toolKind,'medical_followup');
+ assert.match(document.querySelector('article.report').textContent,/Safety Coordinators assigned to this jobsite/);
+ t.dom.window.close();
 });
