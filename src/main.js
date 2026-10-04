@@ -596,7 +596,7 @@ async function openAiWritingReview(field){
  try{
   const session=await db.auth.getSession();const token=session.data?.session?.access_token;
   if(!token)throw Error(aiWritingError('AUTH_REQUIRED'));
-  const response=await fetch(url+'/functions/v1/improve-writing',{method:'POST',headers:{Authorization:'Bearer '+token,apikey:key,'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:original,project_id:project,scope,language:state.lang,max_length:maxLength,context})});
+  const response=await fetch(url+'/functions/v1/improve-writing',{method:'POST',headers:{Authorization:'Bearer '+token,apikey:key,'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({text:original,project_id:project,scope,max_length:maxLength,context})});
   const result=await response.json().catch(()=>{throw Error(aiWritingError('REQUEST_FAILED'))});
   if(!response.ok)throw Error(aiWritingError(result.code,result.error));
   if(!dialog.isConnected)return;
