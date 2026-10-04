@@ -43,4 +43,7 @@ test('director summary keeps projects independent and excludes closed high prior
 test('new home links expose authorized tools without an administration link for worker',()=>{
  const admin=toolsHomeMarkup('admin',x=>x),worker=toolsHomeMarkup('worker',x=>x);
  assert.equal((admin.match(/data-safety-tool=/g)||[]).length,8);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(admin.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
+ const order=[...admin.matchAll(/data-safety-tool="([^"]+)"/g)].map(x=>x[1]);
+ assert.deepEqual(order,['toolbox','training','safety_net','emergency','director','qr','medical_followup','hazard']);
+ assert.equal((admin.match(/class="module-icon-svg"/g)||[]).length,8);
 });
