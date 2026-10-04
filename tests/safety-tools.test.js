@@ -28,11 +28,17 @@ test('training record has practical construction training options and a structur
  const html=toolReportHtml({kind:'training',report_number:'TR-1',created_at:'2026-10-01T12:00:00Z',payload:{training_type:'flagger',training_date:'2026-10-01',duration:'30',instructor:'<script>bad</script>',topics:'MUTCD Part 6\nWork-zone signals',applicable_standard:'OSHA 1926.201 / MUTCD Part 6',evaluation:'Demonstrated safe STOP/SLOW signaling',result:'completed',attendance_signatures:[{name:'Crew Member',strokes:[]}],approvals:{safety:{name:'Safety Lead',strokes:[]},foreman:{name:'Foreman',strokes:[]}}}},{name:'Project'});
  assert.match(html,/Training record/);assert.match(html,/Work-zone signals/);assert.match(html,/Flagger \/ Work Zone Flagger/);assert.match(html,/Completed/);assert.match(html,/Crew Member/);assert.doesNotMatch(html,/<script>/);
 });
+test('medical follow-up is limited to admin and safety director and produces a privacy-minimized timeline report',()=>{
+ assert.equal(canCreateTool('medical_followup','admin'),true);assert.equal(canReadTool('medical_followup','safety_director'),true);
+ for(const role of ['safety','supervisor','worker']){assert.equal(canReadTool('medical_followup',role),false);assert.equal(canCreateTool('medical_followup',role),false)}
+ const html=toolReportHtml({kind:'medical_followup',report_number:'MF-20261004-ABC12345',created_at:'2026-10-04T10:00:00Z',payload:{incident:{employee_name:'Case Worker',report_number:'IR-100',incident_at:'2026-10-04',exact_location:'Level 2'},event_type:'work_status_received',case_status:'restrictions_active',work_status:'temporary_restrictions',next_followup_date:'2026-10-06',clearance_received:false,work_restrictions_summary:'No ladder work',timeline:[{event_date:'2026-10-04',event_type:'work_status_received',case_status:'restrictions_active',work_status:'temporary_restrictions',next_followup_date:'2026-10-06'}]}},{name:'Project'});
+ assert.match(html,/CONFIDENTIAL/);assert.match(html,/Follow-up timeline/);assert.match(html,/No ladder work/);assert.match(html,/Do not enter diagnoses/);assert.doesNotMatch(html,/Signatures \/ acknowledgment/);assert.doesNotMatch(html,/<script>/);
+});
 test('director summary keeps projects independent and excludes closed high priority from open high',()=>{
  const rows=summarizeProjects([{id:'a',name:'A'},{id:'b',name:'B'}],[{project_id:'a',status:'open',priority:'high'},{project_id:'a',status:'closed',priority:'high'},{project_id:'b',status:'pending_verification',priority:'low'}]);
  assert.deepEqual(rows,[{project:'A',open:1,review:0,closed:1,high:1},{project:'B',open:0,review:1,closed:0,high:0}]);
 });
 test('new home links expose authorized tools without an administration link for worker',()=>{
  const admin=toolsHomeMarkup('admin',x=>x),worker=toolsHomeMarkup('worker',x=>x);
- assert.equal((admin.match(/data-safety-tool=/g)||[]).length,7);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(!worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
+ assert.equal((admin.match(/data-safety-tool=/g)||[]).length,8);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(admin.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
 });

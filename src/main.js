@@ -346,6 +346,7 @@ function reportPdfFilename(report){
   return `${title||'GE-Safety-Report'}${number?'-'+number:''}${rev!=null?'-REV-'+rev:''}.pdf`;
 }
 function currentReportIdentity(report){
+ if(state.page==='safetyToolReport'&&report.dataset?.toolKind==='medical_followup')return null;
  const map={report:'daily_report',observationReport:'observation',safetyWalkReport:'daily_safety_walk',disciplineReport:'disciplinary_action',incidentReport:'incident',equipmentInspectionReport:'equipment_inspection',inventoryReport:'inventory'};
  const reportType=state.page==='safetyToolReport'?'tool_'+report.dataset.toolKind:state.page==='incidentReport'&&report.dataset?.incidentType==='near_miss'?'near_miss':map[state.page];if(!reportType||!state.project||!state.profile)return null;
  let reportNumber=(report.querySelector('.ewr-id strong')?.textContent||report.querySelector('.print-report-number b')?.textContent||report.querySelector('.eq-doc b')?.textContent||report.querySelector('.ir-title b')?.textContent||report.querySelector('.inventory-report-number b')?.textContent||report.querySelector('.dr-doc p')?.textContent?.split('·')[0]||'').trim();
@@ -522,11 +523,12 @@ function installReportDocumentActions(){
   bar.dataset.pdfActions='1';
   const actions=document.createElement('div');actions.className='pdf-document-actions';
   const isDailyJha=state.page==='safetyWalkReport';
-  actions.innerHTML=(isDailyJha?'':'<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>')+'<button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button><button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>';
+  const restrictedMedical=report.dataset?.toolKind==='medical_followup';
+  actions.innerHTML=(isDailyJha?'':'<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>')+'<button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button>'+(restrictedMedical?'':'<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>');
   bar.appendChild(actions);
   if(!isDailyJha)actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
   actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
-  actions.querySelector('.pdf-share').onclick=e=>runPdfAction('share',e.currentTarget);
+  if(actions.querySelector('.pdf-share'))actions.querySelector('.pdf-share').onclick=e=>runPdfAction('share',e.currentTarget);
   {activeJhaPdfReport=report;attachJhaPdfActions(actions,report,{
     run:runPdfAction,
     warm:()=>ensurePdfExporter(),
