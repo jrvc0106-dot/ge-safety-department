@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {TOOL_DEFINITIONS,canCreateTool,canReadTool,parseQrValue,summarizeProjects,toolReportHtml} from '../src/safety-tools-model.js';
+import {TOOL_DEFINITIONS,TRAINING_TYPE_GROUPS,canCreateTool,canReadTool,parseQrValue,summarizeProjects,toolReportHtml,trainingTypeLabel} from '../src/safety-tools-model.js';
 import {createSafetyTools,toolsHomeMarkup} from '../src/safety-tools.js';
 test('worker can report hazards and read emergency plans but cannot see director or employee lookup',()=>{
  assert.equal(canCreateTool('hazard','worker'),true);assert.equal(canReadTool('emergency','worker'),true);
@@ -13,12 +13,20 @@ test('QR accepts only an identifier, G&E payload or canonical site URL; never fo
  assert.deepEqual(parseQrValue('https://ge-safety-department.vercel.app/?sticker=GE123'),{type:'employee',value:'GE123'});
  for(const bad of ['javascript:alert(1)','https://evil.example/?sticker=GE123','<img onerror=x>',''])assert.throws(()=>parseQrValue(bad));
 });
-test('all six reports retain G&E original asset, By G&E title and escape content',()=>{
+test('all safety tool reports retain G&E original asset, By G&E title and escape content',()=>{
  for(const kind of Object.keys(TOOL_DEFINITIONS)){
   const html=toolReportHtml({kind,report_number:'TEST',created_at:'2026-10-01T12:00:00Z',payload:{topic:'<script>bad</script>',description:'<img onerror=x>',summary:[],signatures:[{name:'<script>x</script>',image:'javascript:alert(1)'}]}},{name:'<b>project</b>'});
   assert.ok(html.includes('/ge-logo.png'));assert.ok(html.includes('By G&amp;E'));assert.ok(html.includes('ge-reference-jha'));
   assert.ok(!html.includes('<script>'));assert.ok(!html.includes('src="javascript:'));assert.ok(!html.includes('<b>project</b>'));
  }
+});
+test('training record has practical construction training options and a structured bilingual PDF section',()=>{
+ assert.equal(canCreateTool('training','safety'),true);assert.equal(canCreateTool('training','worker'),false);
+ const types=TRAINING_TYPE_GROUPS.flatMap(group=>group.options.map(([value])=>value));
+ for(const type of ['mot','flagger','forklift','heavy_equipment','fall_protection','excavation','other'])assert.ok(types.includes(type));
+ assert.equal(trainingTypeLabel('forklift',(en,es)=>es),'Operador de montacargas');
+ const html=toolReportHtml({kind:'training',report_number:'TR-1',created_at:'2026-10-01T12:00:00Z',payload:{training_type:'flagger',training_date:'2026-10-01',duration:'30',instructor:'<script>bad</script>',topics:'MUTCD Part 6\nWork-zone signals',applicable_standard:'OSHA 1926.201 / MUTCD Part 6',evaluation:'Demonstrated safe STOP/SLOW signaling',result:'completed',attendance_signatures:[{name:'Crew Member',strokes:[]}],approvals:{safety:{name:'Safety Lead',strokes:[]},foreman:{name:'Foreman',strokes:[]}}}},{name:'Project'});
+ assert.match(html,/Training record/);assert.match(html,/Work-zone signals/);assert.match(html,/Flagger \/ Work Zone Flagger/);assert.match(html,/Completed/);assert.match(html,/Crew Member/);assert.doesNotMatch(html,/<script>/);
 });
 test('director summary keeps projects independent and excludes closed high priority from open high',()=>{
  const rows=summarizeProjects([{id:'a',name:'A'},{id:'b',name:'B'}],[{project_id:'a',status:'open',priority:'high'},{project_id:'a',status:'closed',priority:'high'},{project_id:'b',status:'pending_verification',priority:'low'}]);
@@ -26,5 +34,5 @@ test('director summary keeps projects independent and excludes closed high prior
 });
 test('new home links expose authorized tools without an administration link for worker',()=>{
  const admin=toolsHomeMarkup('admin',x=>x),worker=toolsHomeMarkup('worker',x=>x);
- assert.equal((admin.match(/data-safety-tool=/g)||[]).length,6);assert.ok(!worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
+ assert.equal((admin.match(/data-safety-tool=/g)||[]).length,7);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(!worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
 });
