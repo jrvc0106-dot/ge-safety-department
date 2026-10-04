@@ -3,7 +3,7 @@ create table public.safety_tool_records (
  id uuid primary key default gen_random_uuid(),
  project_id uuid not null references public.projects(id),
  created_by uuid not null references public.profiles(id),
- kind text not null check (kind in ('toolbox','safety_net','emergency','director','qr','hazard')),
+ kind text not null check (kind in ('toolbox','training','safety_net','emergency','director','qr','hazard')),
  report_number text not null unique,
  payload jsonb not null default '{}'::jsonb check (jsonb_typeof(payload)='object' and octet_length(payload::text)<2000000),
  photos jsonb not null default '[]'::jsonb check (jsonb_typeof(photos)='array' and jsonb_array_length(photos)<=12),
@@ -48,7 +48,7 @@ create policy "tools evidence cleanup uncommitted" on storage.objects for delete
 alter table public.report_documents drop constraint report_documents_report_type_check;
 alter table public.report_documents add constraint report_documents_report_type_check check (report_type in (
  'daily_report','daily_safety_walk','observation','correction','disciplinary_action','incident','near_miss','jha','toolbox','equipment_inspection','training','inventory',
- 'tool_toolbox','tool_safety_net','tool_emergency','tool_director','tool_qr','tool_hazard'
+ 'tool_toolbox','tool_training','tool_safety_net','tool_emergency','tool_director','tool_qr','tool_hazard'
 ));
 create policy "new tool report role restriction" on public.report_documents as restrictive for all to authenticated using (
  (report_type<>'tool_director' or private.my_role() in ('admin','safety_director'))

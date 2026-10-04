@@ -46,6 +46,7 @@ let restoringHistory=false;
 
 const DRAFT_FORMS={
  'st-toolbox-form':'safety_tool_toolbox',
+ 'st-training-form':'safety_tool_training',
  'st-safety_net-form':'safety_tool_safety_net',
  'st-emergency-form':'safety_tool_emergency',
  'st-director-form':'safety_tool_director',
