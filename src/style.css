@@ -1575,3 +1575,8 @@ article.report figure img{
 
 /* Home module labels scaled with the icons */
 .home-action>span:not(.action-icon){font-size:17.6px;line-height:1.15}
+
+.page-loading{min-height:180px;display:flex;align-items:center;justify-content:center;gap:12px;color:#52606b}
+.page-loading-indicator{width:22px;height:22px;border:3px solid #dbe5ef;border-top-color:#075bc7;border-radius:50%;animation:page-loading-spin .8s linear infinite;flex:0 0 auto}
+@keyframes page-loading-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.page-loading-indicator{animation:none;border-top-color:#075bc7}}
