@@ -33,9 +33,9 @@ export function createSafetyTools(ctx){
   const current=captureView(),projectId=state.project,userId=state.profile.id,preparedBy=state.profile.name||'';
   const id=crypto.randomUUID();let stored=false,lookup=null,lookupType='employee',lookupPhotos=[],lookupVersion=0,summary=null;
   if(kind==='director'){
-   // Query every permitted project's rows with pagination, rather than using
-   // the dashboard's potentially capped observation cache.
-   const rows=[];for(const p of state.projects){for(let n=0;;n+=500){const q=await db.from('observations').select('project_id,status,priority').eq('project_id',p.id).order('id').range(n,n+499);if(!current())return;if(q.error)throw q.error;rows.push(...q.data);if(q.data.length<500)break}}
+    // Query permitted projects in batches, rather than issuing a separate
+    // paginated request chain for every project or using the capped dashboard cache.
+    const rows=[];for(let start=0;start<state.projects.length;start+=50){const projectIds=state.projects.slice(start,start+50).map(p=>p.id);for(let offset=0;;offset+=500){const q=await db.from('observations').select('project_id,status,priority').in('project_id',projectIds).order('id').range(offset,offset+499);if(!current())return;if(q.error)throw q.error;rows.push(...(q.data||[]));if((q.data||[]).length<500)break}}
    summary=summarizeProjects(state.projects,rows);
   }
   if(!current())return;
@@ -92,4 +92,3 @@ export function createSafetyTools(ctx){
  }
  return {list,form,report,bindHome,stop};
 }
-

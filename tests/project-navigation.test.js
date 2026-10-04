@@ -8,7 +8,7 @@ const fn=name=>{const n=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.na
 function navigation(){
  const drafts=[],history=[],renders=[];
  const state={session:{user:{id:'owner'}},project:'domus',page:'safetyWalkReport',detail:'old-report',projects:[{id:'domus'},{id:'rivage'},{id:'crossings'},{id:'waldorf'}]};
- const context=vm.createContext({state,safetyTools:{stop(){}},flushActiveDrafts:()=>drafts.push(state.project),render:()=>renders.push({project:state.project,page:state.page,detail:state.detail}),history:{replaceState:entry=>history.push(entry),pushState:entry=>history.push(entry)},location:{href:'https://app.invalid/'}});
+ const context=vm.createContext({state,safetyTools:{stop(){}},flushActiveDrafts:()=>drafts.push(state.project),activateProjectObservations(){},render:()=>renders.push({project:state.project,page:state.page,detail:state.detail}),history:{replaceState:entry=>history.push(entry),pushState:entry=>history.push(entry)},location:{href:'https://app.invalid/'}});
  vm.runInContext('let restoringHistory=false;'+['navigate','switchProject','restoreProjectHistory'].map(fn).join('\n'),context);
  return {context,state,drafts,history,renders};
 }
