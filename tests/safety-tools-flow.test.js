@@ -71,23 +71,12 @@ test('saved safety tool report survives draft cleanup failure and opens normally
  assert.equal(t.writes.length,1);assert.equal(t.errors.length,0);assert.equal(t.nav[0][0],'safetyToolReport');t.dom.window.close();
 });
 
-test('medical follow-up links a jobsite incident, records only operational status, and renders its private timeline',async()=>{
- const incidents=[{id:'incident-a',report_number:'IR-100',incident_type:'injury',incident_at:'2026-10-03T12:00:00Z',employee_name:'Case Worker',employee_job_title:'Operator',exact_location:'Level 2'}];
- const t=setup({incidents});const tools=createSafetyTools(t.ctx);await tools.form('medical_followup');const f=document.querySelector('#st-medical_followup-form');
- assert.ok(f);assert.equal(f.dataset.autoDraft,undefined);assert.equal(f.elements.photos,undefined);f.elements.incident_id.value='incident-a';f.elements.event_date.value='2026-10-04';f.elements.work_status.value='temporary_restrictions';f.elements.work_restrictions_summary.value='No ladder work';
+test('medical follow-up starts without an incident and saves appointment, reported condition, medications, and work status',async()=>{
+ const t=setup({incidents:[]});const tools=createSafetyTools(t.ctx);await tools.form('medical_followup');const f=document.querySelector('#st-medical_followup-form');
+ assert.ok(f);assert.equal(f.dataset.autoDraft,undefined);assert.equal(f.elements.photos,undefined);f.elements.employee_name.value='Case Worker';f.elements.event_date.value='2026-10-04';f.elements.last_appointment_date.value='2026-10-02';f.elements.next_appointment_date.value='2026-10-09';f.elements.current_condition_summary.value='Recovering; reports improving mobility';f.elements.reported_medications.value='Employee-reported medication';f.elements.work_status.value='temporary_restrictions';f.elements.work_restrictions_summary.value='No ladder work';
  await f.onsubmit({preventDefault(){}});assert.equal(t.errors.length,0);const saved=t.writes.find(x=>x.name==='employee_medical_followups').payload;
- assert.equal(saved.project_id,'job-a');assert.equal(saved.incident_id,'incident-a');assert.equal(saved.clearance_received,false);assert.equal(saved.work_restrictions_summary,'No ladder work');assert.equal('diagnosis' in saved,false);assert.equal('photos' in saved,false);
- await tools.report(saved.id);const report=document.querySelector('article.report');assert.ok(report);assert.match(report.textContent,/Case Worker/);assert.match(report.textContent,/No ladder work/);assert.match(report.textContent,/CONFIDENTIAL/);assert.equal(report.dataset.toolKind,'medical_followup');t.dom.window.close();
-});
-
-test('medical follow-up shows progress, then gives a path to create a missing incident report',async()=>{
- const t=setup({incidents:[]});let release;t.hold(new Promise(resolve=>release=resolve));
- const opening=t.tools.form('medical_followup');
- assert.match(document.querySelector('main').textContent,/Loading eligible injury \\/ illness reports/);
- release({data:[],error:null});await opening;
- assert.match(document.querySelector('main').textContent,/No eligible injury \\/ illness reports/);
- document.querySelector('#st-medical-create-incident').click();assert.deepEqual(t.nav[0],['incident']);
- t.dom.window.close();
+ assert.equal(saved.project_id,'job-a');assert.equal(saved.employee_name,'Case Worker');assert.equal(saved.incident_id,undefined);assert.equal(saved.last_appointment_date,'2026-10-02');assert.equal(saved.next_appointment_date,'2026-10-09');assert.equal(saved.current_condition_summary,'Recovering; reports improving mobility');assert.equal(saved.reported_medications,'Employee-reported medication');assert.equal(saved.clearance_received,false);assert.equal(saved.work_restrictions_summary,'No ladder work');assert.equal('photos' in saved,false);
+ await tools.report(saved.id);const report=document.querySelector('article.report');assert.ok(report);assert.match(report.textContent,/Case Worker/);assert.match(report.textContent,/No ladder work/);assert.match(report.textContent,/improving mobility/);assert.match(report.textContent,/Employee-reported medication/);assert.match(report.textContent,/2026-10-09/);assert.match(report.textContent,/CONFIDENTIAL/);assert.equal(report.dataset.toolKind,'medical_followup');t.dom.window.close();
 });
 
 for(const failure of ['empty','rejected'])test(`QR final report preserves evidence integrity when an orientation image is ${failure}`,async()=>{
