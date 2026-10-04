@@ -1,9 +1,10 @@
 import {mountAttendance,attendanceApprovals} from './report-attendance.js';
+import {moduleIcon} from './module-icons.js';
 import {mountReportSignatures,reportApprovals,toggleQrSignatures} from './report-signatures.js';
 import {TOOL_DEFINITIONS,TRAINING_TYPE_GROUPS,MEDICAL_FOLLOWUP_EVENTS,MEDICAL_CASE_STATUSES,MEDICAL_WORK_STATUSES,canCreateTool,canReadTool,parseQrValue,summarizeProjects,toolReportHtml,trainingTypeLabel,medicalEventLabel,medicalCaseStatusLabel,medicalWorkStatusLabel,escapeHtml as esc} from './safety-tools-model.js';
 
 export function toolsHomeMarkup(role,tr){
- return `<section class="st-home"><h2>${tr('New tools','Nuevas herramientas')}</h2><div class="home-actions">${Object.entries(TOOL_DEFINITIONS).filter(([k])=>canReadTool(k,role)).map(([k,d])=>`<button class="home-action st-tool" data-safety-tool="${k}"><span class="action-icon">${d.icon}</span><span>${tr(d.en,d.es)}</span></button>`).join('')}</div></section>`;
+ return `<section class="st-home"><h2>${tr('New tools','Nuevas herramientas')}</h2><div class="home-actions">${Object.entries(TOOL_DEFINITIONS).filter(([k])=>canReadTool(k,role)).map(([k,d])=>`<button class="home-action st-tool" data-safety-tool="${k}"><span class="action-icon">${moduleIcon(k==='medical_followup'?'medical':k)}</span><span>${tr(d.en,d.es)}</span></button>`).join('')}</div></section>`;
 }
 export function createSafetyTools(ctx){
  const {db,state,tr,frame,navigate,captureView,error,confirmAction,enableAutoDraft,draftFilesFor,clearDraft,normalizeReportImage,signedDisplayImage}=ctx;
