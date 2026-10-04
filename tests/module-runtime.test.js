@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import {jhaSignatureFields,jhaApprovals} from '../src/jha-signatures.js';
 import {parseAst} from 'rollup/parseAst';
 import {createImageCache,createTaskQueue} from '../src/image-cache.js';
+import {effectiveWalkStatus} from '../src/daily-walk-report-status.js';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=parseAst(source);
 function fn(name){const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);assert.ok(node,name);return source.slice(node.start,node.end)}
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject}}
@@ -15,7 +16,7 @@ for(const [statuses,score] of [[['safe','safe','safe','unsafe','na',null],75],[[
   const frames=[],items=statuses.map((status,i)=>({status,category:'Category '+i,item_text:'Check '+i,sort_order:i,hazard:status==='unsafe'?'Original hazard '+i:null,correction:status==='unsafe'?'Documented action '+i:null,photos:[]}));
   const state={session:{user:{id:'user'}},profile:{id:'user'},project:'job',page:'safetyWalkReport',detail:'walk',lang:'en',projects:[{id:'job',name:'Job'}]};
   const query={select(){return this},eq(){return this},order(){return this},limit:async()=>({data:[]}),single:async()=>({data:{id:'walk',project_id:'job',created_at:'2026-10-02T12:00:00Z',overall_status:'safe',items,creator:{name:'Safety'}}})};
-  const context=vm.createContext({state,db:{from:()=>query},frame:html=>frames.push(html),document:{querySelector:()=>({})},back(){},tr:x=>x,esc:x=>x,localDateKey:()=> '2026-10-02',console,error:err=>{throw err}});
+  const context=vm.createContext({state,effectiveWalkStatus,db:{from:()=>query},frame:html=>frames.push(html),document:{querySelector:()=>({})},back(){},tr:x=>x,esc:x=>x,localDateKey:()=> '2026-10-02',console,error:err=>{throw err}});
   vm.runInContext('let renderRevision=0;'+fn('captureView')+'\n'+fn('safetyWalkReport'),context);await context.safetyWalkReport();
   assert.equal(frames.length,1);assert.ok(frames[0].includes('<strong>'+score+'%</strong>'));
   for(const item of items.filter(x=>x.status==='unsafe')){assert.ok(frames[0].includes('ewr-status unsafe'));assert.ok(frames[0].includes(item.hazard));assert.ok(frames[0].includes(item.correction));}
