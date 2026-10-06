@@ -1623,3 +1623,28 @@ header nav .notification-menu #notification-count.show{animation:notification-ba
 @keyframes notification-badge-in{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){header nav .notification-menu,header nav .notification-menu #notification-count.show{animation:none;transition:none}}
 @media(max-width:650px){header nav .notification-menu{width:42px;height:42px;min-width:42px;padding:0}}
+
+
+/* JHA voice dictation and AI review */
+.jha-dictation-field{min-width:0}
+.jha-dictation-row{display:flex;align-items:center;gap:9px;margin:-7px 0 6px}
+.jha-dictate{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;font-size:12px;font-weight:750}
+.jha-dictate.recording{background:#fff0f0;color:#b42318;box-shadow:0 0 0 3px rgba(217,45,32,.10)}
+.jha-dictation-status{min-width:0;color:#627d98;font-size:11px}
+.jha-ai-review-tools{margin:14px 0;padding:14px;border:1px solid #d6e6f8;border-radius:13px;background:#f6faff}
+.jha-ai-review-tools>p{margin:7px 0 0;color:#627d98;font-size:12px;line-height:1.5}
+.jha-ai-review-tools>button{display:inline-flex;align-items:center;gap:7px}
+.jha-ai-review-result{margin-top:12px;padding-top:10px;border-top:1px solid #d6e6f8}
+.jha-ai-review-result[hidden]{display:none}
+.jha-ai-review-result>p{margin:3px 0;color:#475467;font-size:13px;line-height:1.5}
+.jha-ai-review-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;color:#102a43;font-size:13px}
+.jha-ai-review-heading>span{display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#e6f0fb;color:#075bc7;font-size:11px;font-weight:800}
+.jha-ai-suggestion{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:10px 0;border-top:1px solid #e7eef6}
+.jha-ai-suggestion>div{min-width:0}
+.jha-ai-suggestion strong{font-size:12px;color:#344054}
+.jha-ai-suggestion p{margin:3px 0 0;color:#475467;font-size:13px;line-height:1.4}
+.jha-ai-suggestion button{flex:none;padding:7px 10px;font-size:11px}
+.jha-ai-error{color:#b42318!important}
+.jha-ai-highlight{outline:3px solid rgba(7,91,199,.28)!important;border-color:#075bc7!important;transition:outline-color .2s ease}
+@media(max-width:600px){.jha-dictation-row{flex-wrap:wrap}.jha-ai-suggestion{align-items:flex-start;flex-direction:column;gap:7px}.jha-ai-suggestion button{width:100%}}
+@media(prefers-reduced-motion:reduce){.jha-ai-highlight{transition:none}}
