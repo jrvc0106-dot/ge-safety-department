@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
-import {createSafetyTools,toolsHomeMarkup} from '../src/safety-tools.js';
+import {createSafetyTools,toolsHomeMarkup,saveToolboxRecord} from '../src/safety-tools.js';
 import {canCreateTool,canReadTool} from '../src/safety-tools-model.js';
 
 function setup(options={}){
@@ -11,7 +11,7 @@ function setup(options={}){
  const writes=[],nav=[],errors=[],observationQueries=[],uploads=[];const state={project:'job-a',profile:{id:'author',name:'Inspector',role:'admin'},projects:[{id:'job-a',name:'Project A',address:'Address',general_contractor:'GC'}]};
  let pending=null;
  const db={from(name){let payload,filter={},range=[0,49],selection='';const q={select(columns=''){selection=columns;return q},eq(k,v){filter[k]=v;return q},in(k,v){filter[k]=v;return q},ilike(k,v){filter[k]=v;return q},order(){return q},limit(){return q},range(a,b){range=[a,b];return q},insert(p){payload=p;return q},single(){return q},maybeSingle(){return q},then(resolve,reject){if(pending)return pending.then(resolve,reject);let data=[];if(payload){writes.push({name,payload});data={id:payload.id}}else if(name==='incident_reports')data=options.incidents||[];else if(name==='employee_medical_followups'){const record=writes.find(x=>x.name===name)?.payload;if(selection.startsWith('*,')&&selection.includes('incident:'))data=record?{...record,created_at:'2026-10-04T12:00:00Z',incident:(options.incidents||[]).find(i=>i.id===record.incident_id),creator:{name:'Safety Director'}}:null;else if(selection.includes('incident:'))data=record?[{...record,created_at:'2026-10-04T12:00:00Z',incident:(options.incidents||[]).find(i=>i.id===record.incident_id)}]:[];else data=record?[{...record,created_at:'2026-10-04T12:00:00Z'}]:[]}else if(name==='employee_medical_followup_documents')data=options.documents||[];else if(name==='observations'){observationQueries.push({filter:{...filter},range:[...range]});data=(options.observations||[]).filter(row=>!filter.project_id||(Array.isArray(filter.project_id)?filter.project_id.includes(row.project_id):row.project_id===filter.project_id)).slice(range[0],range[1]+1)}else if(name==='safety_tool_records'&&options.records)data=options.records.slice(range[0],range[1]+1);else if(name==='safety_tool_records')data={...writes.at(-1)?.payload,created_at:'2026-10-01T12:00:00Z',creator:{name:'Inspector'}};else if(name==='safety_orientations')data={employee_name:'Sample Employee',sticker_number:'GE123',certificate_photo_paths:[]};return Promise.resolve({data,error:null}).then(resolve,reject)}};return q},storage:{from(bucket){return {upload:async(path,file)=>{uploads.push({bucket,path,file});return {error:null}},remove:async()=>({error:null})}}}};
- const ctx={db,state,tr:x=>x,frame:html=>document.querySelector('main').innerHTML=html,navigate:(...v)=>nav.push(v),captureView:()=>()=>options.current!==false,error:e=>errors.push(e.message),confirmAction(){},enableAutoDraft:async f=>f.dataset.autoDraft='true',draftFilesFor:async()=>options.photos||[],clearDraft:async()=>{},normalizeReportImage:async f=>f,signedDisplayImage:async()=>''};
+ const ctx={db,state,tr:x=>x,frame:html=>document.querySelector('main').innerHTML=html,navigate:(...v)=>nav.push(v),captureView:()=>()=>options.current!==false,error:e=>errors.push(e?.message||String(e)),confirmAction(){},enableAutoDraft:async f=>f.dataset.autoDraft='true',draftFilesFor:async()=>options.photos||[],clearDraft:async()=>{},normalizeReportImage:async f=>f,signedDisplayImage:async()=>''};
  return {ctx,tools:createSafetyTools(ctx),writes,nav,errors,dom,state,observationQueries,uploads,options,hold:p=>pending=p};
 }
 for(const kind of ['toolbox','training','safety_net','emergency','director','hazard'])test(`${kind}: incomplete form saves to original project and opens matching report`,async()=>{
@@ -127,4 +127,37 @@ for(const fail of [false,true])test(`toolbox photo save ${fail?'failure waits fo
  if(fail){assert.equal(finished,3);assert.equal(removed.length,2);assert.equal(t.writes.length,0);assert.equal(cleared,false);assert.match(t.errors[0],/Upload failed/);assert.match(f.textContent,/Your form and photos are still here/)}
  else{assert.equal(finished,7);assert.deepEqual(t.writes[0].payload.photos.map(p=>p.label),photos.map(p=>p.name));assert.equal(cleared,true);assert.equal(t.nav.length,1);assert.deepEqual(t.errors,[])}
  t.dom.window.close();
+});
+
+function recordSaveDb(insert,lookup){return {from(){let writing=false;const q={insert(){writing=true;return q},select(){return q},eq(){return q},single(){return q},maybeSingle(){return q},then(resolve,reject){return Promise.resolve().then(()=>writing?insert():lookup()).then(resolve,reject)}};return q}}}
+test('Toolbox retries Safari Load failed with the same record id and no duplicate report',async()=>{
+ let calls=0;const retried=[];const db=recordSaveDb(()=>++calls===1?{error:{message:'TypeError: Load failed'}}:{data:{id:'same'}},()=>({data:null}));
+ const result=await saveToolboxRecord(db,{id:'same',project_id:'job'},a=>retried.push(a),async()=>{});assert.equal(result.id,'same');assert.equal(calls,2);assert.deepEqual(retried,[1]);
+});
+test('Toolbox lost INSERT response verifies an already committed report without inserting again',async()=>{
+ let calls=0;const db=recordSaveDb(()=>{calls++;throw new TypeError('Load failed')},()=>({data:{id:'same'}}));
+ assert.equal((await saveToolboxRecord(db,{id:'same',project_id:'job'},()=>{},async()=>{})).id,'same');assert.equal(calls,1);
+});
+test('Toolbox persistent connection loss marks save uncertain so attached evidence is retained',async()=>{
+ let calls=0;const db=recordSaveDb(()=>{calls++;return {error:{message:'Load failed'}}},()=>{throw new TypeError('Failed to fetch')});
+ await assert.rejects(saveToolboxRecord(db,{id:'same',project_id:'job'},()=>{},async()=>{}),e=>e.toolboxSaveUncertain===true);assert.equal(calls,3);
+});
+test('Toolbox permission errors are reported without network retries',async()=>{
+ let calls=0;const db=recordSaveDb(()=>{calls++;return {error:{message:'Permission denied',code:'42501'}}},()=>({data:null}));
+ await assert.rejects(saveToolboxRecord(db,{id:'same',project_id:'job'},()=>{},async()=>{}),e=>e.message==='Permission denied');assert.equal(calls,1);
+});
+test('Toolbox network upload failure keeps completed photos for the next save attempt',async()=>{
+ const photos=Array.from({length:3},(_,i)=>({name:`Photo ${i}.jpg`,type:'image/jpeg',size:100}));const t=setup({photos});let fail=true;const counts=new Map();let removed=0;
+ t.ctx.db.storage.from=()=>({upload:async(path,file)=>{counts.set(file.name,(counts.get(file.name)||0)+1);return {error:fail&&file.name==='Photo 0.jpg'?new TypeError('Load failed'):null}},remove:async()=>{removed++;return {error:null}}});
+ t.tools=createSafetyTools(t.ctx);await t.tools.form('toolbox');const f=document.querySelector('form');await f.onsubmit({preventDefault(){}});assert.equal(t.writes.length,0);assert.equal(removed,0);
+ fail=false;await f.onsubmit({preventDefault(){}});assert.equal(t.writes.length,1);assert.equal(counts.get('Photo 0.jpg'),2);assert.equal(counts.get('Photo 1.jpg'),1);assert.equal(counts.get('Photo 2.jpg'),1);assert.equal(f.querySelectorAll('[data-toolbox-save-status]').length,1);t.dom.window.close();
+});
+test('Toolbox interrupted final INSERT keeps uploaded evidence and retries without reuploading',async()=>{
+ const photos=[{name:'Photo.jpg',type:'image/jpeg',size:100}],t=setup({photos});let offline=true,uploads=0,removed=0,savedRecord,insertCalls=0;
+ const originalFrom=t.ctx.db.from.bind(t.ctx.db);
+ t.ctx.db.from=name=>name!=='safety_tool_records'?originalFrom(name):{insert(record){savedRecord=record;return recordSaveDb(()=>{insertCalls++;return offline?{error:{message:'TypeError: Load failed'}}:{data:{id:record.id}}},()=>({data:null})).from().insert(record)}};
+ t.ctx.db.storage.from=()=>({upload:async()=>{uploads++;return {error:null}},remove:async()=>{removed++;return {error:null}}});
+ t.tools=createSafetyTools(t.ctx);await t.tools.form('toolbox');const f=document.querySelector('form');await f.onsubmit({preventDefault(){}});
+ assert.equal(insertCalls,3);assert.equal(uploads,1);assert.equal(removed,0);assert.equal(t.nav.length,0);assert.match(t.errors[0],/interrupted/);const id=savedRecord.id;
+ offline=false;await f.onsubmit({preventDefault(){}});assert.equal(savedRecord.id,id);assert.equal(uploads,1);assert.equal(removed,0);assert.equal(t.nav.length,1);t.dom.window.close();
 });
