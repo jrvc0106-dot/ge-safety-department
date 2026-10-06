@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {signatureStrokes,jhaSignatureFields,attachJhaSignatures,jhaApprovals,jhaSignaturesReport} from '../src/jha-signatures.js';
 const tr=(en)=>en;
+test('fast Pencil samples and the final lift point are retained',()=>{
+ const t=fixture(),canvas=t.form.querySelector('[data-jha-signature="safety"]');
+ t.pointer('safety','pointerdown',30,10);
+ const event=new t.dom.window.Event('pointermove',{bubbles:true,cancelable:true});
+ Object.assign(event,{pointerId:1,clientX:120,clientY:40,getCoalescedEvents:()=>[{clientX:60,clientY:20},{clientX:90,clientY:30}]});
+ t.run(()=>canvas.dispatchEvent(event));t.pointer('safety','pointerup',150,50);
+ assert.deepEqual(jhaApprovals(new t.dom.window.FormData(t.form)).safety.strokes,[[[.1,.1],[.2,.2],[.3,.3],[.4,.4],[.5,.5]]]);
+});
 function fixture(){
  const dom=new JSDOM('<form>'+jhaSignatureFields(tr)+'</form>'),form=dom.window.document.querySelector('form');
  const ctx={clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},arc(){},fill(){}};

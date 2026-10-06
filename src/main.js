@@ -21,6 +21,8 @@ import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
+import {installTabletViewport} from './tablet-viewport.js';
+installTabletViewport();
 const url=import.meta.env.VITE_SUPABASE_URL,key=import.meta.env.VITE_SUPABASE_ANON_KEY;
 const db=url&&key?createClient(url,key):null;
 const app=document.querySelector('#app');
@@ -63,6 +65,7 @@ const DRAFT_FORMS={
  'inventory-form':'inventory_item'
 };
 const draftTimers=new Map();
+const draftLocalTimers=new Map();
 const draftWrites=new Map();
 const draftUploads=new Map();
 const draftFileState=new Map();
@@ -106,6 +109,7 @@ function setDraftStatus(form,text,kind='saved'){
 async function persistDraft(form,type,key='default'){
  const owner=draftOwner(form,type,key);if(!owner.user||!owner.project||form.dataset.autoDraft==='false')return;
  const context=formDraftKey(form,type,key),userId=owner.user,projectId=owner.project;
+ clearTimeout(draftLocalTimers.get(context));draftLocalTimers.delete(context);
  const payload=serializeDraftForm(form,type,key),localKey='ge_draft_v1:'+formDraftKey(form,type,key),record={payload,updated_at:new Date().toISOString()};
  try{localStorage.setItem(localKey,JSON.stringify(record))}catch{}
  setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
@@ -178,6 +182,7 @@ async function clearDraft(type,key='default',sourceForm=null){
  const ctx=sourceForm?formDraftKey(sourceForm,type,key):draftContextKey(type,key);
  if(sourceForm)sourceForm.dataset.autoDraft='false';
  await Promise.all([...draftUploads.entries()].filter(([name])=>name.startsWith(ctx+':')).map(([,upload])=>upload.catch(()=>{})));
+ clearTimeout(draftLocalTimers.get(ctx));draftLocalTimers.delete(ctx);
  const timer=draftTimers.get(ctx);if(timer){clearTimeout(timer);draftTimers.delete(ctx)}
  for(const [id,formType] of Object.entries(DRAFT_FORMS)){
   const form=document.getElementById(id);
@@ -218,7 +223,12 @@ async function enableAutoDraft(form,type,key='default'){
  const schedule=()=>{
   if(form.dataset.autoDraft!=='true')return;
   const timerKey=formDraftKey(form,type,key);clearTimeout(draftTimers.get(timerKey));
-  try{const payload=serializeDraftForm(form,type,key),record={payload,updated_at:new Date().toISOString()};localStorage.setItem('ge_draft_v1:'+formDraftKey(form,type,key),JSON.stringify(record))}catch{}
+  // Batch synchronous form scans and storage writes during typing on tablets.
+  // Navigation and lifecycle flushes still persist the latest values immediately.
+  if(!draftLocalTimers.has(timerKey))draftLocalTimers.set(timerKey,setTimeout(()=>{
+   draftLocalTimers.delete(timerKey);if(!form.isConnected||form.dataset.autoDraft!=='true')return;
+   try{const payload=serializeDraftForm(form,type,key),record={payload,updated_at:new Date().toISOString()};localStorage.setItem('ge_draft_v1:'+timerKey,JSON.stringify(record))}catch{}
+  },80));
   setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
   draftTimers.set(timerKey,setTimeout(()=>{draftTimers.delete(timerKey);persistDraft(form,type,key).catch(()=>{})},650));
  };
@@ -232,9 +242,10 @@ async function enableAutoDraft(form,type,key='default'){
   draftUploads.set(uploadKey,upload);
   upload.catch(error).finally(()=>{if(draftUploads.get(uploadKey)===upload)draftUploads.delete(uploadKey)});
  });
- if(activeDraftFlush)document.removeEventListener('visibilitychange',activeDraftFlush);
- activeDraftFlush=()=>{if(document.visibilityState==='hidden'&&form.isConnected)persistDraft(form,type,key).catch(()=>{})};
+ if(activeDraftFlush){document.removeEventListener('visibilitychange',activeDraftFlush);window.removeEventListener('pagehide',activeDraftFlush)}
+ activeDraftFlush=event=>{if((event.type==='pagehide'||document.visibilityState==='hidden')&&form.isConnected)persistDraft(form,type,key).catch(()=>{})};
  document.addEventListener('visibilitychange',activeDraftFlush);
+ window.addEventListener('pagehide',activeDraftFlush);
  let restored=false;
  try{restored=await restoreDraft(form,type,key)}
  finally{form.inert=false}
