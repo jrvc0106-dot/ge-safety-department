@@ -1650,3 +1650,15 @@ header nav .notification-menu #notification-count.show{animation:notification-ba
 @media(max-width:900px){
  header{padding-top:max(8px,env(safe-area-inset-top));padding-right:max(13px,env(safe-area-inset-right));padding-left:max(13px,env(safe-area-inset-left))}
 }
+
+/* Shared tablet controls. Report articles and PDF rendering keep their styles. */
+@media screen and (any-pointer:coarse){
+ html{scroll-padding-top:90px;scroll-padding-bottom:100px}
+ #app>header{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+ #app>header nav button,main button{touch-action:manipulation;min-height:44px}
+ main form :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),select,textarea){font-size:16px;min-height:44px;max-width:100%}
+ main form :is(label,fieldset,.incident-grid>*,.orientation-editor form>*){min-width:0}
+ main form :is(input,select,textarea){scroll-margin-top:90px;scroll-margin-bottom:100px}
+ .profile-crop-card,.ai-writing-review{max-height:90vh;max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
+ html[data-ge-keyboard] .device-back-bar,html[data-ge-keyboard] .mobile-bottom{display:none}
+}

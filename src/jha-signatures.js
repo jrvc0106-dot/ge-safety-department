@@ -39,15 +39,20 @@ export function attachJhaSignatures(form,roles=defaultRoles){
    if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0)||strokes.length>=500||pointCount>=20000)return;
    e.preventDefault();pointer=e.pointerId;stroke=[point(e)];strokes.push(stroke);pointCount++;canvas.setPointerCapture?.(pointer);draw();save();
   });
-  canvas.addEventListener('pointermove',e=>{
-   if(e.pointerId!==pointer||!stroke)return;e.preventDefault();
+  const appendPoint=e=>{
    if(pointCount>=20000)return;
    const previous=stroke[stroke.length-1],next=point(e);
    if(previous[0]===next[0]&&previous[1]===next[1])return;
    stroke.push(next);pointCount++;
-   ctx.beginPath();ctx.moveTo(previous[0]*canvas.width,previous[1]*canvas.height);ctx.lineTo(next[0]*canvas.width,next[1]*canvas.height);ctx.stroke();save(false);
+   ctx.beginPath();ctx.moveTo(previous[0]*canvas.width,previous[1]*canvas.height);ctx.lineTo(next[0]*canvas.width,next[1]*canvas.height);ctx.stroke();
+  };
+  canvas.addEventListener('pointermove',e=>{
+   if(e.pointerId!==pointer||!stroke)return;e.preventDefault();
+   // Pencil samples may be grouped into one event by Safari.
+   for(const sample of e.getCoalescedEvents?.()||[])appendPoint(sample);
+   appendPoint(e);save(false);
   });
-  const finish=e=>{if(e.pointerId!==pointer)return;pointer=null;stroke=null;save()};
+  const finish=e=>{if(e.pointerId!==pointer)return;if(e.type==='pointerup'&&stroke)appendPoint(e);pointer=null;stroke=null;save()};
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,finish);
   form.querySelector(`[data-jha-clear="${role}"]`).onclick=()=>{strokes=[];pointCount=0;pointer=null;stroke=null;draw();save()};
   form.addEventListener('reset',()=>{queueMicrotask(()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()})});

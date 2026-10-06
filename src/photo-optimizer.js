@@ -29,6 +29,8 @@ export function createPhotoOptimizer({decode=decodePhoto,canvas=()=>document.cre
     const context=surface.getContext('2d');if(!context)return file;
     context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';
     context.drawImage(bitmap.image||bitmap,0,0,dimensions.width,dimensions.height);
+    // The original decoded photo is no longer needed while encoding the canvas.
+    bitmap.close?.();bitmap=null;
     const blob=await new Promise(resolve=>surface.toBlob(resolve,file.type,.94));
     if(!blob?.size||blob.type!==file.type||blob.size>=file.size*.85)return file;
     const result=makeFile(blob,file);prepared.set(result,Promise.resolve(result));return result;
