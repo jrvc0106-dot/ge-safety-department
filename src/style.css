@@ -1643,3 +1643,10 @@ header nav .notification-menu #notification-count.show{animation:notification-ba
 .jha-ai-highlight{outline:3px solid rgba(7,91,199,.28)!important;border-color:#075bc7!important;transition:outline-color .2s ease}
 @media(max-width:600px){.jha-ai-suggestion{align-items:flex-start;flex-direction:column;gap:7px}.jha-ai-suggestion button{width:100%}}
 @media(prefers-reduced-motion:reduce){.jha-ai-highlight{transition:none}}
+
+
+/* iPhone safe areas and mobile viewport fallback */
+.ge-splash{min-height:100vh;min-height:100dvh}
+@media(max-width:900px){
+ header{padding-top:max(8px,env(safe-area-inset-top));padding-right:max(13px,env(safe-area-inset-right));padding-left:max(13px,env(safe-area-inset-left))}
+}
