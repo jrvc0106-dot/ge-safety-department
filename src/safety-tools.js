@@ -23,7 +23,7 @@ export function toolsHomeMarkup(role,tr){
  return `<section class="st-home"><h2>${tr('New tools','Nuevas herramientas')}</h2><div class="home-actions">${Object.entries(TOOL_DEFINITIONS).filter(([k])=>canReadTool(k,role)).map(([k,d])=>`<button class="home-action st-tool" data-safety-tool="${k}"><span class="action-icon">${moduleIcon(k==='medical_followup'?'medical':k)}</span><span>${tr(d.en,d.es)}</span></button>`).join('')}</div></section>`;
 }
 export function createSafetyTools(ctx){
- const {db,state,tr,frame,navigate,captureView,error,confirmAction,enableAutoDraft,draftFilesFor,clearDraft,normalizeReportImage,signedDisplayImage}=ctx;
+ const {db,state,tr,frame,navigate,captureView,error,confirmAction,enableAutoDraft,draftFilesFor,clearDraft,normalizeReportImage,signedDisplayImage,toolboxDraftEvidence,saveToolboxCloud}=ctx;
  const table='safety_tool_records',bucket='safety-tool-evidence';
  let cameraCleanup=()=>{};
  function stop(){cameraCleanup();cameraCleanup=()=>{}}
@@ -107,7 +107,7 @@ export function createSafetyTools(ctx){
     }else{values.approvals=reportApprovals(kind,submitted);if(kind==='toolbox'||kind==='training')values.attendance_signatures=attendanceApprovals(submitted);delete values.signatures;for(const key of Object.keys(values))if(key.startsWith('jha_'))delete values[key];values.prepared_by=preparedBy}
     if(kind==='director')values.summary=summary;
     if(kind==='qr'){values.lookup=lookup;values.lookup_type=lookupType;values.lookup_evidence=lookupPhotos}
-    const photos=kind==='medical_followup'?selectedMedicalDocuments:await draftFilesFor(f,'safety_tool_'+kind,'default','photos');if(photos.length>12)throw Error(tr('Maximum 12 images per report.','Máximo 12 imágenes por reporte.'));
+    const cloudToolbox=kind==='toolbox'&&toolboxDraftEvidence&&saveToolboxCloud;const cloudPhotos=cloudToolbox?await toolboxDraftEvidence(f):null;const photos=cloudToolbox?[]:kind==='medical_followup'?selectedMedicalDocuments:await draftFilesFor(f,'safety_tool_'+kind,'default','photos');if(cloudPhotos?.length>12)throw Error(tr('Maximum 12 images per report.','Máximo 12 imágenes por reporte.'));if(photos.length>12)throw Error(tr('Maximum 12 images per report.','Máximo 12 imágenes por reporte.'));
     if(!stored){
      if(kind==='medical_followup'){
       const followupNumber='MF-'+String(values.event_date||new Date().toISOString().slice(0,10)).replaceAll('-','')+'-'+id.slice(0,6).toUpperCase();
@@ -137,7 +137,10 @@ export function createSafetyTools(ctx){
       }
       const reportNumber=d.prefix+'-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+id.slice(0,8).toUpperCase();
       const record={id,project_id:projectId,created_by:userId,kind,report_number:reportNumber,payload:values,photos:uploaded};
-      if(kind==='toolbox'){
+      if(cloudToolbox){
+       progress(tr('Saving report with protected cloud photos…','Guardando reporte con las fotos protegidas en la nube…'));
+       await saveToolboxCloud(record,cloudPhotos);stored=true;
+      }else if(kind==='toolbox'){
        await saveToolboxRecord(db,record,attempt=>progress(tr(`Reconnecting to save report (${attempt}/2)… Keep this page open.`,`Reconectando para guardar el reporte (${attempt}/2)… Mantenga esta página abierta.`)));
        stored=true;
       }else{

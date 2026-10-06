@@ -161,3 +161,7 @@ test('Toolbox interrupted final INSERT keeps uploaded evidence and retries witho
  assert.equal(insertCalls,3);assert.equal(uploads,1);assert.equal(removed,0);assert.equal(t.nav.length,0);assert.match(t.errors[0],/interrupted/);const id=savedRecord.id;
  offline=false;await f.onsubmit({preventDefault(){}});assert.equal(savedRecord.id,id);assert.equal(uploads,1);assert.equal(removed,0);assert.equal(t.nav.length,1);t.dom.window.close();
 });
+test('Toolbox cloud save uses protected draft metadata and never downloads or reuploads images',async()=>{
+ const t=setup();let passed,filesRead=0;t.ctx.toolboxDraftEvidence=async()=>[{path:'protected-photo',name:'Photo',type:'image/jpeg',size:2000000}];t.ctx.saveToolboxCloud=async(record,photos)=>{passed={record,photos};return {id:record.id}};t.ctx.draftFilesFor=async()=>{filesRead++;throw Error('Unexpected photo download')};t.tools=createSafetyTools(t.ctx);
+ await t.tools.form('toolbox');await document.querySelector('form').onsubmit({preventDefault(){}});assert.deepEqual(t.errors,[]);assert.equal(filesRead,0);assert.equal(t.uploads.length,0);assert.equal(passed.photos.length,1);assert.equal(passed.record.kind,'toolbox');assert.equal(t.nav.length,1);t.dom.window.close();
+});
