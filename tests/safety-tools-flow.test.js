@@ -11,7 +11,7 @@ function setup(options={}){
  const writes=[],nav=[],errors=[],observationQueries=[],uploads=[];const state={project:'job-a',profile:{id:'author',name:'Inspector',role:'admin'},projects:[{id:'job-a',name:'Project A',address:'Address',general_contractor:'GC'}]};
  let pending=null;
  const db={from(name){let payload,filter={},range=[0,49],selection='';const q={select(columns=''){selection=columns;return q},eq(k,v){filter[k]=v;return q},in(k,v){filter[k]=v;return q},ilike(k,v){filter[k]=v;return q},order(){return q},limit(){return q},range(a,b){range=[a,b];return q},insert(p){payload=p;return q},single(){return q},maybeSingle(){return q},then(resolve,reject){if(pending)return pending.then(resolve,reject);let data=[];if(payload){writes.push({name,payload});data={id:payload.id}}else if(name==='incident_reports')data=options.incidents||[];else if(name==='employee_medical_followups'){const record=writes.find(x=>x.name===name)?.payload;if(selection.startsWith('*,')&&selection.includes('incident:'))data=record?{...record,created_at:'2026-10-04T12:00:00Z',incident:(options.incidents||[]).find(i=>i.id===record.incident_id),creator:{name:'Safety Director'}}:null;else if(selection.includes('incident:'))data=record?[{...record,created_at:'2026-10-04T12:00:00Z',incident:(options.incidents||[]).find(i=>i.id===record.incident_id)}]:[];else data=record?[{...record,created_at:'2026-10-04T12:00:00Z'}]:[]}else if(name==='employee_medical_followup_documents')data=options.documents||[];else if(name==='observations'){observationQueries.push({filter:{...filter},range:[...range]});data=(options.observations||[]).filter(row=>!filter.project_id||(Array.isArray(filter.project_id)?filter.project_id.includes(row.project_id):row.project_id===filter.project_id)).slice(range[0],range[1]+1)}else if(name==='safety_tool_records'&&options.records)data=options.records.slice(range[0],range[1]+1);else if(name==='safety_tool_records')data={...writes.at(-1)?.payload,created_at:'2026-10-01T12:00:00Z',creator:{name:'Inspector'}};else if(name==='safety_orientations')data={employee_name:'Sample Employee',sticker_number:'GE123',certificate_photo_paths:[]};return Promise.resolve({data,error:null}).then(resolve,reject)}};return q},storage:{from(bucket){return {upload:async(path,file)=>{uploads.push({bucket,path,file});return {error:null}},remove:async()=>({error:null})}}}};
- const ctx={db,state,tr:x=>x,frame:html=>document.querySelector('main').innerHTML=html,navigate:(...v)=>nav.push(v),captureView:()=>()=>options.current!==false,error:e=>errors.push(e.message),confirmAction(){},enableAutoDraft:async f=>f.dataset.autoDraft='true',draftFilesFor:async()=>[],clearDraft:async()=>{},normalizeReportImage:async f=>f,signedDisplayImage:async()=>''};
+ const ctx={db,state,tr:x=>x,frame:html=>document.querySelector('main').innerHTML=html,navigate:(...v)=>nav.push(v),captureView:()=>()=>options.current!==false,error:e=>errors.push(e.message),confirmAction(){},enableAutoDraft:async f=>f.dataset.autoDraft='true',draftFilesFor:async()=>options.photos||[],clearDraft:async()=>{},normalizeReportImage:async f=>f,signedDisplayImage:async()=>''};
  return {ctx,tools:createSafetyTools(ctx),writes,nav,errors,dom,state,observationQueries,uploads,options,hold:p=>pending=p};
 }
 for(const kind of ['toolbox','training','safety_net','emergency','director','hazard'])test(`${kind}: incomplete form saves to original project and opens matching report`,async()=>{
@@ -114,5 +114,17 @@ test('assigned Safety coordinators can open, create, and read medical follow-up 
  assert.equal(saved.project_id,'job-a');assert.equal(saved.employee_name,'Case Worker');assert.equal(saved.incident_id,undefined);
  await t.tools.report(saved.id);assert.equal(document.querySelector('article.report')?.dataset.toolKind,'medical_followup');
  assert.match(document.querySelector('article.report').textContent,/Safety Coordinators assigned to this jobsite/);
+ t.dom.window.close();
+});
+
+for(const fail of [false,true])test(`toolbox photo save ${fail?'failure waits for uploads and preserves draft':'keeps photo order with bounded concurrency'}`,async()=>{
+ const photos=Array.from({length:7},(_,i)=>({name:`Photo ${i}.jpg`,type:'image/jpeg',size:100}));
+ const t=setup({photos});let active=0,peak=0,finished=0;const removed=[];let cleared=false;
+ t.ctx.db.storage.from=()=>({upload:async(path,file)=>{active++;peak=Math.max(peak,active);await new Promise(r=>setImmediate(r));active--;finished++;return {error:fail&&file.name==='Photo 0.jpg'?new Error('Upload failed'):null}},remove:async paths=>{assert.equal(active,0);removed.push(...paths);return {error:null}}});
+ t.ctx.clearDraft=async()=>{cleared=true};
+ t.tools=createSafetyTools(t.ctx);await t.tools.form('toolbox');const f=document.querySelector('form');
+ await f.onsubmit({preventDefault(){}});assert.equal(peak,3);assert.equal(f.inert,false);
+ if(fail){assert.equal(finished,3);assert.equal(removed.length,2);assert.equal(t.writes.length,0);assert.equal(cleared,false);assert.match(t.errors[0],/Upload failed/);assert.match(f.textContent,/Your form and photos are still here/)}
+ else{assert.equal(finished,7);assert.deepEqual(t.writes[0].payload.photos.map(p=>p.label),photos.map(p=>p.name));assert.equal(cleared,true);assert.equal(t.nav.length,1);assert.deepEqual(t.errors,[])}
  t.dom.window.close();
 });
