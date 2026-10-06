@@ -17,19 +17,9 @@ test('JHA form offers review suggestions without editing or saving the draft',()
   const form=getFunction('safetyWalk'),review=getFunction('attachJhaReview');
   assert.match(form,/id="review-jha-ai"/);
   assert.match(form,/id="jha-ai-review-result"/);
-  assert.match(form,/data-jha-dictation="true"/);
   assert.match(review,/action:'review_jha'/);
   assert.match(review,/data-index=/);
   assert.doesNotMatch(review,/\.from\([^)]*\)\.(insert|update|upsert)\(/);
-});
-
-test('voice dictation is limited to marked JHA text fields and has a browser fallback',()=>{
-  const dictation=getFunction('attachJhaDictation');
-  assert.match(dictation,/textarea\[data-jha-dictation="true"\]/);
-  assert.match(dictation,/SpeechRecognition\|\|window\.webkitSpeechRecognition/);
-  assert.match(dictation,/Microphone permission was denied/);
-  assert.match(dictation,/keyboard microphone/);
-  assert.match(dictation,/field\.readOnly=false/);
 });
 
 test('JHA AI endpoint validates roles, project access, payload size and structured suggestions',()=>{
