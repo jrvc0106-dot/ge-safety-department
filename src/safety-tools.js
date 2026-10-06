@@ -3,6 +3,22 @@ import {moduleIcon} from './module-icons.js';
 import {mountReportSignatures,reportApprovals,toggleQrSignatures} from './report-signatures.js';
 import {TOOL_DEFINITIONS,TRAINING_TYPE_GROUPS,MEDICAL_FOLLOWUP_EVENTS,MEDICAL_CASE_STATUSES,MEDICAL_WORK_STATUSES,canCreateTool,canReadTool,parseQrValue,summarizeProjects,toolReportHtml,trainingTypeLabel,medicalEventLabel,medicalCaseStatusLabel,medicalWorkStatusLabel,escapeHtml as esc} from './safety-tools-model.js';
 
+const toolboxConnectionError=e=>Number(e?.status)>=500||[0,408,429].includes(e?.status)||/\bload failed\b|failed to fetch|fetch failed|network|timeout|timed out|connection/i.test(`${e?.message||''} ${e?.details||''}`);
+export async function saveToolboxRecord(db,record,onRetry=()=>{},wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))){
+ let lastError;
+ for(let attempt=0;attempt<3;attempt++){
+  let saved;try{saved=await db.from('safety_tool_records').insert(record).select('id').single()}catch(error){saved={error}}
+  if(!saved.error)return saved.data;
+  lastError=saved.error;
+  let existing;try{existing=await db.from('safety_tool_records').select('id').eq('id',record.id).eq('project_id',record.project_id).maybeSingle()}catch(error){existing={error}}
+  if(existing.data?.id)return existing.data;
+  if(!toolboxConnectionError(lastError)&&lastError.code!=='23505')throw lastError;
+  if(attempt<2){onRetry(attempt+1);await wait(500*(attempt+1))}
+ }
+ // A lost response can follow a committed INSERT. Keep its evidence until verified.
+ const error=new Error(lastError?.message||'Connection failed');error.toolboxSaveUncertain=true;throw error;
+}
+
 export function toolsHomeMarkup(role,tr){
  return `<section class="st-home"><h2>${tr('New tools','Nuevas herramientas')}</h2><div class="home-actions">${Object.entries(TOOL_DEFINITIONS).filter(([k])=>canReadTool(k,role)).map(([k,d])=>`<button class="home-action st-tool" data-safety-tool="${k}"><span class="action-icon">${moduleIcon(k==='medical_followup'?'medical':k)}</span><span>${tr(d.en,d.es)}</span></button>`).join('')}</div></section>`;
 }
@@ -32,7 +48,7 @@ export function createSafetyTools(ctx){
  async function form(kind){
   stop();const d=assertKind(kind);if(!canCreateTool(kind,state.profile.role))throw Error(tr('Your role cannot create this report.','Su rol no puede crear este reporte.'));
   const current=captureView(),projectId=state.project,userId=state.profile.id,preparedBy=state.profile.name||'';
-  const id=crypto.randomUUID();let stored=false,lookup=null,lookupType='employee',lookupPhotos=[],lookupVersion=0,summary=null;
+  const id=crypto.randomUUID();let toolboxPhotos=new WeakMap();let stored=false,lookup=null,lookupType='employee',lookupPhotos=[],lookupVersion=0,summary=null;
   if(kind==='director'){
     // Query permitted projects in batches, rather than issuing a separate
     // paginated request chain for every project or using the capped dashboard cache.
@@ -75,8 +91,8 @@ export function createSafetyTools(ctx){
    e.preventDefault();if(f.dataset.submitting==='true')return;f.dataset.submitting='true';const button=f.querySelector('button[type=submit]');button.disabled=true;f.inert=true;stop();
    const uploaded=[];let medicalDocumentsSaved=false;
    const originalButtonText=button.textContent;
-   let saveStatus;
-   const progress=message=>{if(kind!=='toolbox')return;if(!saveStatus){saveStatus=document.createElement('p');saveStatus.setAttribute('role','status');saveStatus.setAttribute('aria-live','polite');button.after(saveStatus)}saveStatus.textContent=message;button.textContent=tr('Saving…','Guardando…')};
+   let saveStatus=f.querySelector('[data-toolbox-save-status]');
+   const progress=message=>{if(kind!=='toolbox')return;if(!saveStatus){saveStatus=document.createElement('p');saveStatus.dataset.toolboxSaveStatus='true';saveStatus.setAttribute('role','status');saveStatus.setAttribute('aria-live','polite');button.after(saveStatus)}saveStatus.textContent=message;button.textContent=tr('Saving…','Guardando…')};
    progress(tr('Preparing report and photos… Keep this page open.','Preparando reporte y fotos… Mantenga esta página abierta.'));
    try{
     if(kind==='qr'&&!lookup)throw Error(tr('Look up an employee or equipment before saving.','Consulte un empleado o equipo antes de guardar.'));
@@ -103,13 +119,14 @@ export function createSafetyTools(ctx){
        let completed=0;
        for(let start=0;start<photos.length;start+=3){
         const results=await Promise.allSettled(photos.slice(start,start+3).map(async raw=>{
+         const prior=toolboxPhotos.get(raw);if(prior){completed++;return prior}
          if(raw.size>10*1024*1024)throw Error(tr('Each image must be 10 MB or less.','Cada imagen debe pesar 10 MB o menos.'));
          const file=await normalizeReportImage(raw);
          if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)throw Error(tr('Use a supported image up to 10 MB.','Use una imagen compatible de hasta 10 MB.'));
          const path=`${projectId}/${userId}/${id}/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
          const up=await db.storage.from(bucket).upload(path,file,{contentType:file.type});if(up.error)throw up.error;
          completed++;progress(tr(`Saving photos: ${completed} of ${photos.length}. Keep this page open.`,`Guardando fotos: ${completed} de ${photos.length}. Mantenga esta página abierta.`));
-         return {path,label:raw.name};
+         const evidence={path,label:raw.name};toolboxPhotos.set(raw,evidence);return evidence;
         }));
         for(const result of results)if(result.status==='fulfilled')uploaded.push(result.value);
         const failure=results.find(result=>result.status==='rejected');if(failure)throw failure.reason;
@@ -119,8 +136,14 @@ export function createSafetyTools(ctx){
       for(const raw of photos){if(raw.size>10*1024*1024)throw Error(tr('Each image must be 10 MB or less.','Cada imagen debe pesar 10 MB o menos.'));const file=await normalizeReportImage(raw);if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)throw Error(tr('Use a supported image up to 10 MB.','Use una imagen compatible de hasta 10 MB.'));const path=`${projectId}/${userId}/${id}/${crypto.randomUUID()}.${file.type.split('/')[1]}`;const up=await db.storage.from(bucket).upload(path,file,{contentType:file.type});if(up.error)throw up.error;uploaded.push({path,label:raw.name})}
       }
       const reportNumber=d.prefix+'-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+id.slice(0,8).toUpperCase();
-      const saved=await db.from(table).insert({id,project_id:projectId,created_by:userId,kind,report_number:reportNumber,payload:values,photos:uploaded}).select('id').single();
-      if(saved.error){const existing=await db.from(table).select('id').eq('id',id).maybeSingle();if(!existing.data)throw saved.error}
+      const record={id,project_id:projectId,created_by:userId,kind,report_number:reportNumber,payload:values,photos:uploaded};
+      if(kind==='toolbox'){
+       await saveToolboxRecord(db,record,attempt=>progress(tr(`Reconnecting to save report (${attempt}/2)… Keep this page open.`,`Reconectando para guardar el reporte (${attempt}/2)… Mantenga esta página abierta.`)));
+       stored=true;
+      }else{
+       const saved=await db.from(table).insert(record).select('id').single();
+       if(saved.error){const existing=await db.from(table).select('id').eq('id',id).maybeSingle();if(!existing.data)throw saved.error}
+      }
      }
     }
     if(kind==='medical_followup'&&photos.length){
@@ -138,7 +161,7 @@ export function createSafetyTools(ctx){
     }
     stored=true;
     if(kind!=='medical_followup')await clearDraft('safety_tool_'+kind,'default',f).catch(err=>console.warn('Saved report draft cleanup failed',err));confirmAction(tr('Report saved successfully.','Reporte guardado correctamente.'));if(current())navigate('safetyToolReport',id);
-   }catch(e){if(uploaded.length&&!medicalDocumentsSaved)await db.storage.from(kind==='medical_followup'?'employee-medical-documents':bucket).remove(uploaded.map(x=>x.path));if(kind==='medical_followup'&&stored)error(`${tr('The report was saved, but its photos could not be attached. The selected photos are still here; press Save again to retry.','El reporte se guardó, pero no se pudieron adjuntar las fotos. Las fotos seleccionadas siguen aquí; pulse Guardar otra vez para reintentar.')} ${e?.message||''}`);else error(e)}finally{delete f.dataset.submitting;button.disabled=false;f.inert=false;if(kind==='toolbox'){button.textContent=originalButtonText;if(saveStatus&&current())saveStatus.textContent=stored?tr('Report saved.','Reporte guardado.'):tr('Report not saved. Your form and photos are still here; try again.','No se guardó el reporte. Sus datos y fotos siguen aquí; intente otra vez.')}}
+   }catch(e){const keepToolboxEvidence=kind==='toolbox'&&(stored||e.toolboxSaveUncertain||toolboxConnectionError(e));if(uploaded.length&&!medicalDocumentsSaved&&!keepToolboxEvidence){await db.storage.from(kind==='medical_followup'?'employee-medical-documents':bucket).remove(uploaded.map(x=>x.path));if(kind==='toolbox')toolboxPhotos=new WeakMap()}if(kind==='medical_followup'&&stored)error(`${tr('The report was saved, but its photos could not be attached. The selected photos are still here; press Save again to retry.','El reporte se guardó, pero no se pudieron adjuntar las fotos. Las fotos seleccionadas siguen aquí; pulse Guardar otra vez para reintentar.')} ${e?.message||''}`);else if(kind==='toolbox'&&e.toolboxSaveUncertain)error(tr('The connection was interrupted before saving could be confirmed. Your form and photos are preserved. Press Save again to verify and retry.','La conexión se interrumpió antes de confirmar el guardado. Sus datos y fotos están conservados. Pulse Guardar otra vez para verificar y reintentar.'));else error(e)}finally{delete f.dataset.submitting;button.disabled=false;f.inert=false;if(kind==='toolbox'){button.textContent=originalButtonText;if(saveStatus&&current())saveStatus.textContent=stored?tr('Report saved.','Reporte guardado.'):tr('Saving could not be confirmed. Your form and photos are still here; try again.','No se pudo confirmar el guardado. Sus datos y fotos siguen aquí; intente otra vez.')}}
   };
  }
  async function report(id){
