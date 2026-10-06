@@ -12,10 +12,10 @@ test('JHA saving does not wait for the optional jobsite weather lookup',()=>{
   const lookupAt=safetyWalkSource.indexOf('weatherTask=captureJobsiteWeather(project)');
   const submitAt=safetyWalkSource.indexOf('.onsubmit=async ev=>');
   assert.ok(lookupAt>=0&&submitAt>lookupAt,'weather lookup should start while the form is open');
-  assert.doesNotMatch(safetyWalkSource,/\\bawait\\s+captureJobsiteWeather\\s*\\(/);
+  assert.doesNotMatch(safetyWalkSource,/\bawait\s+captureJobsiteWeather\s*\(/);
 });
 
 test('a late JHA weather result is saved to the same jobsite report',()=>{
   assert.match(safetyWalkSource,/weather_snapshot:weatherForSave/);
-  assert.match(safetyWalkSource,/update\\(\\{weather_snapshot:snapshot\\}\\)\\.eq\\('id',walkId\\)\\.eq\\('project_id',formProjectId\\)/);
+  assert.match(safetyWalkSource,/update\(\{weather_snapshot:snapshot\}\)\.eq\('id',walkId\)\.eq\('project_id',formProjectId\)/);
 });
