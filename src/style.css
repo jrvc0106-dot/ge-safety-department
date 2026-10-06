@@ -1659,6 +1659,6 @@ header nav .notification-menu #notification-count.show{animation:notification-ba
  main form :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),select,textarea){font-size:16px;min-height:44px;max-width:100%}
  main form :is(label,fieldset,.incident-grid>*,.orientation-editor form>*){min-width:0}
  main form :is(input,select,textarea){scroll-margin-top:90px;scroll-margin-bottom:100px}
- .profile-crop-card,.ai-review-dialog{max-height:90vh;max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
+ .profile-crop-card,.ai-writing-review{max-height:90vh;max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
  html[data-ge-keyboard] .device-back-bar,html[data-ge-keyboard] .mobile-bottom{display:none}
 }
