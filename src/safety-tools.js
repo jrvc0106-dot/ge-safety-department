@@ -74,6 +74,10 @@ export function createSafetyTools(ctx){
   f.onsubmit=async e=>{
    e.preventDefault();if(f.dataset.submitting==='true')return;f.dataset.submitting='true';const button=f.querySelector('button[type=submit]');button.disabled=true;f.inert=true;stop();
    const uploaded=[];let medicalDocumentsSaved=false;
+   const originalButtonText=button.textContent;
+   let saveStatus;
+   const progress=message=>{if(kind!=='toolbox')return;if(!saveStatus){saveStatus=document.createElement('p');saveStatus.setAttribute('role','status');saveStatus.setAttribute('aria-live','polite');button.after(saveStatus)}saveStatus.textContent=message;button.textContent=tr('Saving…','Guardando…')};
+   progress(tr('Preparing report and photos… Keep this page open.','Preparando reporte y fotos… Mantenga esta página abierta.'));
    try{
     if(kind==='qr'&&!lookup)throw Error(tr('Look up an employee or equipment before saving.','Consulte un empleado o equipo antes de guardar.'));
     const submitted=new FormData(f),values=Object.fromEntries(submitted);delete values.photos;delete values.lookup;delete values.lookup_type;delete values.lookup_evidence;
@@ -94,7 +98,26 @@ export function createSafetyTools(ctx){
       const saved=await db.from('employee_medical_followups').insert({id,project_id:projectId,employee_name:values.employee_name,created_by:userId,followup_number:followupNumber,event_type:values.event_type,event_date:values.event_date,last_appointment_date:values.last_appointment_date||null,next_appointment_date:values.next_appointment_date||null,current_condition_summary:values.current_condition_summary,reported_medications:values.reported_medications||null,case_status:values.case_status,work_status:values.work_status,next_followup_date:values.next_followup_date||null,clearance_received:values.clearance_received,work_restrictions_summary:values.work_restrictions_summary||null}).select('id').single();
       if(saved.error)throw saved.error;stored=true;
      }else{
+      if(kind==='toolbox'){
+       // Finish every started upload before cleanup; keep evidence in selection order.
+       let completed=0;
+       for(let start=0;start<photos.length;start+=3){
+        const results=await Promise.allSettled(photos.slice(start,start+3).map(async raw=>{
+         if(raw.size>10*1024*1024)throw Error(tr('Each image must be 10 MB or less.','Cada imagen debe pesar 10 MB o menos.'));
+         const file=await normalizeReportImage(raw);
+         if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)throw Error(tr('Use a supported image up to 10 MB.','Use una imagen compatible de hasta 10 MB.'));
+         const path=`${projectId}/${userId}/${id}/${crypto.randomUUID()}.${file.type.split('/')[1]}`;
+         const up=await db.storage.from(bucket).upload(path,file,{contentType:file.type});if(up.error)throw up.error;
+         completed++;progress(tr(`Saving photos: ${completed} of ${photos.length}. Keep this page open.`,`Guardando fotos: ${completed} de ${photos.length}. Mantenga esta página abierta.`));
+         return {path,label:raw.name};
+        }));
+        for(const result of results)if(result.status==='fulfilled')uploaded.push(result.value);
+        const failure=results.find(result=>result.status==='rejected');if(failure)throw failure.reason;
+       }
+       progress(tr('Saving final report…','Guardando reporte final…'));
+      }else{
       for(const raw of photos){if(raw.size>10*1024*1024)throw Error(tr('Each image must be 10 MB or less.','Cada imagen debe pesar 10 MB o menos.'));const file=await normalizeReportImage(raw);if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)throw Error(tr('Use a supported image up to 10 MB.','Use una imagen compatible de hasta 10 MB.'));const path=`${projectId}/${userId}/${id}/${crypto.randomUUID()}.${file.type.split('/')[1]}`;const up=await db.storage.from(bucket).upload(path,file,{contentType:file.type});if(up.error)throw up.error;uploaded.push({path,label:raw.name})}
+      }
       const reportNumber=d.prefix+'-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+id.slice(0,8).toUpperCase();
       const saved=await db.from(table).insert({id,project_id:projectId,created_by:userId,kind,report_number:reportNumber,payload:values,photos:uploaded}).select('id').single();
       if(saved.error){const existing=await db.from(table).select('id').eq('id',id).maybeSingle();if(!existing.data)throw saved.error}
@@ -115,7 +138,7 @@ export function createSafetyTools(ctx){
     }
     stored=true;
     if(kind!=='medical_followup')await clearDraft('safety_tool_'+kind,'default',f).catch(err=>console.warn('Saved report draft cleanup failed',err));confirmAction(tr('Report saved successfully.','Reporte guardado correctamente.'));if(current())navigate('safetyToolReport',id);
-   }catch(e){if(uploaded.length&&!medicalDocumentsSaved)await db.storage.from(kind==='medical_followup'?'employee-medical-documents':bucket).remove(uploaded.map(x=>x.path));if(kind==='medical_followup'&&stored)error(`${tr('The report was saved, but its photos could not be attached. The selected photos are still here; press Save again to retry.','El reporte se guardó, pero no se pudieron adjuntar las fotos. Las fotos seleccionadas siguen aquí; pulse Guardar otra vez para reintentar.')} ${e?.message||''}`);else error(e)}finally{delete f.dataset.submitting;button.disabled=false;f.inert=false}
+   }catch(e){if(uploaded.length&&!medicalDocumentsSaved)await db.storage.from(kind==='medical_followup'?'employee-medical-documents':bucket).remove(uploaded.map(x=>x.path));if(kind==='medical_followup'&&stored)error(`${tr('The report was saved, but its photos could not be attached. The selected photos are still here; press Save again to retry.','El reporte se guardó, pero no se pudieron adjuntar las fotos. Las fotos seleccionadas siguen aquí; pulse Guardar otra vez para reintentar.')} ${e?.message||''}`);else error(e)}finally{delete f.dataset.submitting;button.disabled=false;f.inert=false;if(kind==='toolbox'){button.textContent=originalButtonText;if(saveStatus&&current())saveStatus.textContent=stored?tr('Report saved.','Reporte guardado.'):tr('Report not saved. Your form and photos are still here; try again.','No se guardó el reporte. Sus datos y fotos siguen aquí; intente otra vez.')}}
   };
  }
  async function report(id){
