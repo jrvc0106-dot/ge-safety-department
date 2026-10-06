@@ -1599,3 +1599,13 @@ article.report.equipment-pdf .eq-photo-page figcaption{box-sizing:border-box;hei
 .report-category-grid.report-category-nine{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:1000px){.report-category-grid.report-category-nine{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.report-category-grid.report-category-nine{grid-template-columns:1fr}}
+
+
+/* Admin project name editor */
+.project-name-list{display:grid;gap:10px}
+.project-name-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,auto);gap:10px;align-items:end;padding:12px;background:#f8fafc;border:1px solid #d9e2ec;border-radius:10px}
+.project-name-form label{margin:0}
+.project-name-form>div{display:flex;align-items:center;gap:8px}
+.project-name-form small{font-size:11px;color:#627d98;margin-right:auto}
+.project-name-form button{white-space:nowrap}
+@media(max-width:650px){.project-name-form{grid-template-columns:1fr}.project-name-form>div{align-items:stretch;flex-direction:column}.project-name-form button{width:100%}}
