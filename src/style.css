@@ -1609,3 +1609,17 @@ article.report.equipment-pdf .eq-photo-page figcaption{box-sizing:border-box;hei
 .project-name-form small{font-size:11px;color:#627d98;margin-right:auto}
 .project-name-form button{white-space:nowrap}
 @media(max-width:650px){.project-name-form{grid-template-columns:1fr}.project-name-form>div{align-items:stretch;flex-direction:column}.project-name-form button{width:100%}}
+
+
+/* Modern notification bell */
+header nav .notification-menu{position:relative;display:grid;place-items:center;width:44px;height:44px;min-width:44px;padding:0;color:#344054;background:linear-gradient(145deg,#fff,#f5f8fc);border:1px solid #e4eaf2;border-radius:14px;box-shadow:0 2px 6px rgba(16,42,67,.08);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease}
+header nav .notification-menu:hover{transform:translateY(-1px);color:#075bc7;background:#fff;border-color:#c8dcf5;box-shadow:0 6px 16px rgba(7,91,199,.14)}
+header nav .notification-menu:active{transform:scale(.96)}
+header nav .notification-menu:focus-visible{outline:3px solid rgba(7,91,199,.32);outline-offset:3px}
+header nav .notification-menu svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+header nav .notification-menu.has-unread{color:#075bc7}
+header nav .notification-menu #notification-count{right:-6px;top:-6px;min-width:19px;height:19px;padding:0 5px;background:#d92d20;color:#fff;font-size:10px;line-height:1;border:2px solid #fff;box-shadow:0 1px 4px rgba(16,24,40,.2)}
+header nav .notification-menu #notification-count.show{animation:notification-badge-in .2s cubic-bezier(.2,.8,.2,1)}
+@keyframes notification-badge-in{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){header nav .notification-menu,header nav .notification-menu #notification-count.show{animation:none;transition:none}}
+@media(max-width:650px){header nav .notification-menu{width:42px;height:42px;min-width:42px;padding:0}}
