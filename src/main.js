@@ -524,7 +524,7 @@ async function runPdfAction(action,button){
       }
       // Safari may expire activation during a long first render. Share immediately
       // when it is still valid; otherwise keep the prepared file for the next tap.
-      if(isJha&&navigator.userActivation?.isActive){
+      if(navigator.userActivation?.isActive){
         try{
           await navigator.share({title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim(),files:[file]});
           confirmAction(tr('Sharing completed in the selected app.','Se completó la acción de compartir en la aplicación seleccionada.'));return;
