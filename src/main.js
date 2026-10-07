@@ -1,3 +1,4 @@
+import {filterAiReportDraftSuggestions} from './ai-report-drafts.js';
 import {attachJhaPhotos,jhaPhotoController} from './jha-photos.js';
 import './jha-photos.css';
 import {mountReportSignatures,reportApprovals,reportSignaturesReport} from './report-signatures.js';
@@ -677,8 +678,7 @@ function openAiReportDraft(form,config){
    const fieldData=fields.filter(field=>!String(field.value||'').trim()).map(field=>({name:field.name,label:aiReportFieldLabel(field),max_length:field.maxLength>0?Math.min(field.maxLength,3000):1200}));
    const response=await fetch(url+'/functions/v1/improve-writing',{method:'POST',headers:{Authorization:'Bearer '+token,apikey:key,'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({action:'draft_report',report_type:config.type,project_id:project,language:state.lang==='es'?'es':'en',keywords:keywordText,fields:fieldData})});
    const result=await response.json().catch(()=>{throw Error(aiWritingError('REQUEST_FAILED'))});if(!response.ok)throw Error(aiWritingError(result.code,result.error));if(!dialog.isConnected)return;
-   const allowed=new Map(fieldData.map(item=>[item.name,item]));
-   const suggestions=Array.isArray(result.suggestions)?result.suggestions.filter(item=>allowed.has(item?.field_name)&&typeof item?.text==='string'&&item.text.trim()&&item.text.length<=allowed.get(item.field_name).max_length):[];
+   const suggestions=filterAiReportDraftSuggestions(fieldData,result.suggestions);
    if(!suggestions.length){status.textContent=tr('AI could not draft fields from those keywords. Add details or continue manually.','La IA no pudo redactar campos con esas palabras clave. Agrega detalles o continúa manualmente.');return}
    suggestions.forEach(item=>{const info=allowed.get(item.field_name),label=document.createElement('label'),title=document.createElement('strong'),proposal=document.createElement('textarea');title.textContent=info.label;proposal.value=item.text;proposal.maxLength=info.max_length;proposal.dataset.aiDraftField=item.field_name;label.append(title,proposal);results.appendChild(label)});
    results.hidden=false;apply.hidden=false;status.textContent=tr('Review and edit each suggestion before accepting.','Revisa y edita cada sugerencia antes de aceptarla.');
