@@ -577,10 +577,40 @@ const reportActionObserver=new MutationObserver(()=>{
   if(report)installReportDocumentActions();
 });
 reportActionObserver.observe(app,{childList:true,subtree:true});
+async function syncPendingDraftEvidence(){
+ if(!navigator.onLine||!state.profile?.id||!state.projects.length)return;
+ const allowed=new Set(state.projects.map(x=>x.id)),prefix='ge_draft_v1:'+state.profile.id+':';
+ for(let i=0;i<localStorage.length;i++){
+  const storageKey=localStorage.key(i);if(!storageKey?.startsWith(prefix))continue;
+  let record;try{record=JSON.parse(localStorage.getItem(storageKey)||'{}')}catch{continue}
+  const parts=storageKey.slice(prefix.length).split(':'),projectId=parts.shift(),type=parts.shift(),draftKey=parts.join(':');
+  if(!allowed.has(projectId)||!record.payload?.__files)continue;
+  let changed=false;
+  for(const items of Object.values(record.payload.__files)){
+   for(const item of items||[]){
+    if(!item.localId)continue;
+    try{
+     const file=await getOfflineDraftFile(item.localId);if(!file)continue;
+     const uploadResult=await db.storage.from('draft-evidence').upload(item.path,file,{contentType:item.type||file.type,upsert:true});
+     if(uploadResult.error)continue;
+     await deleteOfflineDraftFiles([item.localId]).catch(()=>{});
+     delete item.localId;changed=true;
+    }catch{}
+   }
+  }
+  if(!changed)continue;
+  try{
+   localStorage.setItem(storageKey,JSON.stringify(record));
+   await db.from('form_drafts').upsert({user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,payload:record.payload,status:'active',updated_at:record.updated_at||new Date().toISOString()},{onConflict:'user_id,project_id,form_type,draft_key'});
+  }catch{}
+ }
+ for(const form of document.querySelectorAll('form[data-auto-draft="true"]'))renderDraftFileBadges(form,draftFileState.get(formDraftKey(form,DRAFT_FORMS[form.id],form.id==='correction'?(state.detail||'default'):'default'))||{});
+}
 function flushActiveDrafts(){
  const active=[...document.querySelectorAll('form[data-auto-draft="true"],form[data-auto-draft="initializing"]')];
  for(const form of active){const match=Object.entries(DRAFT_FORMS).find(([id])=>form.id===id);if(match){const [,type]=match,key=form.id==='correction'?(state.detail||'default'):'default';persistDraft(form,type,key).catch(()=>{})}}
 }
+window.addEventListener('online',()=>{void syncPendingDraftEvidence();flushActiveDrafts()});
 function navigate(page,detail=null,{replace=false,projectId=state.project}={}){safetyTools.stop();flushActiveDrafts();const projectChanged=projectId!==state.project;state.project=projectId;state.page=page;state.detail=detail;const entry={geSafety:true,page,detail,projectId};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}if(projectChanged)activateProjectObservations(projectId);render()}
 function switchProject(projectId){if(projectId===state.project||!state.projects.some(p=>p.id===projectId))return;navigate('home',null,{replace:true,projectId})}
 function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&state.projects.some(p=>p.id===h.projectId)){restoringHistory=true;try{const projectChanged=h.projectId!==state.project;state.project=h.projectId;state.page=h.page||'home';state.detail=h.detail||null;if(projectChanged)activateProjectObservations(h.projectId);render()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
