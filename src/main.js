@@ -602,7 +602,8 @@ async function syncPendingDraftEvidence(){
      const file=await getOfflineDraftFile(item.localId);if(!file)continue;
      const uploadResult=await db.storage.from('draft-evidence').upload(item.path,file,{contentType:item.type||file.type,upsert:true});
      if(uploadResult.error)continue;
-     await deleteOfflineDraftFiles([item.localId]).catch(()=>{});
+     const removedLocalId=item.localId;await deleteOfflineDraftFiles([removedLocalId]).catch(()=>{});
+     for(const localFiles of draftFileState.values())for(const group of Object.values(localFiles))for(const savedFile of group||[])if(savedFile.localId===removedLocalId)delete savedFile.localId;
      delete item.localId;changed=true;
     }catch{}
    }
@@ -819,6 +820,7 @@ async function load(){
  state.projects=projects.data||[];
  if(!state.projects.some(x=>x.id===state.project))state.project=state.projects[0]?.id||null;
  await loadProjectObservations(state.project,{force:true});
+ void syncPendingDraftEvidence();
 }
 
 function nav(){return `<div class="toolbar"><select id="project">${state.projects.map(p=>`<option value="${p.id}" ${p.id===state.project?'selected':''}>${esc(p.name)}</option>`).join('')}</select><button id="report">${tr('Daily report','Reporte diario')}</button><button id="new">+ ${tr('Observation','Observación')}</button>${state.profile.role==='admin'?`<button id="admin">${tr('Projects & team','Proyectos y equipo')}</button>`:''}</div>`}
