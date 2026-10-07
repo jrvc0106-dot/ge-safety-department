@@ -19,6 +19,7 @@ import {optimizePhoto} from './photo-optimizer.js';
 import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
+import {putOfflineDraftFile,getOfflineDraftFile,deleteOfflineDraftFiles} from './offline-draft-store.js';
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
 import {installTabletViewport} from './tablet-viewport.js';
@@ -117,7 +118,8 @@ async function persistDraft(form,type,key='default'){
  const previous=draftWrites.get(context)||Promise.resolve();
  const write=previous.catch(()=>{}).then(async()=>{
   if(form.dataset.autoDraft==='false')return;
-  const result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'});
+  if(!navigator.onLine){if(form.isConnected&&form.dataset.autoDraft!=='false')setDraftStatus(form,tr('Saved on this device · waiting to sync','Guardado en este dispositivo · pendiente de sincronizar'),'local');return}
+  let result;try{result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'})}catch{result={error:true}}
   if(!form.isConnected||form.dataset.autoDraft==='false')return;
   if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
   setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
@@ -137,9 +139,10 @@ async function uploadDraftFiles(form,type,key,input){
   const ext=file.type.split('/')[1]?.replace(/[^a-z0-9]/gi,'')||'jpg';
   const safeName=input.name.replace(/[^a-z0-9_-]/gi,'_');
   const path=`${owner.user}/${owner.project}/${type}/${encodeURIComponent(key)}/${safeName}/${crypto.randomUUID()}.${ext}`;
-  const up=await db.storage.from('draft-evidence').upload(path,file,{contentType:file.type});
-  if(up.error)throw up.error;
-  saved.push({path,name:file.name,type:file.type,size:file.size});
+  const localId=crypto.randomUUID();let pending=!navigator.onLine;
+  if(!pending){try{const up=await db.storage.from('draft-evidence').upload(path,file,{contentType:file.type});if(up.error)pending=true}catch{pending=true}}
+  if(pending)await putOfflineDraftFile(localId,file);
+  saved.push({path,name:file.name,type:file.type,size:file.size,...(pending?{localId}: {})});
  }
  Object.assign(all,draftFileState.get(ctx)||{});all[input.name]=(type==='daily_safety_walk'||type==='equipment_inspection')?[...old,...saved]:saved;draftFileState.set(ctx,all);renderDraftFileBadges(form,all);await persistDraft(form,type,key);
  if(old.length&&type!=='daily_safety_walk'&&type!=='equipment_inspection')await db.storage.from('draft-evidence').remove(old.map(x=>x.path));
@@ -149,7 +152,7 @@ function renderDraftFileBadges(form,files={}){
  form.querySelectorAll('.draft-file-restored').forEach(x=>x.remove());
  for(const [name,items] of Object.entries(files)){
   if(!items?.length)continue;const input=[...form.querySelectorAll('input[type=file]')].find(x=>x.name===name);if(!input)continue;if(input.required)input.required=false;
-  const note=document.createElement('div');note.className='draft-file-restored';note.textContent=tr(`${items.length} saved draft photo(s) protected in cloud ✓`,`${items.length} foto(s) del borrador protegida(s) en la nube ✓`);input.insertAdjacentElement('afterend',note);
+  const note=document.createElement('div');note.className='draft-file-restored';const pending=items.some(x=>x.localId);note.textContent=pending?tr(`${items.length} photo(s) saved on this device · waiting to sync`,`${items.length} foto(s) guardada(s) en este dispositivo · pendiente(s) de sincronizar`):tr(`${items.length} saved draft photo(s) protected in cloud ✓`,`${items.length} foto(s) del borrador protegida(s) en la nube ✓`);input.insertAdjacentElement('afterend',note);
  }
 }
 async function draftFilesFor(form,type,key='default',name){
@@ -158,7 +161,7 @@ async function draftFilesFor(form,type,key='default',name){
  const input=[...form.querySelectorAll('input[type=file]')].find(x=>x.name===name);
  if(input?.files?.length)return [...input.files];
  const items=(draftFileState.get(formDraftKey(form,type,key))||{})[name]||[],files=[];
- for(const item of items){const d=await db.storage.from('draft-evidence').download(item.path);if(d.error)throw d.error;files.push(new File([d.data],item.name||'draft-photo.jpg',{type:item.type||d.data.type||'image/jpeg'}))}
+ for(const item of items){if(item.localId){const local=await getOfflineDraftFile(item.localId);if(local){files.push(local);continue}}const d=await db.storage.from('draft-evidence').download(item.path);if(d.error)throw d.error;files.push(new File([d.data],item.name||'draft-photo.jpg',{type:item.type||d.data.type||'image/jpeg'}))}
  return files;
 }
 
@@ -194,7 +197,7 @@ async function clearDraft(type,key='default',sourceForm=null){
  const files=draftFileState.get(ctx)||{};
  if(owner.user&&owner.project){
   if(!Object.keys(files).length){const q=await db.from('form_drafts').select('payload').eq('user_id',owner.user).eq('project_id',owner.project).eq('form_type',type).eq('draft_key',key).maybeSingle();Object.assign(files,q.data?.payload?.__files||{})}
-  const paths=Object.values(files).flat().map(x=>x.path).filter(Boolean);if(paths.length)await db.storage.from('draft-evidence').remove(paths);
+  const allItems=Object.values(files).flat();const paths=allItems.map(x=>x.path).filter(Boolean);if(paths.length)await db.storage.from('draft-evidence').remove(paths);await deleteOfflineDraftFiles(allItems.map(x=>x.localId).filter(Boolean)).catch(()=>{});
   await db.from('form_drafts').delete().eq('user_id',owner.user).eq('project_id',owner.project).eq('form_type',type).eq('draft_key',key);
  }
  draftFileState.delete(ctx);
