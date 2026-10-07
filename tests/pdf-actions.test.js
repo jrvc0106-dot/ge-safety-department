@@ -171,3 +171,27 @@ for(const page of ['report','observationReport','disciplineReport','incidentRepo
  vm.runInContext('let activeJhaPdfReport=null;'+source.slice(start,end),context);context.installReportDocumentActions();
  assert.equal(attached,true);assert.equal(vm.runInContext('activeJhaPdfReport',context),report);
 });
+
+
+test('Employee Medical Follow-up exposes Download PDF and Share PDF actions',()=>{
+ const report={dataset:{toolKind:'medical_followup'},before(){}};
+ const bar={dataset:{},appendChild(){}};
+ const buttons={'.pdf-view':{},'.pdf-download':{},'.pdf-share':{}};
+ const actions={innerHTML:'',className:'',querySelector:selector=>actions.innerHTML.includes(selector.slice(1))?buttons[selector]:null};
+ const attached=[];
+ const context=vm.createContext({state:{page:'safetyToolReport'},document:{querySelector:selector=>selector==='article.report'?report:selector==='.report-actions'?bar:null,createElement:()=>actions},tr:x=>x,runPdfAction(){},attachJhaPdfActions:(installed,tracked)=>attached.push({installed,tracked}),window:{},setTimeout});
+ const start=source.indexOf('function installReportDocumentActions()'),end=source.indexOf('const reportActionObserver=');
+ vm.runInContext('let activeJhaPdfReport=null;'+source.slice(start,end),context);
+ context.installReportDocumentActions();
+ assert.match(actions.innerHTML,/pdf-download/);assert.match(actions.innerHTML,/pdf-share/);
+ assert.ok(buttons['.pdf-download'].onclick);assert.ok(buttons['.pdf-share'].onclick);
+ assert.equal(attached[0].tracked,report);
+});
+
+test('Employee Medical Follow-up PDF is not archived to shared cloud reports',()=>{
+ const report={dataset:{toolKind:'medical_followup'}};
+ const context=vm.createContext({state:{page:'safetyToolReport',project:'project-1',profile:{id:'user-1'}}});
+ const start=source.indexOf('function currentReportIdentity('),end=source.indexOf('async function registerFinalReport(');
+ vm.runInContext(source.slice(start,end),context);
+ assert.equal(context.currentReportIdentity(report),null);
+});
