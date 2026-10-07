@@ -554,8 +554,7 @@ function installReportDocumentActions(){
   bar.dataset.pdfActions='1';
   const actions=document.createElement('div');actions.className='pdf-document-actions';
   const isDailyJha=state.page==='safetyWalkReport';
-  const restrictedMedical=report.dataset?.toolKind==='medical_followup';
-  actions.innerHTML=(isDailyJha?'':'<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>')+'<button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button>'+(restrictedMedical?'':'<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>');
+  actions.innerHTML=(isDailyJha?'':'<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>')+'<button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button>'+'<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>');
   bar.appendChild(actions);
   if(!isDailyJha)actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
   actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
