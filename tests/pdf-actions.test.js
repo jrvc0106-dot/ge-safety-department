@@ -138,6 +138,19 @@ test('expired Safari activation keeps JHA PDF ready for a second sharing tap',as
  await t.context.runPdfAction('share',t.button);assert.match(t.button.textContent,/Share PDF now/);assert.equal(t.downloads.length,0);assert.ok(t.context.preparedReportPdf(t.report,true));assert.equal(t.button.disabled,false);
 });
 
+
+test('first share tap uses native file sharing in other report modules when activation survives rendering',async()=>{
+ const t=setup({canShare:true});t.context.state.page='inventoryReport';t.context.navigator.userActivation={isActive:true};
+ await t.context.runPdfAction('share',t.button);assert.equal(t.shares.length,1);assert.equal(t.downloads.length,0);
+});
+
+test('expired activation in other modules leaves the prepared PDF ready for a second sharing tap',async()=>{
+ const t=setup({canShare:true});t.context.state.page='inventoryReport';t.context.navigator.userActivation={isActive:true};
+ t.context.navigator.share=()=>Promise.reject(Object.assign(Error('activation expired'),{name:'NotAllowedError'}));
+ await t.context.runPdfAction('share',t.button);assert.equal(t.shares.length,0);assert.equal(t.downloads.length,0);
+ assert.ok(t.messages.some(m=>m[0].includes('Tap “Share PDF now”')));assert.ok(t.context.preparedReportPdf(t.report,true));
+ assert.equal(t.button.disabled,false);
+});
 test('report navigation observer releases JHA resources when the report is replaced',async()=>{
  const t=setup();t.report.dataset={pdfViewMode:'single-click'};await t.context.buildReportPdf(true);
  t.context.reportForCleanup=t.report;t.context.installReportDocumentActions=()=>{};
