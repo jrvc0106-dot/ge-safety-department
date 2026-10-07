@@ -83,6 +83,7 @@ begin
     and private.my_role() in ('admin','safety_director','safety')
     and new.verified_by=auth.uid() and new.closed_at is not null
     and exists(select 1 from public.observation_photos where observation_id=old.id and kind='after')
+    and exists(select 1 from public.corrective_actions where observation_id=old.id and status='approved' and reviewed_by=auth.uid())
  then return new; end if;
  if new.status='open' and old.status='pending_verification'
     and private.my_role() in ('admin','safety_director','safety')
