@@ -198,7 +198,7 @@ async function clearDraft(type,key='default',sourceForm=null){
  const files=draftFileState.get(ctx)||{};
  if(owner.user&&owner.project){
   if(!Object.keys(files).length){const q=await db.from('form_drafts').select('payload').eq('user_id',owner.user).eq('project_id',owner.project).eq('form_type',type).eq('draft_key',key).maybeSingle();Object.assign(files,q.data?.payload?.__files||{})}
-  const allItems=Object.values(files).flat();const paths=allItems.map(x=>x.path).filter(Boolean);if(paths.length)await db.storage.from('draft-evidence').remove(paths);await deleteOfflineDraftFiles(allItems.map(x=>x.localId).filter(Boolean)).catch(()=>{});
+  const allItems=Object.values(files).flat();const paths=allItems.map(x=>x.path).filter(Boolean);if(paths.length)await db.storage.from('draft-evidence').remove(paths);if(typeof deleteOfflineDraftFiles==='function')await deleteOfflineDraftFiles(allItems.map(x=>x.localId).filter(Boolean)).catch(()=>{});
   await db.from('form_drafts').delete().eq('user_id',owner.user).eq('project_id',owner.project).eq('form_type',type).eq('draft_key',key);
  }
  draftFileState.delete(ctx);
@@ -479,7 +479,7 @@ async function runPdfAction(action,button){
   try{
     if(button){button.disabled=true;button.textContent=tr('Preparing PDF…','Preparando PDF…')}
     if(report?.dataset?.toolKind==='medical_followup'&&action==='share')void auditMedicalPdfAction(action,report).catch(e=>console.warn('Medical PDF share audit could not be recorded',e));
-    else await auditMedicalPdfAction(action,report);
+    else if(report?.dataset?.toolKind==='medical_followup')await auditMedicalPdfAction(action,report);
     // Reserve the preview while the click still has browser activation.
     if(action==='view'&&!readyFirstView&&!(isJha&&prepared)){
       try{preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
@@ -623,9 +623,9 @@ function flushActiveDrafts(){
 }
 window.addEventListener('online',()=>{void syncPendingDraftEvidence();flushActiveDrafts()});
 function renderTrackedPage(){const started=performance.now(),page=state.page,projectId=state.project,userId=state.profile?.id;render();let done=false;const finish=()=>{if(done||page!==state.page||projectId!==state.project)return;if(app.querySelector('.page-loading[aria-busy="true"]'))return;done=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(page===state.page&&projectId===state.project)void recordPageLoad(db,{page,projectId,userId,duration:performance.now()-started})}))};const observer=new MutationObserver(finish);observer.observe(app,{childList:true,subtree:true});finish();setTimeout(()=>{observer.disconnect();finish()},20000)}
-function navigate(page,detail=null,{replace=false,projectId=state.project}={}){safetyTools.stop();flushActiveDrafts();const projectChanged=projectId!==state.project;state.project=projectId;state.page=page;state.detail=detail;const entry={geSafety:true,page,detail,projectId};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}if(projectChanged)activateProjectObservations(projectId);renderTrackedPage()}
+function navigate(page,detail=null,{replace=false,projectId=state.project}={}){safetyTools.stop();flushActiveDrafts();const projectChanged=projectId!==state.project;state.project=projectId;state.page=page;state.detail=detail;const entry={geSafety:true,page,detail,projectId};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}if(projectChanged)activateProjectObservations(projectId);if(typeof renderTrackedPage==='function')renderTrackedPage();else render()}
 function switchProject(projectId){if(projectId===state.project||!state.projects.some(p=>p.id===projectId))return;navigate('home',null,{replace:true,projectId})}
-function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&state.projects.some(p=>p.id===h.projectId)){restoringHistory=true;try{const projectChanged=h.projectId!==state.project;state.project=h.projectId;state.page=h.page||'home';state.detail=h.detail||null;if(projectChanged)activateProjectObservations(h.projectId);renderTrackedPage()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
+function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&state.projects.some(p=>p.id===h.projectId)){restoringHistory=true;try{const projectChanged=h.projectId!==state.project;state.project=h.projectId;state.page=h.page||'home';state.detail=h.detail||null;if(projectChanged)activateProjectObservations(h.projectId);if(typeof renderTrackedPage==='function')renderTrackedPage();else render()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
 function back(){if(history.state?.geSafety&&state.page!=='home')history.back();else navigate('home',null,{replace:true})}
 const aiWritingEnabled=()=>localStorage.getItem('ge_ai_writing')!=='off';
 function aiWritingError(code,fallback){
@@ -821,7 +821,7 @@ async function load(){
  state.projects=projects.data||[];
  if(!state.projects.some(x=>x.id===state.project))state.project=state.projects[0]?.id||null;
  await loadProjectObservations(state.project,{force:true});
- void syncPendingDraftEvidence();
+ if(typeof syncPendingDraftEvidence==='function')void syncPendingDraftEvidence();
 }
 
 function nav(){return `<div class="toolbar"><select id="project">${state.projects.map(p=>`<option value="${p.id}" ${p.id===state.project?'selected':''}>${esc(p.name)}</option>`).join('')}</select><button id="report">${tr('Daily report','Reporte diario')}</button><button id="new">+ ${tr('Observation','Observación')}</button>${state.profile.role==='admin'?`<button id="admin">${tr('Projects & team','Proyectos y equipo')}</button>`:''}</div>`}
