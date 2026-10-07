@@ -119,7 +119,7 @@ async function persistDraft(form,type,key='default'){
  const previous=draftWrites.get(context)||Promise.resolve();
  const write=previous.catch(()=>{}).then(async()=>{
   if(form.dataset.autoDraft==='false')return;
-  if(!navigator.onLine){if(form.isConnected&&form.dataset.autoDraft!=='false')setDraftStatus(form,tr('Saved on this device · waiting to sync','Guardado en este dispositivo · pendiente de sincronizar'),'local');return}
+  if(globalThis.navigator?.onLine===false){if(form.isConnected&&form.dataset.autoDraft!=='false')setDraftStatus(form,tr('Saved on this device · waiting to sync','Guardado en este dispositivo · pendiente de sincronizar'),'local');return}
   let result;try{result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'})}catch{result={error:true}}
   if(!form.isConnected||form.dataset.autoDraft==='false')return;
   if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
@@ -140,7 +140,7 @@ async function uploadDraftFiles(form,type,key,input){
   const ext=file.type.split('/')[1]?.replace(/[^a-z0-9]/gi,'')||'jpg';
   const safeName=input.name.replace(/[^a-z0-9_-]/gi,'_');
   const path=`${owner.user}/${owner.project}/${type}/${encodeURIComponent(key)}/${safeName}/${crypto.randomUUID()}.${ext}`;
-  const localId=crypto.randomUUID();let pending=!navigator.onLine;
+  const localId=crypto.randomUUID();let pending=globalThis.navigator?.onLine===false;
   if(!pending){try{const up=await db.storage.from('draft-evidence').upload(path,file,{contentType:file.type});if(up.error)pending=true}catch{pending=true}}
   if(pending)await putOfflineDraftFile(localId,file);
   saved.push({path,name:file.name,type:file.type,size:file.size,...(pending?{localId}: {})});
@@ -478,7 +478,8 @@ async function runPdfAction(action,button){
   pdfActionBusy=true;
   try{
     if(button){button.disabled=true;button.textContent=tr('Preparing PDF…','Preparando PDF…')}
-    await auditMedicalPdfAction(action,report);
+    if(report?.dataset?.toolKind==='medical_followup'&&action==='share')void auditMedicalPdfAction(action,report).catch(e=>console.warn('Medical PDF share audit could not be recorded',e));
+    else await auditMedicalPdfAction(action,report);
     // Reserve the preview while the click still has browser activation.
     if(action==='view'&&!readyFirstView&&!(isJha&&prepared)){
       try{preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
@@ -587,7 +588,7 @@ const reportActionObserver=new MutationObserver(()=>{
 });
 reportActionObserver.observe(app,{childList:true,subtree:true});
 async function syncPendingDraftEvidence(){
- if(!navigator.onLine||!state.profile?.id||!state.projects.length)return;
+ if(globalThis.navigator?.onLine===false||!state.profile?.id||!state.projects.length)return;
  const allowed=new Set(state.projects.map(x=>x.id)),prefix='ge_draft_v1:'+state.profile.id+':';
  for(let i=0;i<localStorage.length;i++){
   const storageKey=localStorage.key(i);if(!storageKey?.startsWith(prefix))continue;
