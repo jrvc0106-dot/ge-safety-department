@@ -19,6 +19,8 @@ import {optimizePhoto} from './photo-optimizer.js';
 import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
+import {putOfflineDraftFile,getOfflineDraftFile,deleteOfflineDraftFiles} from './offline-draft-store.js';
+import {recordPageLoad} from './performance-metrics.js';
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
 import {installTabletViewport} from './tablet-viewport.js';
@@ -117,7 +119,8 @@ async function persistDraft(form,type,key='default'){
  const previous=draftWrites.get(context)||Promise.resolve();
  const write=previous.catch(()=>{}).then(async()=>{
   if(form.dataset.autoDraft==='false')return;
-  const result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'});
+  if(globalThis.navigator?.onLine===false){if(form.isConnected&&form.dataset.autoDraft!=='false')setDraftStatus(form,tr('Saved on this device · waiting to sync','Guardado en este dispositivo · pendiente de sincronizar'),'local');return}
+  let result;try{result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'})}catch{result={error:true}}
   if(!form.isConnected||form.dataset.autoDraft==='false')return;
   if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
   setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
@@ -137,9 +140,10 @@ async function uploadDraftFiles(form,type,key,input){
   const ext=file.type.split('/')[1]?.replace(/[^a-z0-9]/gi,'')||'jpg';
   const safeName=input.name.replace(/[^a-z0-9_-]/gi,'_');
   const path=`${owner.user}/${owner.project}/${type}/${encodeURIComponent(key)}/${safeName}/${crypto.randomUUID()}.${ext}`;
-  const up=await db.storage.from('draft-evidence').upload(path,file,{contentType:file.type});
-  if(up.error)throw up.error;
-  saved.push({path,name:file.name,type:file.type,size:file.size});
+  const localId=crypto.randomUUID();let pending=globalThis.navigator?.onLine===false;
+  if(!pending){try{const up=await db.storage.from('draft-evidence').upload(path,file,{contentType:file.type});if(up.error)pending=true}catch{pending=true}}
+  if(pending)await putOfflineDraftFile(localId,file);
+  saved.push({path,name:file.name,type:file.type,size:file.size,...(pending?{localId}: {})});
  }
  Object.assign(all,draftFileState.get(ctx)||{});all[input.name]=(type==='daily_safety_walk'||type==='equipment_inspection')?[...old,...saved]:saved;draftFileState.set(ctx,all);renderDraftFileBadges(form,all);await persistDraft(form,type,key);
  if(old.length&&type!=='daily_safety_walk'&&type!=='equipment_inspection')await db.storage.from('draft-evidence').remove(old.map(x=>x.path));
@@ -149,7 +153,7 @@ function renderDraftFileBadges(form,files={}){
  form.querySelectorAll('.draft-file-restored').forEach(x=>x.remove());
  for(const [name,items] of Object.entries(files)){
   if(!items?.length)continue;const input=[...form.querySelectorAll('input[type=file]')].find(x=>x.name===name);if(!input)continue;if(input.required)input.required=false;
-  const note=document.createElement('div');note.className='draft-file-restored';note.textContent=tr(`${items.length} saved draft photo(s) protected in cloud ✓`,`${items.length} foto(s) del borrador protegida(s) en la nube ✓`);input.insertAdjacentElement('afterend',note);
+  const note=document.createElement('div');note.className='draft-file-restored';const pending=items.some(x=>x.localId);note.textContent=pending?tr(`${items.length} photo(s) saved on this device · waiting to sync`,`${items.length} foto(s) guardada(s) en este dispositivo · pendiente(s) de sincronizar`):tr(`${items.length} saved draft photo(s) protected in cloud ✓`,`${items.length} foto(s) del borrador protegida(s) en la nube ✓`);input.insertAdjacentElement('afterend',note);
  }
 }
 async function draftFilesFor(form,type,key='default',name){
@@ -158,7 +162,7 @@ async function draftFilesFor(form,type,key='default',name){
  const input=[...form.querySelectorAll('input[type=file]')].find(x=>x.name===name);
  if(input?.files?.length)return [...input.files];
  const items=(draftFileState.get(formDraftKey(form,type,key))||{})[name]||[],files=[];
- for(const item of items){const d=await db.storage.from('draft-evidence').download(item.path);if(d.error)throw d.error;files.push(new File([d.data],item.name||'draft-photo.jpg',{type:item.type||d.data.type||'image/jpeg'}))}
+ for(const item of items){if(item.localId){const local=await getOfflineDraftFile(item.localId);if(local){files.push(local);continue}}const d=await db.storage.from('draft-evidence').download(item.path);if(d.error)throw d.error;files.push(new File([d.data],item.name||'draft-photo.jpg',{type:item.type||d.data.type||'image/jpeg'}))}
  return files;
 }
 
@@ -194,7 +198,7 @@ async function clearDraft(type,key='default',sourceForm=null){
  const files=draftFileState.get(ctx)||{};
  if(owner.user&&owner.project){
   if(!Object.keys(files).length){const q=await db.from('form_drafts').select('payload').eq('user_id',owner.user).eq('project_id',owner.project).eq('form_type',type).eq('draft_key',key).maybeSingle();Object.assign(files,q.data?.payload?.__files||{})}
-  const paths=Object.values(files).flat().map(x=>x.path).filter(Boolean);if(paths.length)await db.storage.from('draft-evidence').remove(paths);
+  const allItems=Object.values(files).flat();const paths=allItems.map(x=>x.path).filter(Boolean);if(paths.length)await db.storage.from('draft-evidence').remove(paths);if(typeof deleteOfflineDraftFiles==='function')await deleteOfflineDraftFiles(allItems.map(x=>x.localId).filter(Boolean)).catch(()=>{});
   await db.from('form_drafts').delete().eq('user_id',owner.user).eq('project_id',owner.project).eq('form_type',type).eq('draft_key',key);
  }
  draftFileState.delete(ctx);
@@ -456,6 +460,13 @@ async function buildReportPdf(highQuality=false){
   });
   return prepared;
 }
+async function auditMedicalPdfAction(action,report){
+ if(report?.dataset?.toolKind!=='medical_followup'||!['download','share'].includes(action))return;
+ if(!['admin','safety_director','safety'].includes(state.profile?.role)||!state.project)throw Error(tr('You are not authorized to export this confidential medical report.','No tiene autorización para exportar este reporte médico confidencial.'));
+ const followupId=report.dataset.medicalFollowupId;if(!followupId)throw Error(tr('The medical record could not be verified. Reopen it and try again.','No se pudo verificar el registro médico. Vuelva a abrirlo e inténtelo de nuevo.'));
+ const result=await db.from('employee_medical_pdf_events').insert({project_id:state.project,followup_id:followupId,actor_id:state.profile.id,event_type:action==='download'?'download_started':'share_opened'});
+ if(result.error)throw result.error;
+}
 async function runPdfAction(action,button){
   if(pdfActionBusy)return;
   const report=document.querySelector('article.report');
@@ -467,6 +478,8 @@ async function runPdfAction(action,button){
   pdfActionBusy=true;
   try{
     if(button){button.disabled=true;button.textContent=tr('Preparing PDF…','Preparando PDF…')}
+    if(report?.dataset?.toolKind==='medical_followup'&&action==='share')void auditMedicalPdfAction(action,report).catch(e=>console.warn('Medical PDF share audit could not be recorded',e));
+    else if(report?.dataset?.toolKind==='medical_followup')await auditMedicalPdfAction(action,report);
     // Reserve the preview while the click still has browser activation.
     if(action==='view'&&!readyFirstView&&!(isJha&&prepared)){
       try{preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
@@ -574,13 +587,45 @@ const reportActionObserver=new MutationObserver(()=>{
   if(report)installReportDocumentActions();
 });
 reportActionObserver.observe(app,{childList:true,subtree:true});
+async function syncPendingDraftEvidence(){
+ if(globalThis.navigator?.onLine===false||!state.profile?.id||!state.projects.length)return;
+ const allowed=new Set(state.projects.map(x=>x.id)),prefix='ge_draft_v1:'+state.profile.id+':';
+ for(let i=0;i<localStorage.length;i++){
+  const storageKey=localStorage.key(i);if(!storageKey?.startsWith(prefix))continue;
+  let record;try{record=JSON.parse(localStorage.getItem(storageKey)||'{}')}catch{continue}
+  const parts=storageKey.slice(prefix.length).split(':'),projectId=parts.shift(),type=parts.shift(),draftKey=parts.join(':');
+  if(!allowed.has(projectId)||!record.payload?.__files)continue;
+  let changed=false;
+  for(const items of Object.values(record.payload.__files)){
+   for(const item of items||[]){
+    if(!item.localId)continue;
+    try{
+     const file=await getOfflineDraftFile(item.localId);if(!file)continue;
+     const uploadResult=await db.storage.from('draft-evidence').upload(item.path,file,{contentType:item.type||file.type,upsert:true});
+     if(uploadResult.error)continue;
+     const removedLocalId=item.localId;await deleteOfflineDraftFiles([removedLocalId]).catch(()=>{});
+     for(const localFiles of draftFileState.values())for(const group of Object.values(localFiles))for(const savedFile of group||[])if(savedFile.localId===removedLocalId)delete savedFile.localId;
+     delete item.localId;changed=true;
+    }catch{}
+   }
+  }
+  if(!changed)continue;
+  try{
+   localStorage.setItem(storageKey,JSON.stringify(record));
+   await db.from('form_drafts').upsert({user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,payload:record.payload,status:'active',updated_at:record.updated_at||new Date().toISOString()},{onConflict:'user_id,project_id,form_type,draft_key'});
+  }catch{}
+ }
+ for(const form of document.querySelectorAll('form[data-auto-draft="true"]'))renderDraftFileBadges(form,draftFileState.get(formDraftKey(form,DRAFT_FORMS[form.id],form.id==='correction'?(state.detail||'default'):'default'))||{});
+}
 function flushActiveDrafts(){
  const active=[...document.querySelectorAll('form[data-auto-draft="true"],form[data-auto-draft="initializing"]')];
  for(const form of active){const match=Object.entries(DRAFT_FORMS).find(([id])=>form.id===id);if(match){const [,type]=match,key=form.id==='correction'?(state.detail||'default'):'default';persistDraft(form,type,key).catch(()=>{})}}
 }
-function navigate(page,detail=null,{replace=false,projectId=state.project}={}){safetyTools.stop();flushActiveDrafts();const projectChanged=projectId!==state.project;state.project=projectId;state.page=page;state.detail=detail;const entry={geSafety:true,page,detail,projectId};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}if(projectChanged)activateProjectObservations(projectId);render()}
+window.addEventListener('online',()=>{void syncPendingDraftEvidence();flushActiveDrafts()});
+function renderTrackedPage(){const started=performance.now(),page=state.page,projectId=state.project,userId=state.profile?.id;render();let done=false;const finish=()=>{if(done||page!==state.page||projectId!==state.project)return;if(app.querySelector('.page-loading[aria-busy="true"]'))return;done=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(page===state.page&&projectId===state.project)void recordPageLoad(db,{page,projectId,userId,duration:performance.now()-started})}))};const observer=new MutationObserver(finish);observer.observe(app,{childList:true,subtree:true});finish();setTimeout(()=>{observer.disconnect();finish()},20000)}
+function navigate(page,detail=null,{replace=false,projectId=state.project}={}){safetyTools.stop();flushActiveDrafts();const projectChanged=projectId!==state.project;state.project=projectId;state.page=page;state.detail=detail;const entry={geSafety:true,page,detail,projectId};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}if(projectChanged)activateProjectObservations(projectId);if(typeof renderTrackedPage==='function')renderTrackedPage();else render()}
 function switchProject(projectId){if(projectId===state.project||!state.projects.some(p=>p.id===projectId))return;navigate('home',null,{replace:true,projectId})}
-function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&state.projects.some(p=>p.id===h.projectId)){restoringHistory=true;try{const projectChanged=h.projectId!==state.project;state.project=h.projectId;state.page=h.page||'home';state.detail=h.detail||null;if(projectChanged)activateProjectObservations(h.projectId);render()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
+function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&state.projects.some(p=>p.id===h.projectId)){restoringHistory=true;try{const projectChanged=h.projectId!==state.project;state.project=h.projectId;state.page=h.page||'home';state.detail=h.detail||null;if(projectChanged)activateProjectObservations(h.projectId);if(typeof renderTrackedPage==='function')renderTrackedPage();else render()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
 function back(){if(history.state?.geSafety&&state.page!=='home')history.back();else navigate('home',null,{replace:true})}
 const aiWritingEnabled=()=>localStorage.getItem('ge_ai_writing')!=='off';
 function aiWritingError(code,fallback){
@@ -776,6 +821,7 @@ async function load(){
  state.projects=projects.data||[];
  if(!state.projects.some(x=>x.id===state.project))state.project=state.projects[0]?.id||null;
  await loadProjectObservations(state.project,{force:true});
+ if(typeof syncPendingDraftEvidence==='function')void syncPendingDraftEvidence();
 }
 
 function nav(){return `<div class="toolbar"><select id="project">${state.projects.map(p=>`<option value="${p.id}" ${p.id===state.project?'selected':''}>${esc(p.name)}</option>`).join('')}</select><button id="report">${tr('Daily report','Reporte diario')}</button><button id="new">+ ${tr('Observation','Observación')}</button>${state.profile.role==='admin'?`<button id="admin">${tr('Projects & team','Proyectos y equipo')}</button>`:''}</div>`}
@@ -1200,7 +1246,7 @@ async function newObservation(){const formProjectId=state.project,formUserId=sta
 async function upload(id,kind,file,owner={project:state.project,user:state.profile.id}){if(!(file instanceof File)||!file.size)throw Error(tr('Photo required','Se requiere una foto'));if(file.size>10*1024*1024)throw Error(tr('Use an image smaller than 10 MB','Use una imagen menor de 10 MB'));file=await normalizeReportImage(file);if(!file.type.startsWith('image/'))throw Error(tr('Use a supported image format','Use un formato de imagen compatible'));if(file.size>10*1024*1024)throw Error(tr('Use an image smaller than 10 MB','Use una imagen menor de 10 MB'));const path=`${id}/${crypto.randomUUID()}.${file.type.split('/')[1]?.replace(/[^a-z0-9]/gi,'')||'jpg'}`;const up=await db.storage.from('observation-photos').upload(path,file,{contentType:file.type});if(up.error)throw up.error;const meta=await db.from('observation_photos').insert({observation_id:id,kind,path,uploaded_by:owner.user}).select('id').single();if(meta.error){await db.storage.from('observation-photos').remove([path]);throw meta.error}return {id:meta.data.id,path}}
 async function markViewed(id){await db.from('observation_views').upsert({observation_id:id,user_id:state.profile.id,last_viewed_at:new Date().toISOString()},{onConflict:'observation_id,user_id'})}
 async function photoUrl(path){return {data:{signedUrl:await signedDisplayImage('observation-photos',path,3600)}}}
-async function detail(){const formProjectId=state.project,formUserId=state.profile.id;const viewCurrent=captureView();const o=state.observations.find(x=>x.id===state.detail&&x.project_id===state.project);if(!o){state.page='home';return render()}const [photos,views,actions]=await Promise.all([db.from('observation_photos').select('*').eq('observation_id',o.id),db.from('observation_views').select('*, profile:profiles(name)').eq('observation_id',o.id),db.from('corrective_actions').select('*, author:profiles(name)').eq('observation_id',o.id).order('created_at')]);if(!viewCurrent())return;if(photos.error||views.error||actions.error)return error(photos.error||views.error||actions.error);const signed=await Promise.all(photos.data.map(async p=>({...p,url:(await photoUrl(p.path)).data?.signedUrl})));if(!viewCurrent())return;frame(`<button class="secondary" id="back">← ${tr('Observations','Observaciones')}</button><section class="card"><div class="row"><h1>${esc(o.area)}</h1><span class="badge ${o.priority}">${esc(o.priority)}</span><span class="badge">${esc(o.status)}</span></div><p>${esc(o.description)}</p><p>${esc(o.category)} · ${fmt(o.created_at)} · ${esc(o.creator?.name)}</p><div class="assignment-summary"><span><b>${tr('Assigned Person','Persona asignada')}:</b> ${esc(o.assignee?.name||tr('Unassigned','Sin asignar'))}</span><span><b>${tr('Foreman in Charge','Foreman encargado')}:</b> ${esc(o.foreman?.name||'—')}</span><span><b>${tr('Jobsite Safety','Safety del jobsite')}:</b> ${esc(o.jobsite_safety?.name||'—')}</span></div><div class="photos">${signed.map(p=>`<figure><img src="${esc(p.url)}" alt="${esc(p.kind)}"><figcaption>${p.kind==='before'?tr('Before','Antes'):tr('After','Después')}</figcaption></figure>`).join('')}</div><h2>${tr('Corrective actions','Acciones correctivas')}</h2>${actions.data.map(a=>`<p class="note">${esc(a.comment)}<br><small>${esc(a.author?.name)} · ${fmt(a.created_at)}</small></p>`).join('')}<h2>${tr('Viewed by','Visto por')}</h2>${views.data.map(v=>`<p>${esc(v.profile?.name)} · ${fmt(v.last_viewed_at)}</p>`).join('')||'<p>—</p>'}${o.status==='open'?`<form id="correction"><label>${tr('Correction comment','Comentario de corrección')}<textarea name="comment"></textarea></label><label>${tr('After photo','Foto después')}<input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"></label><button type="submit">${tr('Send for Safety review','Enviar a revisión de Safety')}</button></form>`:''}${o.status==='pending_verification'&&['admin','safety_director','safety'].includes(state.profile.role)?`<button id="close">${tr('Verify and close','Verificar y cerrar')}</button>`:''}</section>`);document.querySelector('#back').onclick=back;const f=document.querySelector('#correction');if(f)mountReportSignatures(f,'correction',tr);if(f)f.onsubmit=async e=>{e.preventDefault();if(f.dataset.submitting==='true')return;f.dataset.submitting='true';const b=f.querySelector('button[type="submit"]');b.disabled=true;try{const d=new FormData(f),draftPhoto=(await draftFilesFor(f,'correction',o.id,'photo'))[0],photoFile=draftPhoto||d.get('photo'),photo=photoFile instanceof File&&photoFile.size?await upload(o.id,'after',photoFile,{project:formProjectId,user:formUserId}):null;const r=await db.from('corrective_actions').insert({observation_id:o.id,comment:d.get('comment'),created_by:formUserId,approvals:reportApprovals('correction',d)}).select('id').single();if(r.error){if(photo){await db.from('observation_photos').delete().eq('id',photo.id);await db.storage.from('observation-photos').remove([photo.path]);}throw r.error}const u=await db.from('observations').update({status:'pending_verification'}).eq('id',o.id);if(u.error){await db.from('corrective_actions').delete().eq('id',r.data.id);if(photo){await db.from('observation_photos').delete().eq('id',photo.id);await db.storage.from('observation-photos').remove([photo.path]);}throw u.error}await clearDraft('correction',o.id,f).catch(err=>console.warn('Saved correction draft cleanup failed',err));savedAction('Correction submitted for Safety review.','Corrección enviada a revisión de Safety.');await load();if(viewCurrent())detail()}catch(err){error(err)}finally{delete f.dataset.submitting;b.disabled=false}};const c=document.querySelector('#close');if(c)c.onclick=async()=>{const r=await db.from('observations').update({status:'closed',verified_by:formUserId,closed_at:new Date().toISOString()}).eq('id',o.id);if(r.error)return error(r.error);savedAction('Observation verified and closed.','Observación verificada y cerrada.');await load();if(viewCurrent())detail()}}
+async function detail(){const formProjectId=state.project,formUserId=state.profile.id;const viewCurrent=captureView();const o=state.observations.find(x=>x.id===state.detail&&x.project_id===state.project);if(!o){state.page='home';return render()}const [photos,views,actions,members]=await Promise.all([db.from('observation_photos').select('*').eq('observation_id',o.id),db.from('observation_views').select('*, profile:profiles(name)').eq('observation_id',o.id),db.from('corrective_actions').select('*,author:profiles(name),assignee:profiles!corrective_actions_assigned_to_fkey(name)').eq('observation_id',o.id).order('created_at'),db.from('project_members').select('user_id,profile:profiles(name)').eq('project_id',o.project_id)]);if(!viewCurrent())return;if(photos.error||views.error||actions.error||members.error)return error(photos.error||views.error||actions.error||members.error);const signed=await Promise.all(photos.data.map(async p=>({...p,url:(await photoUrl(p.path)).data?.signedUrl})));if(!viewCurrent())return;frame(`<button class="secondary" id="back">← ${tr('Observations','Observaciones')}</button><section class="card"><div class="row"><h1>${esc(o.area)}</h1><span class="badge ${o.priority}">${esc(o.priority)}</span><span class="badge">${esc(o.status)}</span></div><p>${esc(o.description)}</p><p>${esc(o.category)} · ${fmt(o.created_at)} · ${esc(o.creator?.name)}</p><div class="assignment-summary"><span><b>${tr('Assigned Person','Persona asignada')}:</b> ${esc(o.assignee?.name||tr('Unassigned','Sin asignar'))}</span><span><b>${tr('Foreman in Charge','Foreman encargado')}:</b> ${esc(o.foreman?.name||'—')}</span><span><b>${tr('Jobsite Safety','Safety del jobsite')}:</b> ${esc(o.jobsite_safety?.name||'—')}</span></div><div class="photos">${signed.map(p=>`<figure><img src="${esc(p.url)}" alt="${esc(p.kind)}"><figcaption>${p.kind==='before'?tr('Before','Antes'):tr('After','Después')}</figcaption></figure>`).join('')}</div><h2>${tr('Corrective actions','Acciones correctivas')}</h2>${actions.data.map(a=>`<p class="note">${esc(a.comment)}<br><small>${esc(a.author?.name)} · ${fmt(a.created_at)} · ${esc(a.assignee?.name||tr('Unassigned','Sin asignar'))} · ${tr('Due','Vence')} ${esc(a.due_date||'—')} · ${esc(a.status||'pending_review')}${a.due_date&&a.status==='pending_review'&&new Date(a.due_date+'T23:59:59')<new Date()?' · '+tr('OVERDUE','ATRASADA'):''}</small>${a.review_note?`<br><small>${tr('Review note','Nota de revisión')}: ${esc(a.review_note)}</small>`:''}</p>`).join('')}<h2>${tr('Viewed by','Visto por')}</h2>${views.data.map(v=>`<p>${esc(v.profile?.name)} · ${fmt(v.last_viewed_at)}</p>`).join('')||'<p>—</p>'}${o.status==='open'?`<form id="correction"><label>${tr('Correction comment','Comentario de corrección')}<textarea name="comment" required></textarea></label><label>${tr('Action owner','Responsable de la acción')}<select name="assigned_to" required><option value="">${tr('Select a responsible person','Seleccione un responsable')}</option>${members.data.map(m=>`<option value="${m.user_id}" ${m.user_id===o.assigned_to?'selected':''}>${esc(m.profile?.name||m.user_id)}</option>`).join('')}</select></label><label>${tr('Due date','Fecha límite')}<input name="due_date" type="date" min="${localDateKey()}" required></label><label>${tr('After photo','Foto después')}<input name="photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" required></label><button type="submit">${tr('Send for Safety review','Enviar a revisión de Safety')}</button></form>`:''}${o.status==='pending_verification'&&['admin','safety_director','safety'].includes(state.profile.role)?actions.data.filter(a=>a.status==='pending_review').map(a=>`<div class="correction-review-actions"><button type="button" data-review-action="${a.id}">${tr('Approve & Close','Aprobar y cerrar')}</button><button type="button" class="secondary" data-return-action="${a.id}">${tr('Return for more work','Devolver para corregir')}</button></div>`).join(''):''}</section>`);document.querySelector('#back').onclick=back;const f=document.querySelector('#correction');if(f)mountReportSignatures(f,'correction',tr);if(f)f.onsubmit=async e=>{e.preventDefault();if(f.dataset.submitting==='true')return;f.dataset.submitting='true';const b=f.querySelector('button[type="submit"]');b.disabled=true;try{const d=new FormData(f),draftPhoto=(await draftFilesFor(f,'correction',o.id,'photo'))[0],photoFile=draftPhoto||d.get('photo'),photo=photoFile instanceof File&&photoFile.size?await upload(o.id,'after',photoFile,{project:formProjectId,user:formUserId}):null;const r=await db.from('corrective_actions').insert({observation_id:o.id,comment:d.get('comment'),created_by:formUserId,assigned_to:d.get('assigned_to'),due_date:d.get('due_date'),approvals:reportApprovals('correction',d)}).select('id').single();if(r.error){if(photo){await db.from('observation_photos').delete().eq('id',photo.id);await db.storage.from('observation-photos').remove([photo.path]);}throw r.error}const u=await db.from('observations').update({status:'pending_verification'}).eq('id',o.id);if(u.error){await db.from('corrective_actions').delete().eq('id',r.data.id);if(photo){await db.from('observation_photos').delete().eq('id',photo.id);await db.storage.from('observation-photos').remove([photo.path]);}throw u.error}await clearDraft('correction',o.id,f).catch(err=>console.warn('Saved correction draft cleanup failed',err));savedAction('Correction submitted for Safety review.','Corrección enviada a revisión de Safety.');await load();if(viewCurrent())detail()}catch(err){error(err)}finally{delete f.dataset.submitting;b.disabled=false}};document.querySelectorAll('[data-review-action]').forEach(button=>button.onclick=async()=>{button.disabled=true;const r=await db.rpc('review_corrective_action',{p_action_id:button.dataset.reviewAction,p_decision:'approved',p_review_note:null});if(r.error){button.disabled=false;return error(r.error)}savedAction('Corrective action approved and closed.','Acción correctiva aprobada y cerrada.');await load();if(viewCurrent())detail()});document.querySelectorAll('[data-return-action]').forEach(button=>button.onclick=async()=>{const note=window.prompt(tr('Explain what must be corrected before review.','Explique qué debe corregirse antes de revisar.'));if(note===null)return;if(!note.trim())return confirmAction(tr('A return note is required.','Se requiere una nota para devolver la acción.'));button.disabled=true;const r=await db.rpc('review_corrective_action',{p_action_id:button.dataset.returnAction,p_decision:'returned',p_review_note:note.trim()});if(r.error){button.disabled=false;return error(r.error)}savedAction('Correction returned with review notes.','Corrección devuelta con notas de revisión.');await load();if(viewCurrent())detail()})}
 
 async function reportCenter(){
  const viewCurrent=captureView(),project=state.projects.find(p=>p.id===state.project)||{};
@@ -1230,6 +1276,34 @@ async function reportCenter(){
  const registered=docs.data||[],finalCount=registered.filter(d=>d.document_status==='final').length,reviewCount=registered.filter(d=>['submitted','under_review'].includes(d.document_status)).length;
  if(!viewCurrent())return;
  frame('<section class="observations-shell report-center"><div class="report-center-hero"><div><small>'+tr('G&E SAFETY DOCUMENT CONTROL','CONTROL DOCUMENTAL G&E SAFETY')+'</small><h1>'+tr('Report Center','Centro de Reportes')+'</h1><p>'+esc(project.name||'—')+' · '+tr('Select a category, choose a record and open its professional PDF-ready report.','Seleccione una categoría, elija un registro y abra su reporte profesional listo para PDF.')+'</p></div><div class="report-center-project"><span>'+tr('CURRENT PROJECT','PROYECTO ACTUAL')+'</span><strong>'+esc(project.name||'—')+'</strong><small>'+esc(project.general_contractor||'')+'</small></div></div><div class="document-control-strip"><div><strong>'+registered.length+'</strong><span>'+tr('Registered Documents','Documentos Registrados')+'</span></div><div><strong>'+finalCount+'</strong><span>'+tr('Final / Locked','Finales / Bloqueados')+'</span></div><div><strong>'+reviewCount+'</strong><span>'+tr('Under Review','En Revisión')+'</span></div><div><strong>v1+</strong><span>'+tr('Version Controlled','Control de Versiones')+'</span></div></div><div class="report-category-grid report-category-nine">'+cats.map(x=>'<button class="report-category '+x.cls+'" data-category="'+x.key+'"><span class="report-category-icon">'+x.icon+'</span><div><h2>'+esc(x.title)+'</h2><p>'+esc(x.desc)+'</p></div><strong>'+x.count+'</strong><small>'+tr('OPEN CATEGORY','ABRIR CATEGORÍA')+' →</small></button>').join('')+'</div><section class="report-library card"><div class="report-library-head"><div><small>'+tr('REPORT LIBRARY','BIBLIOTECA DE REPORTES')+'</small><h2 id="report-library-title"></h2></div></div><div class="report-filter-bar"><input id="report-search" type="search" placeholder="'+tr('Search report, area, employee, category…','Buscar reporte, área, empleado, categoría…')+'"><select id="report-date-filter"><option value="all">'+tr('All dates','Todas las fechas')+'</option><option value="today">'+tr('Today','Hoy')+'</option><option value="week">'+tr('Last 7 days','Últimos 7 días')+'</option><option value="month">'+tr('Last 30 days','Últimos 30 días')+'</option></select></div><div id="report-library-list"></div></section></section>');
+ if(['admin','safety_director','safety','supervisor'].includes(state.profile.role)){
+  const insightsCard=document.createElement('section');insightsCard.className='card ai-safety-trends';insightsCard.innerHTML='<div class="section-heading"><div><h2>'+tr('AI safety trends','Tendencias de seguridad con IA')+'</h2><p>'+tr('Optional analysis of aggregate counts from the last 30 days. No report text or employee details are sent.','Análisis opcional de conteos agregados de los últimos 30 días. No se envía texto de reportes ni datos de empleados.')+'</p></div><button type="button" id="analyze-safety-trends">'+tr('Analyze trends','Analizar tendencias')+'</button></div><div id="safety-trend-results" aria-live="polite"></div>';
+  document.querySelector('.report-library').before(insightsCard);
+  insightsCard.querySelector('#analyze-safety-trends').onclick=async event=>{
+   const button=event.currentTarget,output=insightsCard.querySelector('#safety-trend-results');button.disabled=true;output.textContent=tr('Reviewing aggregate safety counts…','Revisando conteos agregados de seguridad…');
+   try{
+    const since=new Date(Date.now()-30*86400000).toISOString();
+    const q=await db.from('observations').select('category,priority,status,created_at').eq('project_id',state.project).gte('created_at',since).limit(1000);
+    if(q.error)throw q.error;
+    const summarize=key=>{const counts=new Map();for(const row of q.data||[]){const label=String(row[key]||'Unknown').slice(0,80);counts.set(label,(counts.get(label)||0)+1)}return [...counts].map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count).slice(0,20)};
+    const result=await db.functions.invoke('improve-writing',{body:{action:'analyze_safety_trends',project_id:state.project,period_days:30,aggregate:{categories:summarize('category'),priorities:summarize('priority'),statuses:summarize('status')}}});
+    if(result.error)throw result.error;
+    const insights=result.data?.insights||[];
+    output.innerHTML=insights.length?'<ul>'+insights.map(x=>'<li><strong>'+esc(x.title)+'</strong><p>'+esc(x.summary)+'</p><small>'+tr('Review question','Pregunta para revisar')+': '+esc(x.question)+'</small></li>').join('')+'</ul>':'<p>'+tr('More data is needed to identify a useful pattern.','Se necesitan más datos para identificar un patrón útil.')+'</p>';
+   }catch(err){output.textContent=tr('The trend review could not be completed. Try again when connected.','No se pudo completar el análisis. Inténtelo de nuevo cuando haya conexión.');}
+   finally{button.disabled=false}
+  };
+ }
+ if(['admin','safety_director'].includes(state.profile.role)){
+  const perfCard=document.createElement('section');perfCard.className='card app-performance-summary';perfCard.innerHTML='<div class="section-heading"><div><h2>'+tr('App performance by module','Rendimiento del app por módulo')+'</h2><p>'+tr('Recent page render time by device for this jobsite. Text and report contents are never collected.','Tiempo reciente de carga por dispositivo para este jobsite. No se recopila texto ni contenido de reportes.')+'</p></div></div><div id="performance-summary">'+tr('Loading performance data…','Cargando métricas de rendimiento…')+'</div>';
+  document.querySelector('.report-library').before(perfCard);
+  void db.from('app_performance_events').select('page,metric_value,device_category,created_at').eq('project_id',state.project).eq('metric','load').order('created_at',{ascending:false}).limit(500).then(result=>{
+   const target=perfCard.querySelector('#performance-summary');if(!target)return;if(result.error){target.textContent=tr('Performance data is not available.','Las métricas de rendimiento no están disponibles.');return}
+   const groups=new Map();for(const row of result.data||[]){const key=row.page+'|'+row.device_category;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(Number(row.metric_value)||0)}
+   const rows=[...groups].sort((a,b)=>a[0].localeCompare(b[0])).map(([key,values])=>{const sorted=values.sort((a,b)=>a-b),median=sorted[Math.floor((sorted.length-1)*.5)],p75=sorted[Math.floor((sorted.length-1)*.75)],parts=key.split('|');return '<tr><td>'+esc(parts[0])+'</td><td>'+esc(parts[1])+'</td><td>'+values.length+'</td><td>'+Math.round(median)+' ms</td><td>'+Math.round(p75)+' ms</td></tr>'});
+   target.innerHTML=rows.length?'<div class="table-scroll"><table><thead><tr><th>'+tr('Module','Módulo')+'</th><th>'+tr('Device','Dispositivo')+'</th><th>'+tr('Samples','Muestras')+'</th><th>'+tr('Median','Mediana')+'</th><th>P75</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>':'<p>'+tr('No performance samples are available for this jobsite yet.','Aún no hay mediciones para este jobsite.')+'</p>';
+  });
+ }
  const title=document.querySelector('#report-library-title'),list=document.querySelector('#report-library-list'),search=document.querySelector('#report-search'),dateFilter=document.querySelector('#report-date-filter');let currentCategory='daily';
  function empty(){return '<div class="report-empty">'+tr('No reports in this category yet.','Aún no hay reportes en esta categoría.')+'</div>'}
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}
