@@ -1,5 +1,5 @@
-#walk-form .jha-photo-gallery{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
-#walk-form .jha-photo-card{display:flex;flex-direction:column;gap:6px;width:150px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#17212b}
-#walk-form .jha-photo-card img{width:100%;height:112px;object-fit:contain;background:#f1f5f9;border-radius:4px}
-#walk-form .jha-photo-card span{font-size:14px;overflow-wrap:anywhere}
-#walk-form .jha-photo-card button{min-height:44px;padding:8px;font-size:14px}
+:is(#walk-form,#observation) .jha-photo-gallery{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
+:is(#walk-form,#observation) .jha-photo-card{display:flex;flex-direction:column;gap:6px;width:150px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#17212b}
+:is(#walk-form,#observation) .jha-photo-card img{width:100%;height:112px;object-fit:contain;background:#f1f5f9;border-radius:4px}
+:is(#walk-form,#observation) .jha-photo-card span{font-size:14px;overflow-wrap:anywhere}
+:is(#walk-form,#observation) .jha-photo-card button{min-height:44px;padding:8px;font-size:14px}
