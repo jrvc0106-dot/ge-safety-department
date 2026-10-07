@@ -20,6 +20,7 @@ import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
 import {putOfflineDraftFile,getOfflineDraftFile,deleteOfflineDraftFiles} from './offline-draft-store.js';
+import {recordPageLoad} from './performance-metrics.js';
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
 import {installTabletViewport} from './tablet-viewport.js';
@@ -619,9 +620,10 @@ function flushActiveDrafts(){
  for(const form of active){const match=Object.entries(DRAFT_FORMS).find(([id])=>form.id===id);if(match){const [,type]=match,key=form.id==='correction'?(state.detail||'default'):'default';persistDraft(form,type,key).catch(()=>{})}}
 }
 window.addEventListener('online',()=>{void syncPendingDraftEvidence();flushActiveDrafts()});
-function navigate(page,detail=null,{replace=false,projectId=state.project}={}){safetyTools.stop();flushActiveDrafts();const projectChanged=projectId!==state.project;state.project=projectId;state.page=page;state.detail=detail;const entry={geSafety:true,page,detail,projectId};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}if(projectChanged)activateProjectObservations(projectId);render()}
+function renderTrackedPage(){const started=performance.now(),page=state.page,projectId=state.project,userId=state.profile?.id;render();let done=false;const finish=()=>{if(done||page!==state.page||projectId!==state.project)return;if(app.querySelector('.page-loading[aria-busy="true"]'))return;done=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(page===state.page&&projectId===state.project)void recordPageLoad(db,{page,projectId,userId,duration:performance.now()-started})}))};const observer=new MutationObserver(finish);observer.observe(app,{childList:true,subtree:true});finish();setTimeout(()=>{observer.disconnect();finish()},20000)}
+function navigate(page,detail=null,{replace=false,projectId=state.project}={}){safetyTools.stop();flushActiveDrafts();const projectChanged=projectId!==state.project;state.project=projectId;state.page=page;state.detail=detail;const entry={geSafety:true,page,detail,projectId};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}if(projectChanged)activateProjectObservations(projectId);renderTrackedPage()}
 function switchProject(projectId){if(projectId===state.project||!state.projects.some(p=>p.id===projectId))return;navigate('home',null,{replace:true,projectId})}
-function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&state.projects.some(p=>p.id===h.projectId)){restoringHistory=true;try{const projectChanged=h.projectId!==state.project;state.project=h.projectId;state.page=h.page||'home';state.detail=h.detail||null;if(projectChanged)activateProjectObservations(h.projectId);render()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
+function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&state.projects.some(p=>p.id===h.projectId)){restoringHistory=true;try{const projectChanged=h.projectId!==state.project;state.project=h.projectId;state.page=h.page||'home';state.detail=h.detail||null;if(projectChanged)activateProjectObservations(h.projectId);renderTrackedPage()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
 function back(){if(history.state?.geSafety&&state.page!=='home')history.back();else navigate('home',null,{replace:true})}
 const aiWritingEnabled=()=>localStorage.getItem('ge_ai_writing')!=='off';
 function aiWritingError(code,fallback){
