@@ -1291,6 +1291,16 @@ async function reportCenter(){
    finally{button.disabled=false}
   };
  }
+ if(['admin','safety_director'].includes(state.profile.role)){
+  const perfCard=document.createElement('section');perfCard.className='card app-performance-summary';perfCard.innerHTML='<div class="section-heading"><div><h2>'+tr('App performance by module','Rendimiento del app por módulo')+'</h2><p>'+tr('Recent page render time by device for this jobsite. Text and report contents are never collected.','Tiempo reciente de carga por dispositivo para este jobsite. No se recopila texto ni contenido de reportes.')+'</p></div></div><div id="performance-summary">'+tr('Loading performance data…','Cargando métricas de rendimiento…')+'</div>';
+  document.querySelector('.report-library').before(perfCard);
+  void db.from('app_performance_events').select('page,metric_value,device_category,created_at').eq('project_id',state.project).eq('metric','load').order('created_at',{ascending:false}).limit(500).then(result=>{
+   const target=perfCard.querySelector('#performance-summary');if(!target)return;if(result.error){target.textContent=tr('Performance data is not available.','Las métricas de rendimiento no están disponibles.');return}
+   const groups=new Map();for(const row of result.data||[]){const key=row.page+'|'+row.device_category;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(Number(row.metric_value)||0)}
+   const rows=[...groups].sort((a,b)=>a[0].localeCompare(b[0])).map(([key,values])=>{const sorted=values.sort((a,b)=>a-b),median=sorted[Math.floor((sorted.length-1)*.5)],p75=sorted[Math.floor((sorted.length-1)*.75)],parts=key.split('|');return '<tr><td>'+esc(parts[0])+'</td><td>'+esc(parts[1])+'</td><td>'+values.length+'</td><td>'+Math.round(median)+' ms</td><td>'+Math.round(p75)+' ms</td></tr>'});
+   target.innerHTML=rows.length?'<div class="table-scroll"><table><thead><tr><th>'+tr('Module','Módulo')+'</th><th>'+tr('Device','Dispositivo')+'</th><th>'+tr('Samples','Muestras')+'</th><th>'+tr('Median','Mediana')+'</th><th>P75</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>':'<p>'+tr('No performance samples are available for this jobsite yet.','Aún no hay mediciones para este jobsite.')+'</p>';
+  });
+ }
  const title=document.querySelector('#report-library-title'),list=document.querySelector('#report-library-list'),search=document.querySelector('#report-search'),dateFilter=document.querySelector('#report-date-filter');let currentCategory='daily';
  function empty(){return '<div class="report-empty">'+tr('No reports in this category yet.','Aún no hay reportes en esta categoría.')+'</div>'}
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}
