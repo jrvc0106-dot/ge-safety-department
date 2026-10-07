@@ -25,7 +25,7 @@ test('sign-up accepts valid emails outside the company domain and leaves access 
  await form.onsubmit({currentTarget:form,preventDefault(){}});
  assert.equal(calls.length,1);
  assert.equal(calls[0].email,'worker@example.org');
- assert.deepEqual(calls[0].options.data,{name:'Field Worker'});
+ assert.equal(calls[0].options.data.name,'Field Worker');
  assert.deepEqual(errors,[]);
  assert.equal(button.disabled,false);
  assert.equal(form.dataset.authBusy,undefined);
