@@ -1,3 +1,4 @@
+import {filterAiReportDraftSuggestions} from './ai-report-drafts.js';
 import {attachJhaPhotos,jhaPhotoController} from './jha-photos.js';
 import './jha-photos.css';
 import {mountReportSignatures,reportApprovals,reportSignaturesReport} from './report-signatures.js';
@@ -634,8 +635,72 @@ async function openAiWritingReview(field){
  }catch(err){if(dialog.isConnected)status.textContent=err?.name==='AbortError'?tr('The request timed out. Your original text is unchanged.','La solicitud agotó el tiempo de espera. Tu texto original sigue intacto.'):err instanceof TypeError?aiWritingError('REQUEST_FAILED'):err?.message||aiWritingError('')}
  finally{clearTimeout(timeout)}
 }
+
+const aiReportDraftConfigs={
+ 'walk-form':{type:'jha',selector:'textarea[name="notes"],textarea[name^="hazard_"],textarea[name^="correction_"]'},
+ 'discipline-form':{type:'discipline',selector:'textarea[name="hazard_observed"],textarea[name="description"],textarea[name="immediate_action"],textarea[name="follow_up_notes"],textarea[name="employee_comments"]'},
+ 'equipment-form':{type:'equipment_inspection',selector:'textarea[name="defects_found"],textarea[name="corrective_action"],textarea[name="comments"],input[name^="note_"]'}
+};
+function aiReportFieldLabel(field){
+ if(field.dataset.aiContext)return field.dataset.aiContext.trim().slice(0,160);
+ const label=field.closest('label');if(!label)return field.name;
+ const copy=label.cloneNode(true);
+ copy.querySelectorAll('input,textarea,select,button,.ai-writing-tools').forEach(node=>node.remove());
+ return String(copy.textContent||field.name).replace(/\s+/g,' ').trim().slice(0,160)||field.name;
+}
+function installAiReportDraftTools(){
+ if(!state.session||!aiWritingEnabled())return;
+ Object.entries(aiReportDraftConfigs).forEach(([formId,config])=>{
+  const form=document.getElementById(formId);
+  if(!form||form.dataset.aiReportDraftInstalled)return;
+  form.dataset.aiReportDraftInstalled='true';
+  const panel=document.createElement('div');panel.className='jha-ai-review-tools ai-report-draft-tools';
+  panel.innerHTML='<button type="button" class="secondary ai-report-draft-open">✨ '+tr('Draft report from keywords with AI','Redactar reporte con palabras clave usando IA')+'</button><p>'+tr('AI will draft only from the keywords you provide. Review and accept before applying.','La IA redactará solo con las palabras clave que proporciones. Revisa y acepta antes de aplicar.')+'</p>';
+  form.prepend(panel);panel.querySelector('button').onclick=()=>openAiReportDraft(form,config);
+ });
+}
+function openAiReportDraft(form,config){
+ if(!aiWritingEnabled()||!form.isConnected||document.querySelector('.ai-keyword-draft'))return;
+ const project=state.project,fields=[...form.querySelectorAll(config.selector)].filter(field=>!field.disabled&&!field.readOnly&&!String(field.value||'').trim()).slice(0,80);
+ if(!fields.length)return error(tr('Fill the report manually or clear a narrative field before drafting with AI.','Llena el reporte manualmente o deja vacío un campo narrativo antes de usar la IA.'));
+ const dialog=document.createElement('dialog');dialog.className='ai-writing-review ai-keyword-draft';
+ dialog.innerHTML='<div class="ai-review-heading"><h2>'+tr('Draft this report with AI?','¿Quieres que la IA redacte este reporte?')+'</h2><button type="button" class="secondary ai-draft-close">×</button></div><p>'+tr('Enter keywords. AI will prepare suggestions only for empty narrative fields. Safety selections, names, dates, signatures and saving remain under your control.','Escribe palabras clave. La IA preparará sugerencias solo para campos narrativos vacíos. Las selecciones de seguridad, nombres, fechas, firmas y el guardado quedan bajo tu control.')+'</p><label>'+tr('Keywords','Palabras clave')+'<textarea class="ai-draft-keywords" maxlength="3000"></textarea></label><div class="ai-review-status" role="status" aria-live="polite">'+tr('Your report will not change until you accept the draft.','El reporte no cambiará hasta que aceptes el borrador.')+'</div><div class="ai-review-columns ai-draft-results" hidden></div><div class="ai-review-actions"><button type="button" class="ai-draft-generate">'+tr('Yes, prepare draft','Sí, preparar borrador')+'</button><button type="button" class="secondary ai-draft-manual">'+tr('No, continue manually','No, continuar manualmente')+'</button><button type="button" class="ai-draft-apply" hidden>'+tr('Use draft','Usar borrador')+'</button></div>';
+ const keywords=dialog.querySelector('.ai-draft-keywords'),status=dialog.querySelector('.ai-review-status'),results=dialog.querySelector('.ai-draft-results'),generate=dialog.querySelector('.ai-draft-generate'),apply=dialog.querySelector('.ai-draft-apply'),controller=new AbortController();
+ const close=()=>{controller.abort();if(dialog.open)dialog.close();else dialog.remove()};
+ dialog.querySelector('.ai-draft-close').onclick=close;dialog.querySelector('.ai-draft-manual').onclick=close;
+ dialog.addEventListener('close',()=>{controller.abort();dialog.remove()},{once:true});dialog.addEventListener('cancel',()=>controller.abort());
+ generate.onclick=async()=>{
+  const keywordText=keywords.value.trim();if(keywordText.length<3){status.textContent=tr('Enter a few keywords before continuing.','Escribe algunas palabras clave para continuar.');keywords.focus();return}
+  generate.disabled=true;status.textContent=tr('Preparing a draft…','Preparando borrador…');results.replaceChildren();results.hidden=true;apply.hidden=true;
+  const timeout=setTimeout(()=>controller.abort(),30000);
+  try{
+   const session=await db.auth.getSession(),token=session.data?.session?.access_token;if(!token)throw Error(aiWritingError('AUTH_REQUIRED'));
+   const fieldData=fields.filter(field=>!String(field.value||'').trim()).map(field=>({name:field.name,label:aiReportFieldLabel(field),max_length:field.maxLength>0?Math.min(field.maxLength,3000):1200}));
+   const response=await fetch(url+'/functions/v1/improve-writing',{method:'POST',headers:{Authorization:'Bearer '+token,apikey:key,'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({action:'draft_report',report_type:config.type,project_id:project,language:state.lang==='es'?'es':'en',keywords:keywordText,fields:fieldData})});
+   const result=await response.json().catch(()=>{throw Error(aiWritingError('REQUEST_FAILED'))});if(!response.ok)throw Error(aiWritingError(result.code,result.error));if(!dialog.isConnected)return;
+   const suggestions=filterAiReportDraftSuggestions(fieldData,result.suggestions);
+   if(!suggestions.length){status.textContent=tr('AI could not draft fields from those keywords. Add details or continue manually.','La IA no pudo redactar campos con esas palabras clave. Agrega detalles o continúa manualmente.');return}
+   suggestions.forEach(item=>{const info=allowed.get(item.field_name),label=document.createElement('label'),title=document.createElement('strong'),proposal=document.createElement('textarea');title.textContent=info.label;proposal.value=item.text;proposal.maxLength=info.max_length;proposal.dataset.aiDraftField=item.field_name;label.append(title,proposal);results.appendChild(label)});
+   results.hidden=false;apply.hidden=false;status.textContent=tr('Review and edit each suggestion before accepting.','Revisa y edita cada sugerencia antes de aceptarla.');
+  }catch(err){if(dialog.isConnected)status.textContent=err?.name==='AbortError'?tr('The request timed out. The report is unchanged.','La solicitud agotó el tiempo de espera. El reporte no cambió.'):err instanceof TypeError?aiWritingError('REQUEST_FAILED'):err?.message||aiWritingError('')}
+  finally{clearTimeout(timeout);if(generate.isConnected)generate.disabled=false}
+ };
+ apply.onclick=()=>{
+  if(!form.isConnected||state.project!==project){status.textContent=tr('The project changed. Close this window without applying the draft.','El proyecto cambió. Cierra esta ventana sin aplicar el borrador.');return}
+  let applied=0;results.querySelectorAll('textarea[data-ai-draft-field]').forEach(proposal=>{
+   const target=fields.find(field=>field.name===proposal.dataset.aiDraftField);
+   if(!target||String(target.value||'').trim()||!proposal.value.trim()||proposal.value.length>(target.maxLength>0?target.maxLength:3000))return;
+   target.value=proposal.value;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));applied++;
+  });
+  if(applied){close();confirmAction(tr('AI draft added. Review the report before saving.','Borrador de IA agregado. Revisa el reporte antes de guardarlo.'))}
+  else status.textContent=tr('No suggestions were applied because the fields changed.','No se aplicaron sugerencias porque los campos cambiaron.');
+ };
+ document.body.appendChild(dialog);dialog.showModal();keywords.focus();
+}
+
 function installAiWritingTools(){
  if(!state.session||!aiWritingEnabled())return;
+ installAiReportDraftTools();
  const fields=document.querySelectorAll('form textarea[name]:not([readonly]):not([disabled]),form input[data-ai-writing][name]:not([readonly]):not([disabled])');
  fields.forEach(field=>{
   if(field.dataset.aiTools)return;field.dataset.aiTools='true';
