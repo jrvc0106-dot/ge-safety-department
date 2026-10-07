@@ -910,7 +910,14 @@ function observationsList(){const rows=state.observations,{open,pending,closed}=
  const entries=rows.map(o=>({observation:o,searchText:[o.area,o.category,o.description,o.assignee?.name].map(v=>String(v||'').toLowerCase()).join('\0')}));
  list.innerHTML=entries.map(({observation:o})=>`<button class="obs-card" data-id="${o.id}"><div class="obs-card-top"><span class="badge ${esc(o.priority)}">${o.priority==='high'?tr('HIGH','ALTA'):o.priority==='medium'?tr('MEDIUM','MEDIA'):tr('LOW','BAJA')}</span><span class="obs-status">${o.status==='pending_verification'?tr('IN PROGRESS','EN PROCESO'):o.status==='closed'?tr('CLOSED','CERRADA'):tr('OPEN','ABIERTA')}</span></div><h3>${esc(o.area)}</h3><p class="obs-category">${esc(o.category)}</p><p>${esc(o.description)}</p><div class="obs-meta"><span>${esc(o.assignee?.name||tr('Unassigned','Sin asignar'))}</span><span>${fmt(o.created_at)}</span></div></button>`).join('')+`<div class="empty-state"><strong>${tr('No observations found','No se encontraron observaciones')}</strong><p>${tr('Change the filters or create a new observation.','Cambia los filtros o crea una nueva observación.')}</p></div>`;
  const cards=[...list.querySelectorAll('.obs-card')],emptyState=list.querySelector('.empty-state');
- let status='all';
+ const userId=state.profile.id,projectId=state.project;
+ if(state.observationListState?.userId!==userId)state.observationListState={userId,projects:new Map()};
+ const saved=state.observationListState.projects.get(projectId)||{query:'',priority:'all',status:'all',scrollY:0};
+ state.observationListState.projects.set(projectId,saved);
+ search.value=saved.query;priorityFilter.value=saved.priority;
+ let status=saved.status;
+ const remember=()=>{saved.query=search.value;saved.priority=priorityFilter.value;saved.status=status;saved.scrollY=document.defaultView?.scrollY||0};
+ document.querySelectorAll('[data-status]').forEach(tab=>tab.classList.toggle('active',tab.dataset.status===status));
  const paint=()=>{
   const query=search.value.trim().toLowerCase(),priority=priorityFilter.value;let visible=0;
   entries.forEach(({observation:o,searchText},index)=>{
@@ -919,17 +926,22 @@ function observationsList(){const rows=state.observations,{open,pending,closed}=
    if(show)visible++;
   });
   emptyState.hidden=visible>0;
+  saved.query=search.value;saved.priority=priorityFilter.value;saved.status=status;
  };
  list.onclick=event=>{
   const card=event.target.closest('.obs-card');if(!card||!list.contains(card)||card.hidden)return;
-  openObservation(card.dataset.id);
+  remember();openObservation(card.dataset.id);
  };
- document.querySelector('#obs-new').onclick=()=>navigate('new');
+ document.querySelector('#obs-new').onclick=()=>{remember();navigate('new')};
  search.oninput=paint;priorityFilter.onchange=paint;
  document.querySelectorAll('[data-status]').forEach(button=>button.onclick=()=>{
   status=button.dataset.status;document.querySelectorAll('[data-status]').forEach(tab=>tab.classList.toggle('active',tab===button));paint();
  });
  paint();
+ const viewCurrent=captureView(),view=document.defaultView;
+ if(view?.requestAnimationFrame)view.requestAnimationFrame(()=>{
+  if(list.isConnected&&viewCurrent())view.scrollTo(0,saved.scrollY);
+ });
 }
 function correctionsList(){const rows=state.observations.filter(o=>o.project_id===state.project&&o.status==='pending_verification');frame(`<section class="observations-shell"><div class="section-heading"><div><h1>${tr('Corrections','Correcciones')}</h1><p>${tr('Review completed corrective actions before final closure.','Revisa las acciones correctivas completadas antes del cierre final.')}</p></div></div><div class="review-banner"><strong>${rows.length}</strong><span>${tr('Awaiting Safety review','Esperando revisión de Safety')}</span></div><div class="obs-list">${rows.length?rows.map(o=>`<button class="obs-card correction-card" data-id="${o.id}"><div class="obs-card-top"><span class="badge ${esc(o.priority)}">${o.priority==='high'?tr('HIGH','ALTA'):o.priority==='medium'?tr('MEDIUM','MEDIA'):tr('LOW','BAJA')}</span><span class="obs-status">${tr('READY FOR REVIEW','LISTA PARA REVISIÓN')}</span></div><h3>${esc(o.area)}</h3><p class="obs-category">${esc(o.category)}</p><p>${esc(o.description)}</p><div class="obs-meta"><span>${esc(o.assignee?.name||tr('Unassigned','Sin asignar'))}</span><span>${fmt(o.created_at)}</span></div></button>`).join(''):`<div class="empty-state"><strong>${tr('No corrections awaiting review','No hay correcciones esperando revisión')}</strong><p>${tr('Completed corrections will appear here automatically.','Las correcciones completadas aparecerán aquí automáticamente.')}</p></div>`}</div></section>`);document.querySelectorAll('[data-id]').forEach(el=>el.onclick=async()=>{const id=el.dataset.id,current=captureView();await markViewed(id);if(current())navigate('detail',id)})}
 let presenceTimer=null;
