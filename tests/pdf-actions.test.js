@@ -64,10 +64,12 @@ test('JHA prepared sharing falls back to the PDF attachment when native sharing 
  assert.ok(t.context.preparedReportPdf(t.report,true));
 });
 
-test('native sharing denial in other modules retains the existing behavior',async()=>{
+test('native sharing denial in other modules falls back to the PDF attachment',async()=>{
  const t=setup({canShare:true});t.context.state.page='inventoryReport';t.report.dataset={pdfViewMode:'single-click'};await t.context.buildReportPdf(true);
  t.context.navigator.share=()=>Promise.reject(Object.assign(Error('file sharing denied'),{name:'NotAllowedError'}));
- await t.context.runPdfAction('share',t.button);assert.equal(t.downloads.length,0);assert.ok(t.messages.some(m=>m[1]==='error'));
+ await t.context.runPdfAction('share',t.button);
+ assert.equal(t.downloads.length,1);assert.equal(t.button.disabled,false);assert.ok(t.messages.some(m=>m[0].includes('Attach this file')));
+ assert.ok(t.context.preparedReportPdf(t.report,true));
 });
 
 test('preview PDF cannot satisfy a high quality download or share',async()=>{
