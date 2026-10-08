@@ -53,3 +53,17 @@
  .report-library.report-creator-mode #report-search{width:100%;max-width:none}
  .report-library.report-creator-mode #report-date-filter{width:100%}
 }
+
+
+/* Keep completion separate from the safety outcome */
+.report-person-group-records .report-walk-record .walk-result-statuses{display:flex;align-items:center;justify-content:flex-start;gap:6px;flex-wrap:wrap;margin:0}
+.report-person-group-records .report-walk-record .walk-result-statuses .report-record-status{margin:0;padding:6px 9px!important;white-space:nowrap}
+.report-person-group-records .report-walk-record .walk-result-safety-safe{background:#e5f8eb;color:#13823e}
+.report-person-group-records .report-walk-record .walk-result-safety-unsafe{background:#fee2e2;color:#a51d1d}
+.report-person-group-records .report-walk-record .walk-result-safety-needs-attention{background:#fff4d6;color:#875c00}
+.report-person-group-records .report-walk-record .walk-result-title{min-width:0}
+.report-person-group-records .report-walk-record .walk-result-title strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:760px){
+ .report-person-group-records .report-walk-record .walk-result-statuses{grid-column:2;grid-row:3}
+ .report-person-group-records .report-walk-record .report-open-pdf{grid-column:3;grid-row:3;align-self:center}
+}
