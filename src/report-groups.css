@@ -6,3 +6,38 @@
 .report-person-group-count{margin-left:auto;padding:4px 9px;border-radius:999px;background:#e8eef5;color:#486581;font-size:12px;font-weight:750;white-space:nowrap}
 .report-person-group-records{padding:0 12px 8px}
 .report-person-group-records .report-record{background:#fff;border-radius:8px;padding:12px 10px}
+
+
+/* Creator groups for completed Daily Safety Walk reports */
+.report-library-head:has(#report-library-title:not(:empty)){align-items:center}
+.report-person-group{margin:0 0 8px;border:1px solid #c9dcfb;border-radius:12px;background:#f4f8ff;overflow:hidden}
+.report-person-group>summary{list-style:none;display:flex;justify-content:flex-start;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;color:#102a43;font-weight:800;min-height:52px}
+.report-person-group>summary::-webkit-details-marker{display:none}
+.report-person-group>summary:after{content:"⌄";font-size:20px;color:#123c91;margin-left:auto}
+.report-person-group:not([open])>summary:after{content:"›"}
+.report-person-avatar{width:40px;height:40px;flex:0 0 40px;border-radius:50%;display:grid;place-items:center;background:#d8e9ff;color:#075bc7;font-weight:900}
+.report-person-name{font-size:15px}
+.report-person-group-count{color:#344e78;font-size:13px;font-weight:750;white-space:nowrap}
+.report-person-group-records{padding:0 10px 10px}
+.report-person-group-records .report-walk-record{width:100%;display:grid;grid-template-columns:28px minmax(180px,1fr) minmax(110px,auto) minmax(95px,auto) minmax(125px,auto) minmax(90px,auto);gap:12px;align-items:center;text-align:left;background:#fff;color:#102a43;border:1px solid #e5edf7;border-radius:9px;padding:10px 12px;margin-top:5px}
+.report-person-group-records .report-walk-record:hover{background:#f7faff}
+.walk-result-icon{font-size:18px;color:#173b7a}
+.report-person-group-records .report-walk-record .walk-result-title strong{font-size:14px;font-weight:650}
+.report-person-group-records .report-walk-record .walk-result-date,
+.report-person-group-records .report-walk-record .walk-result-time{display:flex;align-items:center;gap:7px;margin:0;color:#486581;font-size:13px;white-space:nowrap}
+.report-person-group-records .report-walk-record small{display:none}
+.report-person-group-records .report-walk-record .report-record-status{margin:0;padding:6px 10px!important;background:#e5f8eb;color:#13823e;text-align:center}
+.report-person-group-records .report-walk-record .report-open-pdf{font-size:13px;font-weight:850;color:#075bc7;white-space:nowrap;margin:0}
+@media(max-width:760px){
+ .report-person-group-records .report-walk-record{grid-template-columns:24px minmax(0,1fr) auto;gap:8px;padding:10px}
+ .report-person-group-records .report-walk-record .walk-result-date{grid-column:2;grid-row:2}
+ .report-person-group-records .report-walk-record .walk-result-time{grid-column:3;grid-row:2}
+ .report-person-group-records .report-walk-record .report-record-status{grid-column:2;grid-row:3;justify-self:start}
+ .report-person-group-records .report-walk-record .report-open-pdf{grid-column:3;grid-row:3}
+ .report-person-group>summary{gap:8px;padding:9px}
+ .report-person-name{font-size:14px}
+}
+@media(max-width:420px){
+ .report-person-group-count{font-size:11px}
+ .report-person-group-records .report-walk-record .walk-result-title strong{font-size:12px}
+}
