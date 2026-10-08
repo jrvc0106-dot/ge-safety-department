@@ -550,7 +550,11 @@ async function runPdfAction(action,button){
   }catch(e){
     if(preview&&!preview.closed)preview.close();
     if(e?.name==='AbortError')confirmAction(tr('Sharing canceled.','Se canceló la acción de compartir.'));
-    else error(e);
+    else {
+      const labels={view:tr('View PDF','Ver PDF'),download:tr('Download PDF','Descargar PDF'),share:tr('Share PDF','Compartir PDF')};
+      const label=labels[action]||tr('PDF action','acción del PDF');
+      error(new Error(tr('The PDF could not be completed. Tap ','No se pudo completar el PDF. Pulsa ')+label+tr(' again to retry. Details: ',' otra vez para reintentarlo. Detalle: ')+(e?.message||String(e))));
+    }
   }finally{
     pdfActionBusy=false;
     if(button){button.disabled=false;button.innerHTML=original}
