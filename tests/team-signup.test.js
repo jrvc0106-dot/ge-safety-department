@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {normalizeMemberEmail} from '../src/team-identity.js';
+import {isTeamInviteActivation} from '../src/team-invitation.js';
 
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
@@ -29,4 +30,11 @@ test('sign-up accepts valid emails outside the company domain and leaves access 
  assert.deepEqual(errors,[]);
  assert.equal(button.disabled,false);
  assert.equal(form.dataset.authBusy,undefined);
+});
+
+test('team invite acceptance opens password setup only for invite and manual invite-link flows',()=>{
+ assert.equal(isTeamInviteActivation('', '#access_token=x&type=invite'), true);
+ assert.equal(isTeamInviteActivation('?type=magiclink', ''), true);
+ assert.equal(isTeamInviteActivation('', '#access_token=x&type=recovery'), false);
+ assert.equal(isTeamInviteActivation('', ''), false);
 });
