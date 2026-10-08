@@ -8,7 +8,7 @@ Deno.serve(async(req)=>{
   const {data:{user},error:userErr}=await admin.auth.getUser(auth.slice(7));if(userErr||!user)return Response.json({error:"Unauthorized"},{status:401,headers:cors});
   const {data:caller}=await admin.from("profiles").select("role,removed_at").eq("id",user.id).single();if(caller?.role!=="admin"||caller.removed_at)return Response.json({error:"Admin access required"},{status:403,headers:cors});
   const {email,name,role,project_id,redirect_to}=await req.json(),cleanEmail=String(email||"").trim().toLowerCase(),cleanName=String(name||"").trim(),allowed=["safety_director","safety","supervisor","worker"];
-  if(cleanEmail.length>254||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(cleanEmail))return Response.json({error:"A valid email address is required"},{status:400,headers:cors});
+  if(cleanEmail.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail))return Response.json({error:"A valid email address is required"},{status:400,headers:cors});
   if(!cleanName||cleanName.length>120)return Response.json({error:"A valid name is required"},{status:400,headers:cors});
   if(!allowed.includes(role)||!project_id)return Response.json({error:"Role and project are required"},{status:400,headers:cors});
   const {data:project,error:projectError}=await admin.from("projects").select("id").eq("id",project_id).maybeSingle();if(projectError)throw projectError;if(!project)return Response.json({error:"Authorized project was not found"},{status:400,headers:cors});
