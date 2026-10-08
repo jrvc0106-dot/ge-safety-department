@@ -41,3 +41,16 @@
  .report-person-group-count{font-size:11px}
  .report-person-group-records .report-walk-record .walk-result-title strong{font-size:12px}
 }
+
+.report-library.report-creator-mode .report-library-head{align-items:center}
+.report-library.report-creator-mode .report-library-head>div>small{display:none}
+.report-library.report-creator-mode .report-library-head h2{font-size:22px;margin:0}
+.report-library.report-creator-mode .report-filter-bar{display:flex;gap:8px;align-items:center;margin:0 0 0 auto}
+.report-library.report-creator-mode #report-search{width:300px;max-width:38vw;margin:0}
+.report-library.report-creator-mode #report-date-filter{width:auto;min-width:120px;margin:0}
+@media(max-width:700px){
+ .report-library.report-creator-mode .report-library-head{align-items:stretch;flex-direction:column}
+ .report-library.report-creator-mode .report-filter-bar{width:100%;margin:0;flex-wrap:wrap}
+ .report-library.report-creator-mode #report-search{width:100%;max-width:none}
+ .report-library.report-creator-mode #report-date-filter{width:100%}
+}
