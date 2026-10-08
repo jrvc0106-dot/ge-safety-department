@@ -1398,7 +1398,7 @@ async function reportCenter(){
      const timestamp=date.getTime(),safeTimestamp=Number.isFinite(timestamp)?timestamp:0;
      const dateLabel=Number.isFinite(timestamp)?new Intl.DateTimeFormat(locale,{dateStyle:'medium'}).format(date):'—';
      const timeLabel=Number.isFinite(timestamp)?new Intl.DateTimeFormat(locale,{hour:'numeric',minute:'2-digit'}).format(date):'—';
-     const note=String(x.notes||'').trim().replace(/\\s+/g,' ');
+     const note=String(x.notes||'').trim().replace(/\s+/g,' ');
      const reportLabel=note?(note.length>90?note.slice(0,87)+'…':note):tr('Daily Safety Walk Report','Reporte Daily Safety Walk');
      const outcome=effectiveWalkStatus(x.overall_status,x.items),outcomeClass=outcome==='unsafe'?'unsafe':outcome==='needs_attention'?'needs-attention':'safe';
      const outcomeLabel=outcome==='unsafe'?tr('Unsafe','No seguro'):outcome==='needs_attention'?tr('Needs Attention','Necesita atención'):tr('Safe','Seguro');
