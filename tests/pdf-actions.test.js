@@ -4,20 +4,20 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 function setup({archiveFails=false,canShare=false}={}){
- const messages=[],downloads=[],shares=[],report={innerHTML:'JHA with photos',querySelector:()=>({textContent:'JHA'}),querySelectorAll:()=>[]};
+ const messages=[],downloads=[],shares=[],metrics=[],report={innerHTML:'JHA with photos',querySelector:()=>({textContent:'JHA'}),querySelectorAll:()=>[]};
  const button={innerHTML:'Share PDF',textContent:'Share PDF',disabled:false};
  const blob=new Blob(['%PDF-1.4 test'],{type:'application/pdf'});
  const canvas={width:800,height:9000};
  const worker={set(){return this},from(){return this},toContainer(){return this},toCanvas(){return this},get(key){return Promise.resolve(key==='container'?{scrollWidth:800,scrollHeight:9000}:key==='overlay'?{remove(){}}:canvas)},outputPdf(){return Promise.resolve(blob)}};
- const context=vm.createContext({Blob,File,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
+ const context=vm.createContext({Blob,File,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
  const helpers=source.slice(source.indexOf('const preparedReportPdfs='),source.indexOf('async function normalizeReportImage'));
  const actions=source.slice(source.indexOf('async function buildReportPdf('),source.indexOf('function installReportDocumentActions()')).replace("await import('./pdf-export.js')",'({renderPaginatedPdf:mockRenderPdf})');
  vm.runInContext(helpers+'\n'+actions,context);
  context.ensurePdfExporter=async()=>()=>worker;
  context.renderPaginatedPdf=async()=>blob;
  context.rasterizePdfSignatures=async()=>{};
- context.state={page:'safetyWalkReport'};
- return {context,report,button,messages,downloads,shares};
+ context.state={page:'safetyWalkReport',project:'project-1',profile:{id:'user-1'}};
+ return {context,report,button,messages,downloads,shares,metrics};
 }
 test('cloud archive failure still downloads and repeated exports reuse the PDF',async()=>{
  const t=setup({archiveFails:true});await t.context.runPdfAction('download',t.button);await Promise.resolve();
@@ -194,4 +194,14 @@ test('Employee Medical Follow-up PDF is not archived to shared cloud reports',()
  const start=source.indexOf('function currentReportIdentity('),end=source.indexOf('async function registerFinalReport(');
  vm.runInContext(source.slice(start,end),context);
  assert.equal(context.currentReportIdentity(report),null);
+});
+
+
+test('PDF actions record duration and distinguish app failures from user cancellations',async()=>{
+ const ok=setup();await ok.context.runPdfAction('download',ok.button);assert.equal(ok.metrics.length,1);
+ assert.equal(ok.metrics[0].metric,'pdf_action');assert.equal(ok.metrics[0].page,'safetyWalkReport:download');assert.equal(ok.metrics[0].duration,0);
+ const failed=setup();failed.context.rasterizePdfSignatures=async()=>{throw Error('render failed')};await failed.context.runPdfAction('download',failed.button);
+ assert.equal(failed.metrics[0].metric,'pdf_failure');
+ const canceled=setup({canShare:true});await canceled.context.buildReportPdf(true);canceled.context.navigator.share=()=>Promise.reject(Object.assign(Error('Canceled'),{name:'AbortError'}));
+ await canceled.context.runPdfAction('share',canceled.button);assert.equal(canceled.metrics[0].metric,'pdf_cancelled');
 });

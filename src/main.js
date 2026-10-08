@@ -20,7 +20,7 @@ import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
 import {putOfflineDraftFile,getOfflineDraftFile,deleteOfflineDraftFiles} from './offline-draft-store.js';
-import {recordPageLoad} from './performance-metrics.js';
+import {recordPageLoad,recordPerformanceMetric} from './performance-metrics.js';
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
 import './report-groups.css';
@@ -472,6 +472,8 @@ async function auditMedicalPdfAction(action,report){
 }
 async function runPdfAction(action,button){
   if(pdfActionBusy)return;
+  const startedAt=globalThis.performance?.now?.()??Date.now(),metricPage=state.page,metricProject=state.project,metricUser=state.profile?.id;
+  let metric='pdf_action';
   const report=document.querySelector('article.report');
   const isDailyJha=state.page==='safetyWalkReport';
   let prepared=report&&preparedReportPdf(report,true),preview;
@@ -552,6 +554,7 @@ async function runPdfAction(action,button){
     confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+filename);
   }catch(e){
     if(preview&&!preview.closed)preview.close();
+    metric=e?.name==='AbortError'?'pdf_cancelled':'pdf_failure';
     if(e?.name==='AbortError')confirmAction(tr('Sharing canceled.','Se canceló la acción de compartir.'));
     else {
       const labels={view:tr('View PDF','Ver PDF'),download:tr('Download PDF','Descargar PDF'),share:tr('Share PDF','Compartir PDF')};
@@ -559,6 +562,10 @@ async function runPdfAction(action,button){
       error(new Error(tr('The PDF could not be completed. Tap ','No se pudo completar el PDF. Pulsa ')+label+tr(' again to retry. Details: ',' otra vez para reintentarlo. Detalle: ')+(e?.message||String(e))));
     }
   }finally{
+    if(report&&report.dataset?.toolKind!=='medical_followup'&&metricProject&&metricUser){
+      const endedAt=globalThis.performance?.now?.()??Date.now();
+      void recordPerformanceMetric(db,{projectId:metricProject,userId:metricUser,page:`${metricPage}:${action}`,metric,duration:Math.max(0,endedAt-startedAt)}).catch(e=>console.warn('PDF performance metric could not be recorded',e));
+    }
     pdfActionBusy=false;
     if(button){button.disabled=false;button.innerHTML=original}
     if(readyFirstView&&button&&report&&preparedReportPdf(report,true))button.textContent='◉ '+tr('View PDF now','Ver PDF ahora');
