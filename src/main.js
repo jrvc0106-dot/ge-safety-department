@@ -15,6 +15,7 @@ import {renderIncidentReport} from './incident-report-template.js';
 import {simplifyInventoryForm} from './inventory-ui.js';
 import {renderProjectAccess} from './project-access.js';
 import {createPdfLoader} from './pdf-loader.js';
+import {pdfActionRetryMessage} from './pdf-action-feedback.js';
 import {optimizePhoto} from './photo-optimizer.js';
 import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
@@ -550,7 +551,7 @@ async function runPdfAction(action,button){
   }catch(e){
     if(preview&&!preview.closed)preview.close();
     if(e?.name==='AbortError')confirmAction(tr('Sharing canceled.','Se canceló la acción de compartir.'));
-    else error(e);
+    else error(new Error(pdfActionRetryMessage(action,e?.message||String(e),tr)));
   }finally{
     pdfActionBusy=false;
     if(button){button.disabled=false;button.innerHTML=original}
