@@ -9,7 +9,6 @@
 
 
 /* Creator groups for completed Daily Safety Walk reports */
-.report-library-head:has(#report-library-title:not(:empty)){align-items:center}
 .report-person-group{margin:0 0 8px;border:1px solid #c9dcfb;border-radius:12px;background:#f4f8ff;overflow:hidden}
 .report-person-group>summary{list-style:none;display:flex;justify-content:flex-start;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;color:#102a43;font-weight:800;min-height:52px}
 .report-person-group>summary::-webkit-details-marker{display:none}
@@ -17,7 +16,7 @@
 .report-person-group:not([open])>summary:after{content:"›"}
 .report-person-avatar{width:40px;height:40px;flex:0 0 40px;border-radius:50%;display:grid;place-items:center;background:#d8e9ff;color:#075bc7;font-weight:900}
 .report-person-name{font-size:15px}
-.report-person-group-count{color:#344e78;font-size:13px;font-weight:750;white-space:nowrap}
+.report-person-group-count{margin-left:0;color:#344e78;font-size:13px;font-weight:750;white-space:nowrap}
 .report-person-group-records{padding:0 10px 10px}
 .report-person-group-records .report-walk-record{width:100%;display:grid;grid-template-columns:28px minmax(180px,1fr) minmax(110px,auto) minmax(95px,auto) minmax(125px,auto) minmax(90px,auto);gap:12px;align-items:center;text-align:left;background:#fff;color:#102a43;border:1px solid #e5edf7;border-radius:9px;padding:10px 12px;margin-top:5px}
 .report-person-group-records .report-walk-record:hover{background:#f7faff}
