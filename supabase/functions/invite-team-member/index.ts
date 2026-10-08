@@ -26,7 +26,11 @@ Deno.serve(async(req)=>{
   let safeRedirect:string|undefined;
   if(redirect_to){try{const parsed=new URL(String(redirect_to));if(["https:","http:"].includes(parsed.protocol)&&!parsed.username&&!parsed.password)safeRedirect=parsed.origin}catch{}}
   if(!found){
-   const {data:created,error:createError}=await admin.auth.admin.createUser({email:cleanEmail,email_confirm:false,user_metadata:{name:cleanName},app_metadata:{ge_admin_invite:true}});
+   if(!cleanEmail.endsWith("@geflcontractors.com")){
+    const {error:allowError}=await admin.from("admin_invite_allowlist").upsert({email:cleanEmail,created_by:user.id,expires_at:new Date(Date.now()+5*60*1000).toISOString()},{onConflict:"email"});
+    if(allowError)throw allowError;
+   }
+   const {data:created,error:createError}=await admin.auth.admin.createUser({email:cleanEmail,email_confirm:false,user_metadata:{name:cleanName}});
    if(createError)throw createError;
    uid=created.user?.id;
    if(!uid)throw new Error("The team member account could not be created");
