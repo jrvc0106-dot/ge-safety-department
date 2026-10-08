@@ -24,7 +24,7 @@ import {recordPageLoad} from './performance-metrics.js';
 import { createClient } from '@supabase/supabase-js';
 import './style.css';
 import './report-groups.css';
-import {groupWalkReportsByCreator} from './report-groups.js';
+import {groupFinalWalkReportsByCreator} from './report-groups.js';
 import {installTabletViewport} from './tablet-viewport.js';
 import {normalizeMemberEmail,matchOrientationWarnings} from './team-identity.js';
 installTabletViewport();
@@ -1374,11 +1374,20 @@ async function reportCenter(){
  function draw(key){currentCategory=key;document.querySelectorAll('.report-category').forEach(x=>x.classList.toggle('selected',x.dataset.category===key));const cat=cats.find(x=>x.key===key);title.textContent=cat?.title||'';
   if(key==='daily')list.innerHTML=todayObs.length?row('daily','today',tr("Today's Daily Safety Report",'Daily Safety Report de Hoy'),tr('Generated from today’s project activity','Generado desde la actividad del proyecto de hoy'),tr('PDF READY','LISTO PARA PDF')):empty();
   else if(key==='walks'){
-   const groups=groupWalkReportsByCreator(walks.data,tr('Unknown creator','Creador desconocido'));
-   list.innerHTML=groups.length?groups.map(group=>{
+   const groups=groupFinalWalkReportsByCreator(walks.data,registered,tr('Unknown creator','Creador desconocido'));
+   title.textContent=tr('Daily Safety Walks — Report Creators','Daily Safety Walks — Creadores de Reportes');
+   list.innerHTML=groups.length?groups.map((group,index)=>{
     const count=group.reports.length,countLabel=count===1?tr('1 report','1 reporte'):tr(count+' reports',count+' reportes');
-    return '<details class="report-person-group" open><summary><span>'+esc(group.name)+'</span><span class="report-person-group-count">'+esc(countLabel)+'</span></summary><div class="report-person-group-records">'+group.reports.map(x=>row('walk',x.id,tr('Daily Safety Walk Report','Reporte Daily Safety Walk'),fmt(x.created_at)+' · '+(x.creator?.name||'—'),walkRecordStatus(x),'daily_safety_walk',x.created_at)).join('')+'</div></details>';
-   }).join(''):empty();
+    const initials=group.name.split(/\\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toLocaleUpperCase();
+    const records=group.reports.map(x=>{
+     const date=new Date(x.created_at),locale=state.lang==='es'?'es-US':'en-US';
+     const timestamp=date.getTime(),safeTimestamp=Number.isFinite(timestamp)?timestamp:0;
+     const dateLabel=Number.isFinite(timestamp)?new Intl.DateTimeFormat(locale,{dateStyle:'medium'}).format(date):'—';
+     const timeLabel=Number.isFinite(timestamp)?new Intl.DateTimeFormat(locale,{hour:'numeric',minute:'2-digit'}).format(date):'—';
+     return '<button class="report-record report-walk-record" data-time="'+safeTimestamp+'" data-kind="walk" data-id="'+esc(x.id)+'"><span class="walk-result-icon" aria-hidden="true">▦</span><span class="walk-result-title"><strong>'+esc(tr('Daily Safety Walk — '+(project.name||'Project'),'Daily Safety Walk — '+(project.name||'Proyecto')) )+'</strong></span><span class="walk-result-date"><small>'+tr('DATE','FECHA')+'</small>'+esc(dateLabel)+'</span><span class="walk-result-time"><small>'+tr('TIME','HORA')+'</small>'+esc(timeLabel)+'</span><span class="report-record-status walk-result-complete">'+tr('Completed','Completado')+'</span><span class="report-open-pdf">PDF / '+tr('VIEW','VER')+' ›</span></button>';
+    }).join('');
+    return '<details class="report-person-group" '+(index===0?'open':'')+'><summary><span class="report-person-avatar" aria-hidden="true">'+esc(initials||'GE')+'</span><span class="report-person-name">'+esc(group.name)+'</span><span class="report-person-group-count">'+esc(countLabel)+'</span></summary><div class="report-person-group-records">'+records+'</div></details>';
+   }).join(''):'<div class="report-empty">'+tr('No completed Daily Safety Walk reports yet.','Todavía no hay reportes Daily Safety Walk finalizados.')+'</div>';
   }
   else if(key==='discipline')list.innerHTML=disc.data.length?disc.data.map(x=>row('discipline',x.id,x.employee_name||tr('Employee Disciplinary Action','Acción Disciplinaria'),fmt(x.incident_date)+' · '+(x.issuer?.name||'—'),(x.action_level||'').replaceAll('_',' '),'disciplinary_action',x.incident_date)).join(''):empty();
   else if(key==='corrections')list.innerHTML=corrections.data.length?corrections.data.map(x=>row('observation',x.observation_id,x.observation?.area||tr('Corrective Action','Acción Correctiva'),fmt(x.created_at)+' · '+(x.author?.name||x.observation?.category||'—'),x.observation?.status?.replaceAll('_',' ')||'','correction',x.created_at)).join(''):empty();
