@@ -1354,24 +1354,38 @@ async function reportCenter(){
    target.innerHTML=rows.length?'<div class="table-scroll"><table><thead><tr><th>'+tr('Module','Módulo')+'</th><th>'+tr('Device','Dispositivo')+'</th><th>'+tr('Samples','Muestras')+'</th><th>'+tr('Median','Mediana')+'</th><th>P75</th></tr></thead><tbody>'+rows.join('')+'</tbody></table></div>':'<p>'+tr('No performance samples are available for this jobsite yet.','Aún no hay mediciones para este jobsite.')+'</p>';
   });
  }
- const title=document.querySelector('#report-library-title'),list=document.querySelector('#report-library-list'),search=document.querySelector('#report-search'),dateFilter=document.querySelector('#report-date-filter');let currentCategory='daily';
+ const title=document.querySelector('#report-library-title'),list=document.querySelector('#report-library-list'),search=document.querySelector('#report-search'),dateFilter=document.querySelector('#report-date-filter'),library=title.closest('.report-library'),libraryHead=title.closest('.report-library-head'),filterBar=search.closest('.report-filter-bar');let currentCategory='daily';
  function empty(){return '<div class="report-empty">'+tr('No reports in this category yet.','Aún no hay reportes en esta categoría.')+'</div>'}
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}
  function row(kind,id,name,meta,status='',type='',timestamp=new Date().toISOString()){return '<button class="report-record" data-time="'+new Date(timestamp).getTime()+'" data-kind="'+kind+'" data-id="'+id+'"><div class="report-record-main"><strong>'+esc(name)+'</strong>'+docMeta(type,id)+'<span>'+esc(meta)+'</span></div>'+(status?'<span class="report-record-status">'+esc(status)+'</span>':'')+'<span class="report-open-pdf">PDF / '+tr('VIEW','VER')+' ›</span></button>'}
  function bind(){list.querySelectorAll('.report-record').forEach(el=>el.onclick=()=>{const k=el.dataset.kind,id=el.dataset.id;if(k==='daily')navigate('report');else if(k==='walk')navigate('safetyWalkReport',id);else if(k==='discipline')navigate('disciplineReport',id);else if(k==='incident')navigate('incidentReport',id);else if(k==='equipment')navigate('equipmentInspectionReport',id);else if(k==='inventory')navigate('inventoryReport');else navigate('observationReport',id)})}
  function applyFilters(){
   const q=(search.value||'').toLowerCase(),range=dateFilter.value,now=Date.now();
+  const groups=[...list.querySelectorAll('.report-person-group')];
+  if(groups.length){
+   groups.forEach(group=>{
+    const creatorMatches=(group.querySelector('summary')?.textContent||'').toLowerCase().includes(q);
+    let visible=false;
+    group.querySelectorAll('.report-record').forEach(el=>{
+     const text=el.textContent.toLowerCase(),t=Number(el.dataset.time||0),days=t?(now-t)/86400000:0;
+     const queryOk=!q||creatorMatches||text.includes(q);
+     const dateOk=range==='all'||(range==='today'&&t&&localDateKey(new Date(t).toISOString())===localDateKey())||(range==='week'&&t&&days<=7)||(range==='month'&&t&&days<=30);
+     const match=queryOk&&dateOk;
+     el.style.display=match?'':'none';visible=visible||match;
+    });
+    group.hidden=!visible;
+    if(q&&creatorMatches&&visible)group.open=true;
+   });
+   return;
+  }
   list.querySelectorAll('.report-record').forEach(el=>{
    const text=el.textContent.toLowerCase(),t=Number(el.dataset.time||0),days=t?(now-t)/86400000:0;
    const dateOk=range==='all'||(range==='today'&&t&&localDateKey(new Date(t).toISOString())===localDateKey())||(range==='week'&&t&&days<=7)||(range==='month'&&t&&days<=30);
    el.style.display=text.includes(q)&&dateOk?'':'none';
   });
-  list.querySelectorAll('.report-person-group').forEach(group=>{
-   group.hidden=![...group.querySelectorAll('.report-record')].some(el=>el.style.display!=='none');
-  });
-}
+ }
  function walkRecordStatus(x){const d=registered.find(item=>item.report_type==='daily_safety_walk'&&item.source_id===x.id);if(d?.document_status!=='final')return tr('NOT FINALIZED','NO FINALIZADO');const status=effectiveWalkStatus(x.overall_status,x.items);return status==='unsafe'?tr('Unsafe','No seguro'):status==='needs_attention'?tr('Needs Attention','Necesita atención'):tr('Safe','Seguro')}
- function draw(key){currentCategory=key;document.querySelectorAll('.report-category').forEach(x=>x.classList.toggle('selected',x.dataset.category===key));const cat=cats.find(x=>x.key===key);title.textContent=cat?.title||'';
+ function draw(key){currentCategory=key;document.querySelectorAll('.report-category').forEach(x=>x.classList.toggle('selected',x.dataset.category===key));const cat=cats.find(x=>x.key===key);title.textContent=cat?.title||'';if(key==='walks'){library.classList.add('report-creator-mode');libraryHead.append(filterBar)}else{library.classList.remove('report-creator-mode');library.insertBefore(filterBar,list)}
   if(key==='daily')list.innerHTML=todayObs.length?row('daily','today',tr("Today's Daily Safety Report",'Daily Safety Report de Hoy'),tr('Generated from today’s project activity','Generado desde la actividad del proyecto de hoy'),tr('PDF READY','LISTO PARA PDF')):empty();
   else if(key==='walks'){
    const groups=groupFinalWalkReportsByCreator(walks.data,registered,tr('Unknown creator','Creador desconocido'));
