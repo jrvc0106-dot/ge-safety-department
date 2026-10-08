@@ -510,9 +510,10 @@ async function runPdfAction(action,button){
           await navigator.share({title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim(),files:[file]});
           confirmAction(tr('Sharing completed in the selected app.','Se completó la acción de compartir en la aplicación seleccionada.'));return;
         }catch(e){
-          // Some browsers advertise file sharing but deny it at submission.
-          // Keep the JHA attachment available; cancellation must not download it.
-          if(!isDailyJha||e?.name!=='NotAllowedError')throw e;
+          // Some browsers advertise file sharing but deny submission after
+          // the asynchronous PDF build. Fall back to the same file; user cancellation
+          // is handled separately and must not trigger an unexpected download.
+          if(e?.name!=='NotAllowedError')throw e;
         }
       }
       downloadReportPdf(prepared.blob,prepared.filename);
