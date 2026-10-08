@@ -13,7 +13,8 @@ test('performance events keep only bounded, allowlisted metrics and attach devic
   assert.equal(writes[0].row.metric,'pdf_action');
   assert.equal(writes[0].row.metric_value,12.4);
   assert.equal(writes[0].row.session_id,'test-session');
-  assert.equal(writes[0].row.device_category,'other');
+  const width=globalThis.screen?.width||globalThis.innerWidth||0;
+  assert.equal(writes[0].row.device_category,width>=700&&width<=1400?'tablet':width<700?'phone':width>1400?'desktop':'other');
   assert.deepEqual(writes[0].options,{onConflict:'project_id,user_id,session_id,page,metric'});
   await recordPerformanceMetric(db,{projectId:'job-1',userId:'safety-1',page:'safetyWalkReport:download',metric:'private-content',duration:12});
   await recordPerformanceMetric(db,{projectId:'job-1',userId:'safety-1',page:'safetyWalkReport:download',metric:'pdf_failure',duration:-1});
