@@ -26,9 +26,13 @@ Deno.serve(async(req)=>{
   let safeRedirect:string|undefined;
   if(redirect_to){try{const parsed=new URL(String(redirect_to));if(["https:","http:"].includes(parsed.protocol)&&!parsed.username&&!parsed.password)safeRedirect=parsed.origin}catch{}}
   if(!found){
-   const {data:generated,error:generateError}=await admin.auth.admin.generateLink({type:"invite",email:cleanEmail,options:{data:{name:cleanName},redirectTo:safeRedirect}});
+   const {data:created,error:createError}=await admin.auth.admin.createUser({email:cleanEmail,email_confirm:false,user_metadata:{name:cleanName},app_metadata:{ge_admin_invite:true}});
+   if(createError)throw createError;
+   uid=created.user?.id;
+   if(!uid)throw new Error("The team member account could not be created");
+   const {data:generated,error:generateError}=await admin.auth.admin.generateLink({type:"magiclink",email:cleanEmail,options:{redirectTo:safeRedirect}});
    if(generateError)throw generateError;
-   uid=generated.user?.id;inviteLink=generated.properties?.action_link;
+   inviteLink=generated.properties?.action_link;
    if(!inviteLink)throw new Error("The secure invitation link could not be generated");
   }else{
    uid=found.id;
