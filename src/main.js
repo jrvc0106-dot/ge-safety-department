@@ -1389,10 +1389,10 @@ async function reportCenter(){
   if(key==='daily')list.innerHTML=todayObs.length?row('daily','today',tr("Today's Daily Safety Report",'Daily Safety Report de Hoy'),tr('Generated from today’s project activity','Generado desde la actividad del proyecto de hoy'),tr('PDF READY','LISTO PARA PDF')):empty();
   else if(key==='walks'){
    const groups=groupFinalWalkReportsByCreator(walks.data,registered,tr('Unknown creator','Creador desconocido'));
-   title.textContent=tr('Daily Safety Walks — Report Creators','Daily Safety Walks — Creadores de Reportes');
+   title.textContent=tr('Daily Safety Walks — Report Creators','Recorridos Diarios de Seguridad — Creadores de Reportes');
    list.innerHTML=groups.length?groups.map((group,index)=>{
     const count=group.reports.length,countLabel=count===1?tr('1 report','1 reporte'):tr(count+' reports',count+' reportes');
-    const initials=group.name.split(/\\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toLocaleUpperCase();
+    const initials=group.name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toLocaleUpperCase();
     const records=group.reports.map(x=>{
      const date=new Date(x.created_at),locale=state.lang==='es'?'es-US':'en-US';
      const timestamp=date.getTime(),safeTimestamp=Number.isFinite(timestamp)?timestamp:0;
