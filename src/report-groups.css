@@ -1,0 +1,8 @@
+.report-person-group{margin:0 0 12px;border:1px solid #d9e2ec;border-radius:12px;background:#f8fafc;overflow:hidden}
+.report-person-group>summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;cursor:pointer;color:#102a43;font-weight:800}
+.report-person-group>summary::-webkit-details-marker{display:none}
+.report-person-group>summary:after{content:"⌄";font-size:18px;color:#627d98}
+.report-person-group:not([open])>summary:after{content:"›"}
+.report-person-group-count{margin-left:auto;padding:4px 9px;border-radius:999px;background:#e8eef5;color:#486581;font-size:12px;font-weight:750;white-space:nowrap}
+.report-person-group-records{padding:0 12px 8px}
+.report-person-group-records .report-record{background:#fff;border-radius:8px;padding:12px 10px}
