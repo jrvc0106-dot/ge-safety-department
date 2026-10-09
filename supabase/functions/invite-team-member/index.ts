@@ -230,22 +230,31 @@ Deno.serve(async (req) => {
     if (memberError) throw memberError;
 
     // Send only after the auth user and project membership are ready.
+    let deliveryError: string | undefined;
     if (inviteSent && actionLink) {
-      await sendInviteEmail({
-        to: cleanEmail,
-        name: cleanName,
-        role,
-        projectName: String(project.name || "G&E Safety Department"),
-        actionLink,
-      });
+      try {
+        await sendInviteEmail({
+          to: cleanEmail,
+          name: cleanName,
+          role,
+          projectName: String(project.name || "G&E Safety Department"),
+          actionLink,
+        });
+      } catch (error) {
+        // The account and project access are already provisioned. Keep the
+        // one-time Supabase link available to this authenticated admin so the
+        // invite can still be delivered manually while email is repaired.
+        deliveryError = error instanceof Error ? error.message : "Email delivery failed";
+      }
     }
 
     return json({
       ok: true,
       email: cleanEmail,
       existing,
-      action: inviteSent ? "invitation_email_sent" : "project_access_added",
-      email_sent: inviteSent,
+      action: deliveryError ? "invitation_link_ready" : inviteSent ? "invitation_email_sent" : "project_access_added",
+      email_sent: inviteSent && !deliveryError,
+      ...(deliveryError && actionLink ? { invite_link: actionLink, delivery_error: deliveryError } : {}),
     });
   } catch (e) {
     return json({
