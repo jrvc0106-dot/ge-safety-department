@@ -1662,3 +1662,11 @@ header nav .notification-menu #notification-count.show{animation:notification-ba
  .profile-crop-card,.ai-writing-review{max-height:90vh;max-height:90dvh;overflow-y:auto;overscroll-behavior:contain}
  html[data-ge-keyboard] .device-back-bar,html[data-ge-keyboard] .mobile-bottom{display:none}
 }
+
+
+/* Report header/footer brand mark: +15% visual size without changing report layout. */
+article.report header img[src="/ge-logo.png"],
+article.report footer img[src="/ge-logo.png"]{
+  transform:scale(1.15);
+  transform-origin:center center;
+}
