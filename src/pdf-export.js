@@ -1,8 +1,9 @@
 import html2canvas from 'html2canvas';
 import {jsPDF} from 'jspdf';
 
-// Keep 300 DPI for legible text, signatures and photos. JPEG avoids embedding
-// multi-megabyte lossless page images in downloaded/shared reports.
+// 200 DPI keeps text, signatures and photos clear while holding each letter page
+// below the app's 4 MP canvas budget on iPads. JPEG avoids huge lossless PDFs.
+const pdfRenderScale=200/96;
 export async function renderPaginatedPdf(container,pageSize,options,render=html2canvas,Pdf=jsPDF){
   const width=pageSize.inner.width*96;
   const pageHeight=pageSize.inner.px.height;
@@ -12,7 +13,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
     const height=Math.min(pageHeight,totalHeight-top);
     let canvas;
     try{
-      canvas=await render(container,{...options.html2canvas,scale:300/96,
+      canvas=await render(container,{...options.html2canvas,scale:pdfRenderScale,
         x:0,y:top,width,height,scrollX:0,scrollY:0});
       if(!canvas.width||!canvas.height)throw new Error('Unable to render PDF page '+(index+1));
       if(index)pdf.addPage();
@@ -21,10 +22,8 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
     }finally{
       if(canvas){canvas.width=0;canvas.height=0}
     }
-    // JHA exports yield only after releasing the page canvas, keeping tablet
-    // controls responsive without increasing peak memory or changing quality.
+    // Release each page canvas before rendering the next, keeping tablet controls responsive.
     if(options.onPageRendered)await options.onPageRendered(index+1,Math.ceil(totalHeight/pageHeight));
   }
   return pdf.output('blob');
 }
-
