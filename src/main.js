@@ -1037,11 +1037,11 @@ document.querySelector('#invite-member').onsubmit=async ev=>{
  state.inviteLink=null;out.replaceChildren();out.className='invite-result';out.textContent=tr('Sending invitation email…','Enviando invitación por correo…');button.disabled=true;
  try{
   const {data:result,error:err}=await db.functions.invoke('invite-team-member',{body:{name:d.get('name'),email,role:d.get('role'),project_id:d.get('project_id'),redirect_to:window.location.origin}});
-  if(err||result?.error){let detail=result?.error;if(!detail&&err?.context){try{const response=await err.context.clone().json();detail=response.error||response.message}catch{}}throw new Error(detail||err?.message||tr('Could not create the invitation link.','No se pudo crear el enlace de invitación.'))}
+  if(err||result?.error){let detail=result?.error;if(!detail&&err?.context){try{const response=await err.context.clone().json();detail=response.error||response.message}catch{}}throw new Error(detail||err?.message||tr('Could not send the invitation email.','No se pudo enviar el correo de invitación.'))}
   if(result?.email_sent!==true&&result?.existing!==true)throw new Error(tr('The server did not confirm that an invitation email was sent.','El servidor no confirmó el envío del correo de invitación.'));
   out.className='invite-result success';out.textContent=result.email_sent?tr('Invitation email sent to '+email+'. Ask the employee to check their inbox and spam folder.','Invitación enviada a '+email+'. Pídele al empleado que revise la bandeja de entrada y de spam.'):tr('Existing team member added to this project successfully.','Miembro existente agregado correctamente a este proyecto.');
   confirmAction(out.textContent);form.reset();await load();if(viewCurrent())await admin();
- }catch(err){state.inviteLink=null;out.className='invite-result error';out.textContent=err?.message||tr('Could not create the invitation link.','No se pudo crear el enlace de invitación.')}
+ }catch(err){state.inviteLink=null;out.className='invite-result error';out.textContent=err?.message||tr('Could not send the invitation email.','No se pudo enviar el correo de invitación.')}
  finally{if(button.isConnected)button.disabled=false}
 }
 }
