@@ -41,10 +41,10 @@ test('JHA action failure restores all three controls for retry',async()=>{
 test('JHA progress stops updating a report after navigating away',async()=>{
  const gate=deferred(),t=setup(()=>gate.promise);const pending=t.buttons.view.onclick({currentTarget:t.buttons.view});t.leave();await t.report.jhaPdfProgress(3,10);assert.equal(t.buttons.view.textContent,'view');gate.resolve();await pending;
 });
-test('JHA progress yields after each released canvas while preserving 300 DPI and page layout',async()=>{
+test('JHA progress yields after each released canvas while preserving 200 DPI and page layout',async()=>{
  const canvases=[],images=[],progress=[];let pages=1;
  class Pdf{addPage(){pages++}addImage(...args){images.push(args)}output(){return new Blob(['pdf'])}}
  const options={jsPDF:{unit:'in',format:'letter'},margin:[.25,.25,.3,.25],html2canvas:{useCORS:true},onPageRendered:async(page,total)=>{progress.push([page,total]);assert.ok(canvases.every(canvas=>canvas.width===0&&canvas.height===0))}};
- const render=async(_,opts)=>{assert.equal(opts.scale,300/96);const canvas={width:2400,height:Math.ceil(opts.height*opts.scale),toDataURL:()=> 'data:image/jpeg;base64/test'};canvases.push(canvas);return canvas};
+ const render=async(_,opts)=>{assert.equal(opts.scale,200/96);const canvas={width:1600,height:Math.ceil(opts.height*opts.scale),toDataURL:()=> 'data:image/jpeg;base64/test'};canvases.push(canvas);return canvas};
  await renderPaginatedPdf({scrollHeight:2106},{inner:{width:8,px:{height:1003}}},options,render,Pdf);assert.equal(pages,3);assert.deepEqual(progress,[[1,3],[2,3],[3,3]]);assert.deepEqual(images.map(image=>image[5]),[1003/96,1003/96,100/96]);
 });
