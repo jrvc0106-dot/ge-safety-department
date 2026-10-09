@@ -1054,6 +1054,12 @@ document.querySelector('#invite-member').onsubmit=async ev=>{
  try{
   const {data:result,error:err}=await db.functions.invoke('invite-team-member',{body:{name:d.get('name'),email,role:d.get('role'),project_id:d.get('project_id'),redirect_to:window.location.origin}});
   if(err||result?.error){let detail=result?.error;if(!detail&&err?.context){try{const response=await err.context.clone().json();detail=response.error||response.message}catch{}}throw new Error(detail||err?.message||tr('Could not send the invitation email.','No se pudo enviar el correo de invitación.'))}
+  if(result?.invite_link&&!result?.email_sent){
+   state.inviteLink=result.invite_link;
+   out.className='invite-result error';
+   out.textContent=tr('The account and project access are ready, but automatic email delivery failed. Copy the secure invitation link below and send it privately to '+email+'.','La cuenta y el acceso al proyecto están listos, pero falló el envío automático. Copia el enlace seguro de invitación de abajo y envíaselo en privado a '+email+'.');
+   confirmAction(out.textContent,'error');form.reset();await load();if(viewCurrent())await admin();return
+  }
   if(result?.email_sent!==true&&result?.existing!==true)throw new Error(tr('The server did not confirm that an invitation email was sent.','El servidor no confirmó el envío del correo de invitación.'));
   out.className='invite-result success';out.textContent=result.email_sent?tr('Invitation email sent to '+email+'. Ask the employee to check their inbox and spam folder.','Invitación enviada a '+email+'. Pídele al empleado que revise la bandeja de entrada y de spam.'):tr('Existing team member added to this project successfully.','Miembro existente agregado correctamente a este proyecto.');
   confirmAction(out.textContent);form.reset();await load();if(viewCurrent())await admin();
