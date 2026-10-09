@@ -1670,3 +1670,31 @@ article.report footer img[src="/ge-logo.png"]{
   transform:scale(1.15);
   transform-origin:center center;
 }
+
+
+/* iPad portrait and compact-tablet ergonomics. Screen-only rules keep all PDF layouts unchanged. */
+@media screen and (min-width:761px) and (max-width:950px) and (any-pointer:coarse){
+  #app>header{
+    min-height:68px!important;
+    padding:10px max(16px,env(safe-area-inset-left)) 10px max(16px,env(safe-area-inset-right))!important;
+    gap:10px!important;
+  }
+  #app>header nav{gap:6px!important;flex-wrap:wrap}
+  #app>header nav button{min-height:48px!important;padding:10px 12px!important}
+  main{max-width:100%!important;padding-left:18px!important;padding-right:18px!important}
+  .home-shell{max-width:100%!important;margin:12px auto 90px!important;padding:0!important}
+  .home-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important}
+  .home-action,.home-action.blue,.home-action.green,.home-action.orange,.home-action.purple,.home-action.slate,.home-action.settings,.home-action.discipline,.home-action.safety-walk{
+    min-height:108px!important;
+    padding:16px 12px!important;
+    font-size:13px!important;
+  }
+  .command-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+  .cards{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .section-heading{align-items:center;flex-wrap:wrap}
+  .section-heading>button,.report-actions button,.pdf-document-actions button{min-height:48px!important}
+  .pdf-document-actions{gap:10px!important}
+  .app-menu-links button{min-height:48px!important}
+  .walk-status label{min-height:44px;display:inline-flex;align-items:center}
+  .home-action:hover,.command-alert:hover,.obs-card:hover{transform:none!important}
+}
