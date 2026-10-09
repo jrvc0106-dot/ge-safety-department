@@ -473,8 +473,18 @@ async function auditMedicalPdfAction(action,report){
 async function runPdfAction(action,button){
   if(pdfActionBusy)return;
   const startedAt=globalThis.performance?.now?.()??Date.now(),metricPage=state.page,metricProject=state.project,metricUser=state.profile?.id;
-  let metric='pdf_action';
+  let metric='pdf_action',metricRecorded=false;
   const report=document.querySelector('article.report');
+  const recordPdfMetric=(name,duration)=>{
+    if(!report||report.dataset?.toolKind==='medical_followup'||!metricProject||!metricUser)return;
+    void recordPerformanceMetric(db,{projectId:metricProject,userId:metricUser,page:`${metricPage}:${action}`,metric:name,duration:Math.max(0,duration)}).catch(e=>console.warn('PDF performance metric could not be recorded',e));
+  };
+  const recordActionMetric=()=>{
+    if(metricRecorded)return;
+    const endedAt=globalThis.performance?.now?.()??Date.now();
+    recordPdfMetric('pdf_action',endedAt-startedAt);
+    metricRecorded=true;
+  };
   const isDailyJha=state.page==='safetyWalkReport';
   let prepared=report&&preparedReportPdf(report,true),preview;
   const isJha=report?.dataset?.pdfViewMode==='single-click';
@@ -507,6 +517,7 @@ async function runPdfAction(action,button){
       const file=new File([prepared.blob],prepared.filename,{type:'application/pdf'});
       if(navigator.share&&navigator.canShare?.({files:[file]})){
         try{
+          recordActionMetric();
           await navigator.share({title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim(),files:[file]});
           confirmAction(tr('Sharing completed in the selected app.','Se completó la acción de compartir en la aplicación seleccionada.'));return;
         }catch(e){
@@ -545,6 +556,7 @@ async function runPdfAction(action,button){
       // when it is still valid; otherwise keep the prepared file for the next tap.
       if(navigator.userActivation?.isActive){
         try{
+          recordActionMetric();
           await navigator.share({title:(report.querySelector('h1')?.textContent||'G&E Safety Report').trim(),files:[file]});
           confirmAction(tr('Sharing completed in the selected app.','Se completó la acción de compartir en la aplicación seleccionada.'));return;
         }catch(e){if(e?.name!=='NotAllowedError')throw e}
@@ -564,8 +576,12 @@ async function runPdfAction(action,button){
     }
   }finally{
     if(report&&report.dataset?.toolKind!=='medical_followup'&&metricProject&&metricUser){
-      const endedAt=globalThis.performance?.now?.()??Date.now();
-      void recordPerformanceMetric(db,{projectId:metricProject,userId:metricUser,page:`${metricPage}:${action}`,metric,duration:Math.max(0,endedAt-startedAt)}).catch(e=>console.warn('PDF performance metric could not be recorded',e));
+      if(metricRecorded){
+        if(metric!=='pdf_action')recordPdfMetric(metric,0);
+      }else{
+        const endedAt=globalThis.performance?.now?.()??Date.now();
+        recordPdfMetric(metric,endedAt-startedAt);
+      }
     }
     pdfActionBusy=false;
     if(button){button.disabled=false;button.innerHTML=original}
