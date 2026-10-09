@@ -14,8 +14,10 @@ test('project names can be edited from the admin project page',()=>{
   assert.match(adminSource,/input name="name" required maxlength="120"/);
 });
 
-test('renaming a project changes only its name and is restricted to admins',()=>{
+test('editing project details saves name and address only and remains admin-only',()=>{
   assert.match(adminSource,/state\.profile\.role!=='admin'/);
-  assert.match(adminSource,/update\(\{name\}\)\.eq\('id',projectId\)\.select\('id'\)\.single\(\)/);
-  assert.doesNotMatch(adminSource,/update\(\{name,address|update\(\{name,general_contractor/);
+  assert.match(adminSource,/state\.projects\.map\(project=>/);
+  assert.match(adminSource,/input name="address" maxlength="240" value=/);
+  assert.match(adminSource,/update\(\{name,address\}\)\.eq\('id',projectId\)\.select\('id'\)\.single\(\)/);
+  assert.doesNotMatch(adminSource,/update\(\{name,address,general_contractor/);
 });
