@@ -1701,3 +1701,28 @@ article.report footer img[src="/ge-logo.png"]{
   .walk-status label{min-height:44px;display:inline-flex;align-items:center}
   .home-action:hover,.command-alert:hover,.obs-card:hover{transform:none!important}
 }
+
+/* Connection state and due-date cues stay readable on the iPad-first field UI. */
+#ge-connectivity-status{
+ position:fixed;z-index:12000;top:0;left:50%;transform:translateX(-50%);
+ width:min(760px,calc(100% - 24px));box-sizing:border-box;
+ padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;
+ border-radius:0 0 12px 12px;background:#263640;color:#fff;
+ box-shadow:0 4px 14px #15212a35;font-size:14px;line-height:1.4;text-align:center;
+}
+#ge-connectivity-status[hidden]{display:none}
+#ge-connectivity-status.is-offline{background:#765018}
+#ge-connectivity-status.is-online{background:#234f3b}
+.obs-due{margin:8px 0 0;color:#40515b;font-size:13px}
+.obs-due.overdue{color:#9c3028;font-weight:700}
+.summary-chip.overdue{border-color:#c2852f}
+@media (any-pointer:coarse){
+ #app button,#app input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]),
+ #app select,#app textarea{
+  min-height:44px!important;font-size:16px!important;
+ }
+ #app textarea{min-height:104px!important}
+ #app input[type=checkbox],#app input[type=radio]{width:22px;height:22px}
+ #app label{line-height:1.45}
+ #app .report-actions button,#app .pdf-document-actions button{min-height:48px!important}
+}
