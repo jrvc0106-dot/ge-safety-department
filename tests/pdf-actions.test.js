@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
-function setup({archiveFails=false,canShare=false}={}){
+function setup({archiveFails=false,canShare=false,userAgent='test-browser'}={}){
  const messages=[],downloads=[],shares=[],metrics=[],report={innerHTML:'JHA with photos',querySelector:()=>({textContent:'JHA'}),querySelectorAll:()=>[]};
  const button={innerHTML:'Share PDF',textContent:'Share PDF',disabled:false};
  const blob=new Blob(['%PDF-1.4 test'],{type:'application/pdf'});
  const canvas={width:800,height:9000};
  const worker={set(){return this},from(){return this},toContainer(){return this},toCanvas(){return this},get(key){return Promise.resolve(key==='container'?{scrollWidth:800,scrollHeight:9000}:key==='overlay'?{remove(){}}:canvas)},outputPdf(){return Promise.resolve(blob)}};
- const context=vm.createContext({Blob,File,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
+ const context=vm.createContext({Blob,File,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{userAgent,canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
  const helpers=source.slice(source.indexOf('const preparedReportPdfs='),source.indexOf('async function normalizeReportImage'));
  const actions=source.slice(source.indexOf('async function buildReportPdf('),source.indexOf('function installReportDocumentActions()')).replace("await import('./pdf-export.js')",'({renderPaginatedPdf:mockRenderPdf})');
  vm.runInContext(helpers+'\n'+actions,context);
@@ -219,4 +219,21 @@ test('PDF actions record duration and distinguish app failures from user cancell
  assert.equal(failed.metrics[0].metric,'pdf_failure');
  const canceled=setup({canShare:true});await canceled.context.buildReportPdf(true);canceled.context.navigator.share=()=>Promise.reject(Object.assign(Error('Canceled'),{name:'AbortError'}));
  await canceled.context.runPdfAction('share',canceled.button);assert.equal(canceled.metrics[0].metric,'pdf_action');assert.equal(canceled.metrics[0].duration,0);assert.equal(canceled.metrics[1].metric,'pdf_cancelled');assert.equal(canceled.metrics[1].duration,0);
+});
+
+test('iPad Safari Web Share API shares a finished PDF when file sharing is available',async()=>{
+ const t=setup({canShare:true,userAgent:'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});
+ t.context.navigator.userActivation={isActive:true};
+ await t.context.runPdfAction('share',t.button);
+ assert.equal(t.shares.length,1);
+ assert.equal(t.shares[0].files[0].type,'application/pdf');
+ assert.equal(t.downloads.length,0);
+});
+
+test('Samsung Android browser downloads the PDF when file sharing is unavailable',async()=>{
+ const t=setup({canShare:false,userAgent:'Mozilla/5.0 (Linux; Android 15; SM-S928B) AppleWebKit/537.36 Chrome/132.0.0.0 Mobile Safari/537.36'});
+ await t.context.runPdfAction('share',t.button);
+ assert.equal(t.shares.length,0);
+ assert.equal(t.downloads.length,1);
+ assert.ok(t.messages.some(m=>m[0].includes('Attach this file')));
 });
