@@ -40,6 +40,19 @@ test('sharing prepares once, then invokes native sharing directly from the next 
  const pending=t.context.runPdfAction('share',t.button);assert.equal(t.shares.length,1);await pending;
  assert.equal(t.shares[0].files[0].type,'application/pdf');assert.equal(t.shares[0].files[0].name,'JHA.pdf');
 });
+test('PDF performance timing stops when the native share sheet opens',async()=>{
+ const t=setup({canShare:true});await t.context.buildReportPdf(true);
+ let now=100,finishShare;t.context.performance.now=()=>now;
+ t.context.navigator.share=()=>new Promise(resolve=>{finishShare=resolve});
+ const pending=t.context.runPdfAction('share',t.button);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(typeof finishShare,'function');
+ assert.equal(t.metrics.length,1);
+ assert.equal(t.metrics[0].metric,'pdf_action');
+ const preparedDuration=t.metrics[0].duration;
+ now=120000;finishShare();await pending;
+ assert.equal(t.metrics[0].duration,preparedDuration);
+});
 test('unsupported file sharing downloads the attachment instead',async()=>{
  const t=setup();await t.context.runPdfAction('share',t.button);assert.equal(t.downloads.length,1);assert.equal(t.shares.length,0);
 });
