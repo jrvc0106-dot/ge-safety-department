@@ -26,5 +26,6 @@
 .orientation-compact canvas[data-jha-signature]{display:block;width:100%;height:auto;aspect-ratio:3/1;min-height:180px;touch-action:none}
 .orientation-compact .orientation-save-bar{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:5;padding:12px;background:#fff;border:1px solid #d9e1e8;border-radius:12px;box-shadow:0 4px 18px #172d461a}
 .orientation-compact .orientation-save-bar button{width:100%;min-height:54px;margin:0}
+@media(max-width:1000px){.orientation-editor form.orientation-compact,.orientation-compact .jha-approval-fields{grid-template-columns:1fr}}
 @media(max-width:760px){.orientation-editor form.orientation-compact,.orientation-compact .orientation-data-grid,.orientation-compact .jha-approval-fields{grid-template-columns:1fr}.orientation-compact .orientation-step-body{padding:12px}}
 @media print{.orientation-compact .orientation-save-bar{position:static;box-shadow:none}}
