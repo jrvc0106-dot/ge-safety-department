@@ -218,5 +218,5 @@ test('PDF actions record duration and distinguish app failures from user cancell
  const failed=setup();failed.context.rasterizePdfSignatures=async()=>{throw Error('render failed')};await failed.context.runPdfAction('download',failed.button);
  assert.equal(failed.metrics[0].metric,'pdf_failure');
  const canceled=setup({canShare:true});await canceled.context.buildReportPdf(true);canceled.context.navigator.share=()=>Promise.reject(Object.assign(Error('Canceled'),{name:'AbortError'}));
- await canceled.context.runPdfAction('share',canceled.button);assert.equal(canceled.metrics[0].metric,'pdf_cancelled');
+ await canceled.context.runPdfAction('share',canceled.button);assert.equal(canceled.metrics[0].metric,'pdf_action');assert.equal(canceled.metrics[0].duration,0);assert.equal(canceled.metrics[1].metric,'pdf_cancelled');assert.equal(canceled.metrics[1].duration,0);
 });
