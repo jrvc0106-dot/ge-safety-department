@@ -33,11 +33,16 @@ export function simplifyOrientationForm(form, tr) {
   fields.forEach(field => data.body.append(field));
   const photos = section(2, tr('Orientation evidence', 'Evidencia de orientación'), true);
   if (evidence) photos.body.append(evidence);
-  const noteSection = section(3, tr('Notes', 'Notas'), false);
-  if (notes) noteSection.body.append(notes);
-  const signSection = section(4, tr('Signatures', 'Firmas'), false);
-  signSection.details.classList.add('orientation-signature-step');
-  if (signatures) signSection.body.append(signatures);
+  // Keep legacy values in the form for existing records, but do not show
+  // Notes or Signatures as orientation steps.
+  const legacy = make('div', 'orientation-legacy-fields');
+  legacy.hidden = true;
+  if (notes) legacy.append(notes);
+  if (signatures) legacy.append(signatures);
+  legacy.querySelectorAll('input, textarea, select').forEach(control => {
+    control.required = false;
+  });
+  form.append(legacy);
   const footer = make('div', 'orientation-save-bar');
   if (submit) footer.append(submit);
   form.append(footer);
@@ -88,7 +93,7 @@ export function simplifyOrientationForm(form, tr) {
     });
     form.querySelectorAll('[data-jha-clear]').forEach(button => button.click());
     data.details.open = true; photos.details.open = true;
-    noteSection.details.open = false; signSection.details.open = false;
+
   };
   form.addEventListener('reset', () => win.queueMicrotask(() => { if (form.isConnected) reset(); }));
   form.querySelectorAll('[data-evidence-count]').forEach(node => updateEvidence(node.dataset.evidenceCount, []));
