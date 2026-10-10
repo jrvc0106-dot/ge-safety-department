@@ -67,6 +67,35 @@ export function createSafetyTools(ctx){
    if(descriptionInput)descriptionInput.required=true;
   }
   const f=document.getElementById(`st-${kind}-form`);if(kind!=='medical_followup')mountReportSignatures(f,kind,tr);if(kind==='toolbox'||kind==='training')mountAttendance(f,tr);if(kind!=='medical_followup')await enableAutoDraft(f,'safety_tool_'+kind);if(!current())return;
+  if(kind==='safety_notes'){
+   const input=f.querySelector('input[name="photos"]');
+   const gallery=document.createElement('div');
+   gallery.className='st-note-gallery';
+   gallery.setAttribute('aria-live','polite');
+   input.closest('label').after(gallery);
+   let urls=[];
+   const redraw=()=>{
+    urls.forEach(url=>URL.revokeObjectURL(url));urls=[];
+    gallery.replaceChildren();
+    [...input.files].forEach((file,index)=>{
+     const card=document.createElement('div');card.className='st-note-photo';
+     if(file.type.startsWith('image/')&&!/hei[cf]/i.test(file.type)){
+      const img=document.createElement('img');const url=URL.createObjectURL(file);urls.push(url);img.src=url;img.alt=file.name;card.append(img);
+     }
+     const label=document.createElement('small');label.textContent=file.name;
+     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent=tr('Remove','Eliminar');
+     remove.onclick=()=>{
+      const remaining=[...input.files].filter((_,i)=>i!==index);
+      const transfer=new DataTransfer();remaining.forEach(item=>transfer.items.add(item));
+      input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+     };
+     card.append(label,remove);gallery.append(card);
+    });
+   };
+   input.addEventListener('change',redraw);
+   redraw();
+  }
+
   const selectedMedicalDocuments=[];
   if(kind==='medical_followup'){
    const input=f.querySelector('#st-medical-documents'),list=f.querySelector('#st-medical-document-list');
