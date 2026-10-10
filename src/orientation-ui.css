@@ -31,7 +31,7 @@
 .orientation-compact .jha-approval-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
 .orientation-compact .jha-approval{min-width:0}
 .orientation-compact canvas[data-jha-signature]{display:block;width:100%;height:auto;aspect-ratio:3/1;min-height:180px;touch-action:none;margin-top:8px;border:1px solid #cbd8e3;border-radius:8px;background:#fcfdff}
-.orientation-compact .orientation-save-bar{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;justify-content:flex-end;padding:8px 0;background:#fff;border-top:1px solid #e2e8ee;width:100%}
+.orientation-compact .orientation-save-bar{position:static;display:flex;justify-content:flex-end;padding:8px 0;background:#fff;border-top:1px solid #e2e8ee;width:100%}
 .orientation-compact .orientation-save-bar button{width:auto;min-width:260px;max-width:100%;min-height:48px;margin:0;padding:12px 24px}
 .orientation-shell .orientation-scan{grid-template-columns:minmax(180px,1fr) auto;gap:10px 16px;padding:16px}
 .orientation-shell .orientation-scan-icon{display:none}
