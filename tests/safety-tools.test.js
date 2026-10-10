@@ -60,7 +60,7 @@ test('Safety Notes tile uses signed-in Safety first name and existing PDF report
  assert.match(html,/data-safety-tool="safety_notes"/);
  assert.equal(canCreateTool('safety_notes','safety'),true);
  assert.equal(canCreateTool('safety_notes','worker'),false);
- const pdf=toolReportHtml({kind:'safety_notes',report_number:'NT-TEST',created_at:'2026-10-10T12:00:00Z',creator:{name:'Jorling Safety'},payload:{topic:'Scaffold check',description:'Safety note with photo',location:'Level 3'}},{name:'Domus2'});
+ const pdf=toolReportHtml({kind:'safety_notes',report_number:'NT-TEST',created_at:'2026-10-10T12:00:00Z',creator:{name:'Jorling Safety'},payload:{description:'Scaffold check with photo'}},{name:'Domus2'});
  assert.match(pdf,/Safety Notes Report By G&amp;E/);
  assert.match(pdf,/Jorling Safety/);
  assert.match(pdf,/Scaffold check/);
