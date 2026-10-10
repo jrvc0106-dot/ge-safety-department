@@ -25,7 +25,7 @@ export function toolsHomeMarkup(role,tr,displayName=''){
  return `<section class="st-home"><h2>${tr('New tools','Nuevas herramientas')}</h2><div class="home-actions">${Object.entries(TOOL_DEFINITIONS).filter(([k])=>canReadTool(k,role)).map(([k,d])=>`<button class="home-action st-tool" data-safety-tool="${k}"><span class="action-icon">${moduleIcon(k==='medical_followup'?'medical':k==='safety_notes'?'daily_report':k)}</span><span>${k==='safety_notes'?esc(noteLabel):tr(d.en,d.es)}</span></button>`).join('')}</div></section>`;
 }
 export function createSafetyTools(ctx){
- const {db,state,tr,frame,navigate,captureView,error,confirmAction,enableAutoDraft,draftFilesFor,clearDraft,normalizeReportImage,signedDisplayImage,toolboxDraftEvidence,saveToolboxCloud}=ctx;
+ const {db,state,tr,frame,navigate,captureView,error,confirmAction,enableAutoDraft,draftFilesFor,safetyNotesDraftPhotos,clearDraft,normalizeReportImage,signedDisplayImage,toolboxDraftEvidence,saveToolboxCloud}=ctx;
  const table='safety_tool_records',bucket='safety-tool-evidence';
  let cameraCleanup=()=>{};
  function stop(){cameraCleanup();cameraCleanup=()=>{}}
@@ -66,31 +66,31 @@ export function createSafetyTools(ctx){
   const f=document.getElementById(`st-${kind}-form`);if(kind!=='medical_followup'&&kind!=='safety_notes')mountReportSignatures(f,kind,tr);if(kind==='toolbox'||kind==='training')mountAttendance(f,tr);if(kind!=='medical_followup')await enableAutoDraft(f,'safety_tool_'+kind);if(!current())return;
   if(kind==='safety_notes'){
    const input=f.querySelector('input[name="photos"]');
-   const gallery=document.createElement('div');
-   gallery.className='st-note-gallery';
-   gallery.setAttribute('aria-live','polite');
+   const gallery=document.createElement('div');gallery.className='st-note-gallery';gallery.setAttribute('aria-live','polite');
    input.closest('label').after(gallery);
-   let urls=[];
-   const redraw=()=>{
-    urls.forEach(url=>URL.revokeObjectURL(url));urls=[];
-    gallery.replaceChildren();
-    [...input.files].forEach((file,index)=>{
-     const card=document.createElement('div');card.className='st-note-photo';
-     if(file.type.startsWith('image/')&&!/hei[cf]/i.test(file.type)){
-      const img=document.createElement('img');const url=URL.createObjectURL(file);urls.push(url);img.src=url;img.alt=file.name;card.append(img);
-     }
-     const label=document.createElement('small');label.textContent=file.name;
-     const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent=tr('Remove','Eliminar');
-     remove.onclick=()=>{
-      const remaining=[...input.files].filter((_,i)=>i!==index);
-      const transfer=new DataTransfer();remaining.forEach(item=>transfer.items.add(item));
-      input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));
-     };
-     card.append(label,remove);gallery.append(card);
-    });
+   let urls=[],version=0;
+   const redraw=async(removeIndex=null)=>{
+    const currentVersion=++version;
+    gallery.textContent=tr('Loading photos…','Cargando fotos…');
+    try{
+     const files=await safetyNotesDraftPhotos(f,removeIndex);
+     if(!current()||currentVersion!==version)return;
+     urls.forEach(url=>URL.revokeObjectURL(url));urls=[];
+     gallery.replaceChildren();
+     files.forEach((file,index)=>{
+      const card=document.createElement('div');card.className='st-note-photo';
+      if(file.type.startsWith('image/')){
+       const image=document.createElement('img');const url=URL.createObjectURL(file);urls.push(url);image.src=url;image.alt=file.name;card.append(image);
+      }
+      const name=document.createElement('small');name.textContent=file.name;
+      const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent=tr('Remove','Eliminar');
+      remove.onclick=()=>redraw(index);
+      card.append(name,remove);gallery.append(card);
+     });
+    }catch(e){if(current()&&currentVersion===version){gallery.textContent=tr('Could not load photos. Your draft is preserved.','No se pudieron cargar las fotos. Su borrador está conservado.');error(e)}}
    };
-   input.addEventListener('change',redraw);
-   redraw();
+   input.addEventListener('change',()=>redraw());
+   await redraw();
   }
 
   const selectedMedicalDocuments=[];
