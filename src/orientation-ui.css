@@ -1,31 +1,46 @@
-/* Only the orientation editor changes; saved records and PDF styles are untouched. */
-.orientation-editor form.orientation-compact{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:16px}
-.orientation-compact .orientation-step{min-width:0;border:1px solid #d9e1e8;border-radius:12px;background:#fff;overflow:hidden;margin:0}
-.orientation-compact .orientation-step>summary{min-height:52px;padding:14px 16px;background:#edf3f8;color:#173b58;font-weight:700;cursor:pointer;touch-action:manipulation}
+/* Sequential registration layout scoped to Team Safety Orientation. */
+.orientation-editor form.orientation-compact{display:flex;flex-direction:column;gap:14px}
+.orientation-compact .orientation-step{width:100%;min-width:0;box-sizing:border-box;border:1px solid #dce4eb;border-radius:12px;background:#fff;overflow:hidden;margin:0}
+.orientation-compact .orientation-step>summary{display:flex;align-items:center;gap:12px;min-height:52px;box-sizing:border-box;padding:12px 16px;color:#173b58;background:#f7f9fc;font-weight:700;cursor:pointer;touch-action:manipulation;list-style:none}
+.orientation-compact .orientation-step>summary::-webkit-details-marker{display:none}
+.orientation-compact .orientation-step>summary::after{content:'+';margin-left:auto;font-size:24px;font-weight:400;color:#64778a}
+.orientation-compact .orientation-step[open]>summary::after{content:'−'}
+.orientation-compact .orientation-step[open]>summary{border-bottom:1px solid #e7edf2}
+.orientation-compact .orientation-step-number{display:grid;place-items:center;flex:0 0 28px;height:28px;border-radius:50%;background:#e4edf7;color:#174b79;font-size:14px}
 .orientation-compact .orientation-step>summary:focus-visible{outline:3px solid #267cca;outline-offset:-3px}
 .orientation-compact .orientation-step-body{padding:16px}
-.orientation-compact .orientation-data-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.orientation-compact .orientation-data-grid label:has([name="employee_profile_id"]){grid-column:1/-1}
-.orientation-compact label{min-width:0;margin:0}
-.orientation-compact input,.orientation-compact select,.orientation-compact textarea{width:100%;box-sizing:border-box;min-height:48px;font-size:16px}
-.orientation-compact .orientation-evidence-fields{margin:0;padding:0;border:0;display:grid;gap:12px}
+.orientation-compact .orientation-data-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+.orientation-compact label{min-width:0;margin:0;display:block;font-size:14px;line-height:1.45}
+.orientation-compact input,.orientation-compact select,.orientation-compact textarea{width:100%;box-sizing:border-box;min-height:48px;font-size:16px;margin-top:6px}
+.orientation-compact .orientation-evidence-fields{margin:0;padding:0;border:0;min-width:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .orientation-compact .orientation-evidence-fields>legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
-.orientation-compact .orientation-evidence-option{padding:12px;border:1px solid #e2e8ee;border-radius:10px;min-width:0}
-.orientation-compact .orientation-source-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
-.orientation-compact .orientation-source-actions button{flex:1;min-height:48px;padding:10px}
-.orientation-compact [data-evidence-count]{display:block;color:#76551d;font-weight:600}
-.orientation-compact [data-evidence-count][data-attached="true"]{color:#176343}
+.orientation-compact .orientation-evidence-option{display:flex;flex-direction:column;align-items:stretch;padding:14px;border:1px solid #dce4eb;border-radius:10px;background:#fcfdff;min-width:0}
+.orientation-compact .orientation-evidence-option>label{min-height:66px}
+.orientation-compact .orientation-evidence-option>label b{display:block;font-size:15px;color:#1b354c}
+.orientation-compact .orientation-evidence-option>label small{display:block;font-size:12px;font-weight:400;line-height:1.4;color:#617286;margin-top:5px}
+.orientation-compact .orientation-source-actions{display:flex;gap:8px;margin:12px 0}
+.orientation-compact .orientation-source-actions button{flex:1;min-width:0;min-height:46px;padding:8px;font-size:14px;margin:0}
+.orientation-compact [data-evidence-count]{align-self:flex-start;display:block;padding:4px 9px;border-radius:20px;background:#f0f3f6;color:#5c6977;font-size:12px;font-weight:600}
+.orientation-compact [data-evidence-count][data-attached="true"]{color:#176343;background:#e8f5ed}
+.orientation-compact [data-evidence-clear]{align-self:flex-start;margin-top:8px;min-height:44px}
 .orientation-compact .orientation-photo-previews{display:flex;gap:8px;overflow-x:auto;max-width:100%;margin-top:8px}
 .orientation-compact .orientation-photo-previews:empty{display:none}
 .orientation-compact .orientation-photo-previews figure{flex:0 0 88px;margin:0;min-width:0}
 .orientation-compact .orientation-photo-previews img{width:88px;height:72px;object-fit:cover;border-radius:6px}
 .orientation-compact .orientation-photo-previews figcaption{font-size:12px;overflow-wrap:anywhere}
-.orientation-compact .orientation-signature-step,.orientation-compact .orientation-save-bar{grid-column:1/-1}
 .orientation-compact .jha-approval-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
 .orientation-compact .jha-approval{min-width:0}
-.orientation-compact canvas[data-jha-signature]{display:block;width:100%;height:auto;aspect-ratio:3/1;min-height:180px;touch-action:none}
-.orientation-compact .orientation-save-bar{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:5;padding:12px;background:#fff;border:1px solid #d9e1e8;border-radius:12px;box-shadow:0 4px 18px #172d461a}
-.orientation-compact .orientation-save-bar button{width:100%;min-height:54px;margin:0}
-@media(max-width:1000px){.orientation-editor form.orientation-compact,.orientation-compact .jha-approval-fields{grid-template-columns:1fr}}
-@media(max-width:760px){.orientation-editor form.orientation-compact,.orientation-compact .orientation-data-grid,.orientation-compact .jha-approval-fields{grid-template-columns:1fr}.orientation-compact .orientation-step-body{padding:12px}}
-@media print{.orientation-compact .orientation-save-bar{position:static;box-shadow:none}}
+.orientation-compact canvas[data-jha-signature]{display:block;width:100%;height:auto;aspect-ratio:3/1;min-height:180px;touch-action:none;margin-top:8px;border:1px solid #cbd8e3;border-radius:8px;background:#fcfdff}
+.orientation-compact .orientation-save-bar{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;justify-content:flex-end;padding:8px 0;background:#fff;border-top:1px solid #e2e8ee;width:100%}
+.orientation-compact .orientation-save-bar button{width:auto;min-width:260px;max-width:100%;min-height:48px;margin:0;padding:12px 24px}
+.orientation-shell .orientation-scan{grid-template-columns:minmax(180px,1fr) auto;gap:10px 16px;padding:16px}
+.orientation-shell .orientation-scan-icon{display:none}
+.orientation-shell .orientation-scan h2{font-size:18px;margin:2px 0}
+.orientation-shell .orientation-scan p{font-size:13px}
+.orientation-shell .orientation-camera{margin:0;min-height:46px;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
+.orientation-shell .orientation-lookup{grid-column:1/-1;align-items:center}
+.orientation-shell .orientation-lookup input,.orientation-shell .orientation-lookup button{min-height:46px;margin:0}
+@media(min-width:1100px){.orientation-compact .orientation-data-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:800px){.orientation-compact .jha-approval-fields{grid-template-columns:1fr}}
+@media(max-width:600px){.orientation-compact .orientation-data-grid,.orientation-compact .orientation-evidence-fields{grid-template-columns:1fr}.orientation-compact .orientation-step-body{padding:12px}.orientation-compact .orientation-evidence-option>label{min-height:0}.orientation-compact .orientation-save-bar button{width:100%;min-width:0}.orientation-shell .orientation-scan{grid-template-columns:1fr}.orientation-shell .orientation-camera{grid-column:1/-1}}
+@media print{.orientation-compact .orientation-save-bar{position:static}}
