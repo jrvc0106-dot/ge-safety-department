@@ -1,21 +1,13 @@
 import './help-center.css';
 const topics=[
- ['jha','Daily Report JHA','Reporte JHA','file-text'],
- ['pdf','PDF / Download','PDF / Descargas','file-down'],
- ['photos','Camera / Photos','Cámara / Fotos','camera'],
- ['sign','Digital Signatures','Firmas digitales','pen-tool'],
- ['inventory','Inventory','Inventario','package'],
- ['access','Access / Login','Acceso / Inicio de sesión','lock'],
- ['external','Vercel / Supabase','Vercel / Supabase','settings']
+ ['pdf','PDF / Download','PDF / Descargas'],
+ ['sign','Digital Signatures','Firmas digitales'],
+ ['observations','Safety Observations','Observaciones de seguridad']
 ];
 const sample={
- jha:['How do I save a JHA draft and download the final PDF?','¿Cómo guardo un borrador JHA y descargo el PDF final?'],
- pdf:['The PDF shows Load Failed. What should I check?','El PDF muestra Load Failed. ¿Qué debo revisar?'],
- photos:['My iPad camera or photo gallery is not opening.','La cámara o galería de mi iPad no abre.'],
- sign:['My digital signature does not appear in the PDF.','Mi firma digital no aparece en el PDF.'],
- inventory:['How do I quickly add multiple inventory items?','¿Cómo agrego varios artículos al inventario rápidamente?'],
- access:['I cannot sign in or my account has no access.','No puedo iniciar sesión o mi cuenta no tiene acceso.'],
- external:['What problems require an administrator to use Vercel or Supabase?','¿Qué problemas requieren que un administrador use Vercel o Supabase?']
+ pdf:['My JHA report shows Load Failed when I try to download its PDF. Guide me step by step without changing the report.','Mi reporte JHA muestra Load Failed al descargar el PDF. Guíame paso a paso sin cambiar el reporte.'],
+ sign:['The Safety, Foreman or Superintendent signature is visible in the form but missing from the final PDF. What should I check?','La firma del Safety, Foreman o Superintendent aparece en el formulario, pero no en el PDF final. ¿Qué debo revisar?'],
+ observations:['How can I verify that a Safety Observation was saved, assigned to the responsible person and the notification email was delivered? Do not assume the email was sent.','¿Cómo verifico que una Safety Observation se guardó, se asignó a la persona responsable y se entregó el correo de notificación? No asumas que se envió.']
 };
 const offline={
  es:'Revisa tu conexión, vuelve a iniciar sesión si expiró y prueba de nuevo. Para problemas de PDF, confirma que el reporte esté guardado y abre Reports. Para cámara en iPad, revisa los permisos del navegador. Si continúa, anota el mensaje exacto y avisa al administrador.',
