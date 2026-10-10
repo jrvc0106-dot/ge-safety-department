@@ -18,6 +18,14 @@ export const medicalEventLabel=(value,tr=(en)=>en)=>medicalLabel(MEDICAL_FOLLOWU
 export const medicalCaseStatusLabel=(value,tr=(en)=>en)=>medicalLabel(MEDICAL_CASE_STATUSES,value,tr);
 export const medicalWorkStatusLabel=(value,tr=(en)=>en)=>medicalLabel(MEDICAL_WORK_STATUSES,value,tr);
 export const TOOL_DEFINITIONS = {
+ safety_notes:{en:'Safety Notes',es:'Notas Safety',title:'Safety Notes Report By G&E',prefix:'NT',icon:'▤',roles:['admin','safety_director','safety','supervisor'],fields:[
+  ['topic','Note title','Título de la nota'],
+  ['location','Location / floor','Ubicación / piso'],
+  ['description','Safety notes / description','Notas de seguridad / descripción','textarea'],
+  ['action','Action taken / follow-up','Acción tomada / seguimiento','textarea'],
+  ['responsible','Responsible person (optional)','Persona responsable (opcional)'],
+  ['follow_up','Additional comments','Comentarios adicionales','textarea']
+ ]},
  toolbox:{en:'Toolbox Talk',es:'Toolbox Talk',title:'Toolbox Talk By G&E',prefix:'TB',icon:'▤',roles:['admin','safety_director','safety','supervisor'],fields:[
   ['topic','Topic','Tema'],['language','Language','Idioma'],['duration','Duration (minutes)','Duración (minutos)','number'],['instructor','Instructor','Instructor'],['topics','Topics discussed','Temas tratados','textarea'],['attendees','Attendance: one name per line','Asistencia: un nombre por línea','textarea'],['notes','Questions / commitments','Preguntas / compromisos','textarea']]},
  training:{en:'Training Record',es:'Registro de Capacitación',title:'Construction Training Record By G&E',prefix:'TR',icon:'▤',roles:['admin','safety_director','safety','supervisor'],fields:[

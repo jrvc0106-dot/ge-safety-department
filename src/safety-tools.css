@@ -6,3 +6,10 @@
 @media print{.st-final-report .st-training-details{grid-template-columns:repeat(3,minmax(0,1fr))}.st-training-assessment{grid-template-columns:150px 1fr}}
 .st-medical-documents{border:1px solid #cfd8dd!important;background:#f8fafb}.st-medical-documents>p,.st-medical-documents>small{margin:0;color:#586a73;font-size:12px;line-height:1.5}.st-medical-documents label{font-weight:800}.st-medical-documents input[type=file]{display:block;margin-top:8px}.st-medical-document{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid #dce3e7;font-size:12px}.st-medical-document button{padding:6px 10px}.st-medical-report .ewr-photo-register-grid{grid-template-columns:minmax(0,1fr)}.st-medical-report .ewr-photo-card>img{height:auto;max-height:560px;min-height:160px;object-fit:contain;background:#f3f5f6}
 @media print{.st-medical-report .ewr-photo-register-grid{grid-template-columns:minmax(0,1fr)}.st-medical-report .ewr-photo-card>img{height:auto;max-height:560px;min-height:160px;object-fit:contain}.st-medical-report .ewr-photo-card{break-inside:avoid;page-break-inside:avoid}}
+
+/* Safety Notes only: photo thumbnails and removal before saving. */
+.st-note-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:10px;margin:10px 0 16px}
+.st-note-photo{display:flex;flex-direction:column;gap:7px;padding:8px;border:1px solid #d7dee3;border-radius:10px;background:#f7f9fa;min-width:0}
+.st-note-photo img{width:100%;height:112px;object-fit:contain;background:#edf0f2;border-radius:6px}
+.st-note-photo small{overflow-wrap:anywhere;color:#42515d}
+.st-note-photo button{min-height:40px}
