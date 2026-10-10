@@ -1804,6 +1804,6 @@ body:has(.home-shell){background:#e6e6e6}
 /* Header branding only: proportional 15% logo enlargement and matching title. */
 header .brand img{width:64.4px!important;height:64.4px!important;object-fit:contain!important}
 header .brand span{font-size:25px!important;letter-spacing:-.015em!important;white-space:nowrap}
-header .brand small{font-size:9px!important;letter-spacing:.16em!important}
+header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 @media(max-width:760px){header .brand img{width:57.5px!important;height:57.5px!important}header .brand span{font-size:21px!important}}
-@media(max-width:650px){header .brand img{width:52.9px!important;height:52.9px!important}header .brand span{display:block!important;font-size:16px!important}header .brand small{font-size:6.5px!important;letter-spacing:.08em!important}}
+@media(max-width:650px){header .brand img{width:52.9px!important;height:52.9px!important}header .brand span{display:block!important;font-size:16px!important}header .brand small{font-size:7.15px!important;letter-spacing:.08em!important}}
