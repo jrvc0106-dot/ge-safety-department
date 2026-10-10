@@ -65,3 +65,12 @@ test('Safety Notes tile uses signed-in Safety first name and existing PDF report
  assert.match(pdf,/Jorling Safety/);
  assert.match(pdf,/Scaffold check/);
 });
+
+test('Safety Notes is a single freeform notebook with optional photos and PDF',()=>{
+ assert.deepEqual(TOOL_DEFINITIONS.safety_notes.fields,[['description','My notes','Mis notas','textarea']]);
+ assert.equal(canCreateTool('safety_notes','safety'),true);
+ assert.equal(canCreateTool('safety_notes','worker'),false);
+ const html=toolReportHtml({kind:'safety_notes',report_number:'NT-TEST',created_at:'2026-10-10T12:00:00Z',payload:{description:'Daily safety notebook entry',topic:'Daily safety notebook entry'}},{name:'Domus2'});
+ assert.match(html,/Daily safety notebook entry/);
+ assert.match(html,/Safety Notes Report By G&amp;E/);
+});
