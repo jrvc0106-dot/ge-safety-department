@@ -1,24 +1,25 @@
 export function simplifyInventoryForm(form,tr){
  const submit=form.querySelector('button[type="submit"]');
- const group=(title,names,optional=false)=>{
-  const section=document.createElement(optional?'details':'fieldset');
-  section.className='inventory-form-section wide';
-  const heading=document.createElement(optional?'summary':'legend');heading.textContent=title;section.append(heading);
-  const fields=document.createElement('div');fields.className='inventory-section-fields';section.append(fields);
+ const section=(title,names,optional=false)=>{
+  const container=document.createElement(optional?'details':'fieldset');
+  container.className='inventory-form-section wide';
+  const heading=document.createElement(optional?'summary':'legend');heading.textContent=title;container.append(heading);
+  const fields=document.createElement('div');fields.className='inventory-section-fields';container.append(fields);
   for(const name of names){const control=form.elements.namedItem(name),label=control?.closest('label');if(label)fields.append(label)}
-  form.insertBefore(section,submit);return section;
+  form.insertBefore(container,submit);return container;
  };
- const basics=group(tr('1. Item & condition','1. Artículo y condición'),['category','item_name','quantity','condition','status']);
- const location=group(tr('2. Location & responsible person','2. Ubicación y responsable'),['location','assigned_to']);
+ const basics=section(tr('Quick inventory · item, quantity & condition','Inventario rápido · artículo, cantidad y condición'),['category','item_name','quantity','condition']);
+ const more=section(tr('Optional details · status, location, assigned person, brand, ID & inspections','Detalles opcionales · estado, ubicación, responsable, marca, ID e inspecciones'),['status','location','assigned_to','brand','model','serial_number','asset_id','last_inspection_at','next_inspection_date'],true);
  const photo=form.querySelector('.inventory-photo-box');
- if(photo){photo.querySelector('strong').textContent=tr('3. Photos & evidence','3. Fotos y evidencia');form.insertBefore(photo,submit)}
- group(tr('Additional details · brand, ID & inspections','Detalles adicionales · marca, ID e inspecciones'),['brand','model','serial_number','asset_id','last_inspection_at','next_inspection_date'],true);
- group(tr('Notes','Notas'),['notes']);
- form.prepend(basics,location);
- const note=form.querySelector('.inventory-safety-note');if(note)form.insertBefore(note,submit);
+ if(photo){photo.querySelector('strong').textContent=tr('Optional photos & evidence','Fotos y evidencia opcionales');form.insertBefore(photo,submit)}
+ const notes=section(tr('Notes (optional)','Notas (opcional)'),['notes'],true);
+ form.prepend(basics,more);
+ const warning=form.querySelector('.inventory-safety-note');if(warning)form.insertBefore(warning,submit);
+ const quick=document.createElement('button');quick.type='submit';quick.className='secondary wide';quick.dataset.inventoryAddAnother='true';quick.textContent=tr('Save & add another item','Guardar y agregar otro artículo');submit.before(quick);
  for(const name of ['camera_photo','photos']){
   const input=form.elements.namedItem(name);if(!input)continue;
-  const feedback=document.createElement('span');feedback.className='inventory-photo-feedback';feedback.setAttribute('role','status');const label=input.closest('label'),wrapper=document.createElement('div');label.before(wrapper);wrapper.append(label,feedback);
+  const feedback=document.createElement('span');feedback.className='inventory-photo-feedback';feedback.setAttribute('role','status');
+  const label=input.closest('label'),wrapper=document.createElement('div');label.before(wrapper);wrapper.append(label,feedback);
   input.addEventListener('change',()=>{const count=input.files?.length||0;feedback.textContent=count?count+' '+tr('photo(s) selected','foto(s) seleccionadas'):''});
  }
 }
