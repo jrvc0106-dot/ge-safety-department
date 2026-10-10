@@ -1099,23 +1099,36 @@ document.querySelectorAll('.team-member-edit').forEach(form=>{
  }catch(err){error(err)}finally{btn.disabled=false;btn.textContent=original}
 });document.querySelector('#add-project').onsubmit=async ev=>{ev.preventDefault();const d=new FormData(ev.target),r=await db.from('projects').insert({name:d.get('name'),address:d.get('address'),general_contractor:d.get('general_contractor')});if(r.error)return error(r.error);savedAction('Project saved.','Proyecto guardado.');await load();if(viewCurrent())admin()};document.querySelectorAll('.project-name-form').forEach(form=>{form.onsubmit=async ev=>{ev.preventDefault();if(form.dataset.submitting==='true')return;const button=form.querySelector('button[type="submit"]'),projectId=form.dataset.projectId,d=new FormData(form),name=String(d.get('name')||'').trim(),address=String(d.get('address')||'').trim(),current=state.projects.find(project=>project.id===projectId);if(!current)return error(tr('This project is no longer available.','Este proyecto ya no está disponible.'));if(!name)return error(tr('Enter a project name.','Ingrese un nombre para el proyecto.'));if(name===current.name&&address===(current.address||''))return confirmAction(tr('No project changes to save.','No hay cambios del proyecto para guardar.'));form.dataset.submitting='true';button.disabled=true;try{const result=await db.from('projects').update({name,address}).eq('id',projectId).select('id').single();if(result.error)throw result.error;savedAction('Project details updated.','Datos del proyecto actualizados.');await load();if(viewCurrent())await admin()}catch(err){error(err)}finally{delete form.dataset.submitting;if(form.isConnected)button.disabled=false}}});const copyInviteButton=document.querySelector('#copy-invite-link');if(copyInviteButton)copyInviteButton.onclick=async()=>{const input=document.querySelector('#invite-link');if(!input)return;input.focus();input.select();try{await navigator.clipboard.writeText(input.value);copyInviteButton.textContent=tr('Copied','Copiado')}catch{const copied=document.execCommand?.('copy');copyInviteButton.textContent=copied?tr('Copied','Copiado'):tr('Select the link and copy it','Selecciona el enlace y cópialo')}};
 document.querySelector('#invite-member').onsubmit=async ev=>{
- ev.preventDefault();const form=ev.currentTarget,button=form.querySelector('button[type="submit"]'),out=document.querySelector('#invite-result'),d=new FormData(form),email=normalizeMemberEmail(d.get('email'));
+ ev.preventDefault();const form=ev.currentTarget,button=form.querySelector('button[type="submit"]'),out=document.querySelector('#invite-result');
+ if(form.dataset.submitting==='true')return;
+ const d=new FormData(form),email=normalizeMemberEmail(d.get('email'));
  if(!email){out.className='invite-result error';out.textContent=tr('Enter a valid email address.','Ingrese un correo electrónico válido.');return}
- state.inviteLink=null;out.replaceChildren();out.className='invite-result';out.textContent=tr('Sending invitation email…','Enviando invitación por correo…');button.disabled=true;
+ const name=String(d.get('name')||'').trim(),role=String(d.get('role')||''),projectId=String(d.get('project_id')||'');
+ if(!name||!['worker','supervisor','safety','safety_director'].includes(role)||!state.projects.some(p=>String(p.id)===projectId)){
+  out.className='invite-result error';out.textContent=tr('Check the name, role and authorized project.','Revise el nombre, rol y proyecto autorizado.');return;
+ }
+ form.dataset.submitting='true';const originalButtonText=button.textContent;
+ state.inviteLink=null;out.replaceChildren();out.className='invite-result';out.setAttribute('role','status');out.textContent=tr('Sending invitation email…','Enviando invitación por correo…');button.disabled=true;button.textContent=tr('Sending…','Enviando…');
  try{
-  const {data:result,error:err}=await db.functions.invoke('invite-team-member',{body:{name:d.get('name'),email,role:d.get('role'),project_id:d.get('project_id'),redirect_to:window.location.origin}});
+  const {data:result,error:err}=await db.functions.invoke('invite-team-member',{body:{name,email,role,project_id:projectId,redirect_to:window.location.origin}});
   if(err||result?.error){let detail=result?.error;if(!detail&&err?.context){try{const response=await err.context.clone().json();detail=response.error||response.message}catch{}}throw new Error(detail||err?.message||tr('Could not send the invitation email.','No se pudo enviar el correo de invitación.'))}
   if(result?.invite_link&&!result?.email_sent){
    state.inviteLink=result.invite_link;
    out.className='invite-result error';
    out.textContent=tr('The account and project access are ready, but automatic email delivery failed. Copy the secure invitation link below and send it privately to '+email+'.','La cuenta y el acceso al proyecto están listos, pero falló el envío automático. Copia el enlace seguro de invitación de abajo y envíaselo en privado a '+email+'.');
-   confirmAction(out.textContent,'error');form.reset();await load();if(viewCurrent())await admin();return
+   const linkBox=document.createElement('div');linkBox.className='invite-link-box';
+   const linkLabel=document.createElement('label');linkLabel.textContent=tr('Secure invitation link','Enlace seguro de invitación');
+   const linkInput=document.createElement('input');linkInput.type='url';linkInput.readOnly=true;linkInput.value=result.invite_link;linkInput.setAttribute('aria-label',linkLabel.textContent);
+   const copyButton=document.createElement('button');copyButton.type='button';copyButton.className='secondary';copyButton.textContent=tr('Copy invitation link','Copiar enlace de invitación');
+   copyButton.onclick=async()=>{try{await navigator.clipboard.writeText(linkInput.value);copyButton.textContent=tr('Copied','Copiado')}catch{linkInput.focus();linkInput.select();copyButton.textContent=tr('Select and copy the link','Selecciona y copia el enlace')}};
+   linkBox.append(linkLabel,linkInput,copyButton);out.append(linkBox);
+   confirmAction(tr('Automatic email delivery failed. Secure invitation link is available below.','Falló el envío automático. El enlace seguro está disponible abajo.'),'error');form.reset();return
   }
   if(result?.email_sent!==true&&result?.existing!==true)throw new Error(tr('The server did not confirm that an invitation email was sent.','El servidor no confirmó el envío del correo de invitación.'));
   out.className='invite-result success';out.textContent=result.email_sent?tr('Invitation email sent to '+email+'. Ask the employee to check their inbox and spam folder.','Invitación enviada a '+email+'. Pídele al empleado que revise la bandeja de entrada y de spam.'):tr('Existing team member added to this project successfully.','Miembro existente agregado correctamente a este proyecto.');
-  confirmAction(out.textContent);form.reset();await load();if(viewCurrent())await admin();
+  confirmAction(out.textContent);form.reset();await load();
  }catch(err){state.inviteLink=null;out.className='invite-result error';out.textContent=err?.message||tr('Could not send the invitation email.','No se pudo enviar el correo de invitación.')}
- finally{if(button.isConnected)button.disabled=false}
+ finally{delete form.dataset.submitting;if(button.isConnected){button.disabled=false;button.textContent=originalButtonText}}
 }
 }
 
