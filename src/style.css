@@ -1774,3 +1774,29 @@ body:has(.home-shell){background:#e6e6e6}
     margin-bottom: 6px;
   }
 }
+
+/* Final approved Home module arrangement: two rows of six on tablet/desktop.
+   Scope is strictly the Home module grids; original button colors remain untouched. */
+@media screen and (min-width:600px){
+  .home-shell > .home-actions,
+  .home-shell > .st-home .home-actions{
+    display:grid !important;
+    grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+    gap:clamp(5px,.8vw,10px) !important;
+  }
+  .home-shell > .home-actions > .home-action,
+  .home-shell > .st-home .home-action{
+    width:100% !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    aspect-ratio:1/1;
+    padding:clamp(5px,.9vw,12px) 4px !important;
+    box-sizing:border-box;
+    font-size:clamp(9px,1.15vw,15px) !important;
+    line-height:1.2;
+  }
+  .home-shell > .home-actions > .home-action .action-icon,
+  .home-shell > .st-home .home-action .action-icon{
+    font-size:clamp(19px,2.7vw,39px) !important;
+  }
+}
