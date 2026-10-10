@@ -48,8 +48,20 @@ test('director summary keeps projects independent and excludes closed high prior
 });
 test('new home links expose authorized tools without an administration link for worker',()=>{
  const admin=toolsHomeMarkup('admin',x=>x),worker=toolsHomeMarkup('worker',x=>x);
- assert.equal((admin.match(/data-safety-tool=/g)||[]).length,8);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(admin.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="medical_followup"'));assert.ok(worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
+ assert.equal((admin.match(/data-safety-tool=/g)||[]).length,9);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(admin.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="medical_followup"'));assert.ok(worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
  const order=[...admin.matchAll(/data-safety-tool="([^"]+)"/g)].map(x=>x[1]);
- assert.deepEqual(order,['toolbox','training','safety_net','emergency','director','qr','medical_followup','hazard']);
- assert.equal((admin.match(/class="module-icon-svg"/g)||[]).length,8);
+ assert.deepEqual(order,['safety_notes','toolbox','training','safety_net','emergency','director','qr','medical_followup','hazard']);
+ assert.equal((admin.match(/class="module-icon-svg"/g)||[]).length,9);
+});
+
+test('Safety Notes tile uses signed-in Safety first name and existing PDF report workflow',()=>{
+ const html=toolsHomeMarkup('safety',x=>x,'Jorling Safety');
+ assert.match(html,/Notes Safety Jorling/);
+ assert.match(html,/data-safety-tool="safety_notes"/);
+ assert.equal(canCreateTool('safety_notes','safety'),true);
+ assert.equal(canCreateTool('safety_notes','worker'),false);
+ const pdf=toolReportHtml({kind:'safety_notes',report_number:'NT-TEST',created_at:'2026-10-10T12:00:00Z',creator:{name:'Jorling Safety'},payload:{topic:'Scaffold check',description:'Safety note with photo',location:'Level 3'}},{name:'Domus2'});
+ assert.match(pdf,/Safety Notes Report By G&amp;E/);
+ assert.match(pdf,/Jorling Safety/);
+ assert.match(pdf,/Scaffold check/);
 });
