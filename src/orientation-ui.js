@@ -13,7 +13,9 @@ export function simplifyOrientationForm(form, tr) {
   const section = (number, title, open) => {
     const details = make('details', 'orientation-step');
     details.open = open;
-    details.append(make('summary', '', number + ' · ' + title));
+    const summary = make('summary');
+    summary.append(make('span', 'orientation-step-number', String(number)), make('span', '', title));
+    details.append(summary);
     const body = make('div', 'orientation-step-body');
     details.append(body); form.append(details);
     return {details, body};
@@ -26,6 +28,8 @@ export function simplifyOrientationForm(form, tr) {
   form.classList.add('orientation-compact');
   const data = section(1, tr('Employee details', 'Datos del empleado'), true);
   data.body.classList.add('orientation-data-grid');
+  const order = ['employee_name', 'sticker_number', 'orientation_date', 'employee_company', 'employee_position', 'employee_profile_id'];
+  fields.sort((a,b) => order.indexOf(a.querySelector('[name]').name) - order.indexOf(b.querySelector('[name]').name));
   fields.forEach(field => data.body.append(field));
   const photos = section(2, tr('Orientation evidence', 'Evidencia de orientación'), true);
   if (evidence) photos.body.append(evidence);
