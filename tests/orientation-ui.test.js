@@ -23,7 +23,10 @@ test('orientation keeps every original field and action while revealing invalid 
  assert.equal(f.querySelectorAll('[data-evidence-source]').length,8);
  assert.equal(f.querySelectorAll('[data-evidence-clear]').length,4);
  assert.ok(t.doc.querySelector('#sticker-camera'));assert.ok(t.doc.querySelector('#sticker-find'));
- const details=f.querySelectorAll('details');assert.deepEqual([...details].map(x=>x.open),[true,true,false,false]);
+ const details=f.querySelectorAll('details');assert.deepEqual([...details].map(x=>x.open),[true,true]);
+ assert.equal(f.querySelector('.orientation-legacy-fields').hidden,true);
+ assert.equal(f.querySelectorAll('.orientation-step').length,2);
+ assert.equal(f.elements.notes.required,false);
  details[0].open=false;f.checkValidity();assert.equal(details[0].open,true);
  assert.equal(new t.dom.window.FormData(f).get('orientation_date'),'2026-10-09');
  await f.onsubmit({preventDefault(){}});assert.equal(t.writes.length,0);assert.equal(t.errors.length,1);assert.equal(t.doc.activeElement.dataset.evidenceName,'orientation_photo');
