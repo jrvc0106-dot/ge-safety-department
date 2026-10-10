@@ -1807,3 +1807,19 @@ header .brand span{font-size:25px!important;letter-spacing:-.015em!important;whi
 header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 @media(max-width:760px){header .brand img{width:57.5px!important;height:57.5px!important}header .brand span{font-size:21px!important}}
 @media(max-width:650px){header .brand img{width:52.9px!important;height:52.9px!important}header .brand span{display:block!important;font-size:16px!important}header .brand small{font-size:7.15px!important;letter-spacing:.08em!important}}
+
+/* Team Access Activity: admin-only employee detail and filters. */
+.team-activity-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;align-items:end;margin:14px 0 18px}
+.team-activity-filters label{display:grid;gap:5px;font-size:12px;font-weight:700}
+.team-activity-filters input,.team-activity-filters select{width:100%;min-width:0}
+.team-activity-filters #team-filter-count{align-self:center}
+.team-user-card[hidden]{display:none!important}
+.team-member-details{margin:10px 14px;padding:12px;border:1px solid #d9e2ec;border-radius:10px;background:#f8fafc}
+.team-member-details summary{cursor:pointer;font-weight:700;color:#234568}
+.team-member-details h4{margin:14px 0 8px}
+.team-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px}
+.team-detail-grid>div{min-width:0;padding:10px;background:white;border:1px solid #e2e8f0;border-radius:8px;overflow-wrap:anywhere}
+.team-detail-grid small,.team-detail-grid strong{display:block}
+.team-detail-grid small{color:#627d98;font-size:11px;margin-bottom:4px}
+.team-detail-grid strong{font-size:12px}
+.team-detail-note{font-size:11px;color:#52677d;line-height:1.5;margin-top:12px}
