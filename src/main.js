@@ -175,6 +175,7 @@ async function uploadDraftFiles(form,type,key,input){
 async function safetyNotesDraftPhotos(form,removeIndex=null){
  const type='safety_tool_safety_notes',key='default',ctx=formDraftKey(form,type,key),uploadKey=ctx+':photos';
  await draftUploads.get(uploadKey);
+ const input=form.querySelector('input[name="photos"]');if(input)input.value='';
  const all=draftFileState.get(ctx)||{},photos=[...(all.photos||[])];
  if(removeIndex!==null){
   if(!Number.isInteger(removeIndex)||removeIndex<0||removeIndex>=photos.length)return [];
