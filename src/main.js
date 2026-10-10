@@ -411,8 +411,16 @@ async function waitForReportImages(report){
   if(failed.length)throw new Error(tr('PDF stopped because '+failed.length+' image(s) did not load. Please check your connection and try again.','El PDF se detuvo porque '+failed.length+' imagen(es) no cargaron. Verifique su conexión e intente nuevamente.'));
   // Opening the JHA preview can hide this tab; animation frames may then stop.
   // Loaded images already have dimensions, so yield without requiring a repaint.
-  if(isDailyJha)await new Promise(resolve=>setTimeout(resolve,0));
-  else await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  if(isDailyJha||document.visibilityState==='hidden'||typeof requestAnimationFrame!=='function'){
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }else{
+    // A PDF preview can background this tab on Safari/iPadOS. Never wait
+    // indefinitely for animation frames before starting the export.
+    await Promise.race([
+      new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))),
+      new Promise(resolve=>setTimeout(resolve,250))
+    ]);
+  }
 }
 function reportPdfFilename(report){
   const title=(report.querySelector('h1')?.textContent||'G&E Safety Report').trim().replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');
