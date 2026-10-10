@@ -1,4 +1,5 @@
 import {simplifyOrientationForm} from './orientation-ui.js';
+import {missingRequiredSignatures} from './report-finalization-guard.js';
 import './orientation-ui.css';
 import {attachJhaPhotos,jhaPhotoController} from './jha-photos.js';
 import './jha-photos.css';
@@ -38,6 +39,20 @@ const db=url&&key?createClient(url,key):null;
 const app=document.querySelector('#app');
 const acceptingInvitation=isTeamInviteActivation(window.location.search,window.location.hash);const state={session:null,profile:null,projects:[],project:null,observations:[],lang:localStorage.getItem('ge_lang')||'en',page:acceptingInvitation?'setPassword':'home',acceptingInvitation,inviteLink:null,detail:null,history:[]};
 const tr=(en,es)=>state.lang==='es'?es:en;
+// Capture finalization before form-specific submit handlers without changing draft saving.
+const FINALIZATION_FORM_KINDS={'walk-form':'daily','inventory-form':'inventory','equipment-form':'equipment','incident-form':'incident','discipline-form':'discipline','observation':'observation','correction':'correction'};
+document.addEventListener('submit',event=>{
+ const form=event.target,kind=FINALIZATION_FORM_KINDS[form?.id];
+ if(!kind)return;
+ const missing=missingRequiredSignatures(form,kind);
+ if(!missing.length)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ let notice=form.querySelector('[data-signature-finalization-warning]');
+ if(!notice){notice=document.createElement('div');notice.dataset.signatureFinalizationWarning='true';notice.setAttribute('role','alert');notice.style.cssText='padding:14px;border:2px solid #b42318;border-radius:10px;background:#fff5f4;color:#7a271a;font-weight:700;margin:12px 0';form.prepend(notice)}
+ notice.textContent=tr('This report cannot be finalized until all required names and digital signatures are completed.','Este reporte no se puede finalizar hasta que estén completos los nombres y las firmas digitales obligatorias.');
+ notice.scrollIntoView?.({block:'center',behavior:'smooth'});
+},true);
+
 installConnectivityStatus({window,document,getLanguage:()=>state.lang});
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateFormatters=new Map();
