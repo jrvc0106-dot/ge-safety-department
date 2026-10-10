@@ -13,3 +13,9 @@
 .st-note-photo img{width:100%;height:112px;object-fit:contain;background:#edf0f2;border-radius:6px}
 .st-note-photo small{overflow-wrap:anywhere;color:#42515d}
 .st-note-photo button{min-height:40px}
+
+/* Personal Safety Notes: a distraction-free notebook on iPad and desktop. */
+.st-notepad{margin:12px 0 18px;background:#f7f8f9;border:1px solid #d5dce1;border-radius:12px;padding:12px}
+.st-shell .st-notepad-text{display:block;width:100%;min-height:310px;resize:vertical;box-sizing:border-box;border:0;outline:0;background:transparent;color:#24313a;font-size:17px;line-height:1.65;padding:10px;font-family:inherit}
+.st-shell .st-notepad-text:focus{box-shadow:inset 0 -2px #8b9ca7}
+@media(max-width:760px){.st-shell .st-notepad-text{min-height:42vh;font-size:16px}}
