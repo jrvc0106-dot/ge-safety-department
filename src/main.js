@@ -40,7 +40,7 @@ const app=document.querySelector('#app');
 const acceptingInvitation=isTeamInviteActivation(window.location.search,window.location.hash);const state={session:null,profile:null,projects:[],project:null,observations:[],lang:localStorage.getItem('ge_lang')||'en',page:acceptingInvitation?'setPassword':'home',acceptingInvitation,inviteLink:null,detail:null,history:[]};
 const tr=(en,es)=>state.lang==='es'?es:en;
 installConnectivityStatus({window,document,getLanguage:()=>state.lang});
-const activeWorkTime=db?installActiveWorkTime({db,window,document,getContext:()=>({userId:state.session?.user?.id===state.profile?.id?state.profile.id:null,projectId:state.project})}):null;
+const activeWorkTime=db?installActiveWorkTime({db,window,document,getContext:()=>({userId:state.session?.user?.id&&state.session.user.id===state.profile?.id?state.profile.id:null,projectId:state.project})}):null;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateFormatters=new Map();
 const fmt=v=>{if(!v)return '';const locale=state.lang==='es'?'es-US':'en-US';let formatter=dateFormatters.get(locale);if(!formatter){formatter=new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeStyle:'short'});dateFormatters.set(locale,formatter)}return formatter.format(new Date(v))};
