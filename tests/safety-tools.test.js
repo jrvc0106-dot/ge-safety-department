@@ -51,7 +51,8 @@ test('new home links expose authorized tools without an administration link for 
  assert.equal((admin.match(/data-safety-tool=/g)||[]).length,9);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(admin.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="medical_followup"'));assert.ok(worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
  const order=[...admin.matchAll(/data-safety-tool="([^"]+)"/g)].map(x=>x[1]);
  assert.deepEqual(order,['safety_notes','toolbox','training','safety_net','emergency','director','qr','medical_followup','hazard']);
- assert.equal((admin.match(/class="module-icon-svg"/g)||[]).length,9);
+ assert.equal((admin.match(/class="module-icon-svg"/g)||[]).length,10);
+ assert.match(admin,/id="home-help-center"/);
 });
 
 test('Safety Notes tile uses signed-in Safety first name and existing PDF report workflow',()=>{
