@@ -2,6 +2,9 @@ import {defineConfig} from 'vite';
 
 export default defineConfig({
   build: {
+    // PDF libraries are deferred until export; warn only when one lazy chunk
+    // grows beyond the reviewed 850 kB budget.
+    chunkSizeWarningLimit: 850,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -29,10 +32,6 @@ export default defineConfig({
             id.includes('/node_modules/dompurify/')
           ) {
             return 'pdf-export';
-          }
-
-          if (id.includes('/node_modules/@supabase/')) {
-            return 'supabase';
           }
         }
       }
