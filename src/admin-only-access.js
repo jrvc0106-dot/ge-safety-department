@@ -1,7 +1,7 @@
 export const ADMIN_ONLY_PAGES = Object.freeze(new Set(['admin','manageProjects','cloudBackup']));
 
-export function canAccessAdminOnlyPage(role){
-  return role === 'admin';
+export function canAccessAdminOnlyPage(role,page){
+  return !ADMIN_ONLY_PAGES.has(page) || role === 'admin';
 }
 
 export function adminOnlyAccessMessage(tr){
