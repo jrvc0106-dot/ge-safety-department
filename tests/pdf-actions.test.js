@@ -40,19 +40,6 @@ test('sharing prepares once, then invokes native sharing directly from the next 
  const pending=t.context.runPdfAction('share',t.button);assert.equal(t.shares.length,1);await pending;
  assert.equal(t.shares[0].files[0].type,'application/pdf');assert.equal(t.shares[0].files[0].name,'JHA.pdf');
 });
-test('PDF performance timing stops when the native share sheet opens',async()=>{
- const t=setup({canShare:true});await t.context.buildReportPdf(true);
- let now=100,finishShare;t.context.performance.now=()=>now;
- t.context.navigator.share=()=>new Promise(resolve=>{finishShare=resolve});
- const pending=t.context.runPdfAction('share',t.button);
- await new Promise(resolve=>setImmediate(resolve));
- assert.equal(typeof finishShare,'function');
- assert.equal(t.metrics.length,1);
- assert.equal(t.metrics[0].metric,'pdf_action');
- const preparedDuration=t.metrics[0].duration;
- now=120000;finishShare();await pending;
- assert.equal(t.metrics[0].duration,preparedDuration);
-});
 test('unsupported file sharing downloads the attachment instead',async()=>{
  const t=setup();await t.context.runPdfAction('share',t.button);assert.equal(t.downloads.length,1);assert.equal(t.shares.length,0);
 });
@@ -212,16 +199,12 @@ test('Employee Medical Follow-up PDF is not archived to shared cloud reports',()
 });
 
 
-test('PDF actions record duration and distinguish app failures from user cancellations',async()=>{
- const ok=setup();await ok.context.runPdfAction('download',ok.button);assert.equal(ok.metrics.length,1);
- assert.equal(ok.metrics[0].metric,'pdf_action');assert.equal(ok.metrics[0].page,'safetyWalkReport:download');assert.equal(ok.metrics[0].duration,0);
- const failed=setup();failed.context.rasterizePdfSignatures=async()=>{throw Error('render failed')};await failed.context.runPdfAction('download',failed.button);
- assert.equal(failed.metrics[0].metric,'pdf_failure');
+test('PDF actions do not send performance telemetry',async()=>{
+ const success=setup();await success.context.runPdfAction('download',success.button);assert.equal(success.metrics.length,0);
+ const failed=setup();failed.context.rasterizePdfSignatures=async()=>{throw Error('render failed')};await failed.context.runPdfAction('download',failed.button);assert.equal(failed.metrics.length,0);
  const canceled=setup({canShare:true});await canceled.context.buildReportPdf(true);canceled.context.navigator.share=()=>Promise.reject(Object.assign(Error('Canceled'),{name:'AbortError'}));
- await canceled.context.runPdfAction('share',canceled.button);assert.equal(canceled.metrics[0].metric,'pdf_action');assert.equal(canceled.metrics[0].duration,0);assert.equal(canceled.metrics[1].metric,'pdf_cancelled');assert.equal(canceled.metrics[1].duration,0);
-});
-
-test('iPad Safari Web Share API shares a finished PDF when file sharing is available',async()=>{
+ await canceled.context.runPdfAction('share',canceled.button);assert.equal(canceled.metrics.length,0);
+});test('iPad Safari Web Share API shares a finished PDF when file sharing is available',async()=>{
  const t=setup({canShare:true,userAgent:'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});
  t.context.navigator.userActivation={isActive:true};
  await t.context.runPdfAction('share',t.button);
