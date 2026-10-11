@@ -100,10 +100,10 @@ for(const failure of ['empty','rejected'])test(`QR final report preserves eviden
  assert.equal(document.querySelector('article.report'),null);t.dom.window.close();
 });
 
-test('assigned Safety coordinators can open, create, and read medical follow-up in their selected project',async()=>{
+test('assigned Safety coordinators can use medical follow-up but cannot enter the admin-only Director Dashboard',async()=>{
  const t=setup();t.state.profile.role='safety';
  assert.equal(canReadTool('medical_followup','safety'),true);assert.equal(canCreateTool('medical_followup','safety'),true);
- assert.equal(canReadTool('medical_followup','worker'),false);assert.equal(canReadTool('director','safety'),true);assert.equal(canCreateTool('director','safety'),false);
+ assert.equal(canReadTool('medical_followup','worker'),false);assert.equal(canReadTool('director','safety'),false);assert.equal(canCreateTool('director','safety'),false);
  assert.match(toolsHomeMarkup('safety',x=>x),/data-safety-tool="medical_followup"/);
  await t.tools.list('medical_followup');assert.ok(document.querySelector('#st-new'));
  document.querySelector('#st-new').onclick();assert.deepEqual(t.nav[0],['safetyToolForm','medical_followup']);

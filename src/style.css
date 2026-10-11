@@ -1823,3 +1823,8 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .team-detail-grid small{color:#627d98;font-size:11px;margin-bottom:4px}
 .team-detail-grid strong{font-size:12px}
 .team-detail-note{font-size:11px;color:#52677d;line-height:1.5;margin-top:12px}
+
+/* Clear, consistent lock cue for modules that remain administrator-only. */
+.admin-only-module{cursor:pointer}
+.home-action .admin-only-lock{font-size:.9em;line-height:1;opacity:.88}
+.admin-access-restricted{border-left:5px solid #a51f27}

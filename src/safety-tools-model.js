@@ -37,7 +37,8 @@ export const TOOL_DEFINITIONS = {
 };
 export const escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function canCreateTool(kind,role){return !!TOOL_DEFINITIONS[kind]?.roles.includes(role)}
-export function canReadTool(kind,role){return kind==='director'?['admin','safety_director','safety','supervisor','worker'].includes(role):kind==='medical_followup'?['admin','safety_director','safety'].includes(role):kind==='qr'?['admin','safety_director','safety','supervisor'].includes(role):!!TOOL_DEFINITIONS[kind]}
+export function isAdminOnlyTool(kind){const roles=TOOL_DEFINITIONS[kind]?.roles;return Array.isArray(roles)&&roles.length===1&&roles[0]==='admin'}
+export function canReadTool(kind,role){if(isAdminOnlyTool(kind))return role==='admin';return kind==='director'?['admin','safety_director','safety','supervisor','worker'].includes(role):kind==='medical_followup'?['admin','safety_director','safety'].includes(role):kind==='qr'?['admin','safety_director','safety','supervisor'].includes(role):!!TOOL_DEFINITIONS[kind]}
 export function parseQrValue(raw){
  const text=String(raw||'').trim();if(!text||text.length>500)throw Error('Invalid QR / Código QR no válido');
  let value=text,type='employee';
