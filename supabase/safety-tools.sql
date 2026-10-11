@@ -16,7 +16,7 @@ revoke all on public.safety_tool_records from anon,authenticated;
 grant select,insert on public.safety_tool_records to authenticated;
 create policy "tools read project and role" on public.safety_tool_records for select to authenticated using (
  private.is_project_member(project_id)
- and (kind<>'director' or private.my_role() in ('admin','safety_director'))
+ and (kind<>'director' or private.my_role() = 'admin')
  and (kind<>'qr' or private.my_role() in ('admin','safety_director','safety','supervisor'))
 );
 create policy "tools create project and role" on public.safety_tool_records for insert to authenticated with check (
@@ -24,7 +24,7 @@ create policy "tools create project and role" on public.safety_tool_records for 
  and not exists(select 1 from jsonb_array_elements(photos) photo where
    photo->>'path' is null or not starts_with(photo->>'path',project_id::text||'/'||created_by::text||'/'||id::text||'/'))
  and case kind
- when 'director' then private.my_role() in ('admin','safety_director')
+ when 'director' then private.my_role() = 'admin'
  when 'emergency' then private.my_role() in ('admin','safety_director','safety')
  when 'hazard' then private.my_role() in ('admin','safety_director','safety','supervisor','worker')
  else private.my_role() in ('admin','safety_director','safety','supervisor') end
@@ -51,20 +51,20 @@ alter table public.report_documents add constraint report_documents_report_type_
  'tool_toolbox','tool_training','tool_safety_net','tool_emergency','tool_director','tool_qr','tool_hazard'
 ));
 create policy "new tool report role restriction" on public.report_documents as restrictive for all to authenticated using (
- (report_type<>'tool_director' or private.my_role() in ('admin','safety_director'))
+ (report_type<>'tool_director' or private.my_role() = 'admin')
  and (report_type<>'tool_qr' or private.my_role() in ('admin','safety_director','safety','supervisor'))
 ) with check (
- (report_type<>'tool_director' or private.my_role() in ('admin','safety_director'))
+ (report_type<>'tool_director' or private.my_role() = 'admin')
  and (report_type<>'tool_qr' or private.my_role() in ('admin','safety_director','safety','supervisor'))
 );
 create policy "new tool pdf role restriction" on storage.objects as restrictive for all to authenticated using (
  bucket_id<>'final-reports' or (
- ((storage.foldername(name))[2]<>'tool_director' or private.my_role() in ('admin','safety_director'))
+ ((storage.foldername(name))[2]<>'tool_director' or private.my_role() = 'admin')
  and ((storage.foldername(name))[2]<>'tool_qr' or private.my_role() in ('admin','safety_director','safety','supervisor'))
  )
 ) with check (
  bucket_id<>'final-reports' or (
- ((storage.foldername(name))[2]<>'tool_director' or private.my_role() in ('admin','safety_director'))
+ ((storage.foldername(name))[2]<>'tool_director' or private.my_role() = 'admin')
  and ((storage.foldername(name))[2]<>'tool_qr' or private.my_role() in ('admin','safety_director','safety','supervisor'))
  )
 );
