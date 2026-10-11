@@ -2,9 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {TOOL_DEFINITIONS,TRAINING_TYPE_GROUPS,canCreateTool,canReadTool,parseQrValue,summarizeProjects,toolReportHtml,trainingTypeLabel} from '../src/safety-tools-model.js';
 import {createSafetyTools,toolsHomeMarkup} from '../src/safety-tools.js';
-test('worker can report hazards, read emergency plans and director dashboard but cannot create director reports or use employee lookup',()=>{
+test('worker can read emergency plans but cannot access the administrator-only director dashboard',()=>{
  assert.equal(canCreateTool('hazard','worker'),true);assert.equal(canReadTool('emergency','worker'),true);
- assert.equal(canReadTool('director','worker'),true);assert.equal(canCreateTool('director','worker'),false);
+ assert.equal(canReadTool('director','worker'),false);assert.equal(canCreateTool('director','worker'),false);
  assert.equal(canReadTool('qr','worker'),false);assert.equal(canCreateTool('qr','worker'),false)
  assert.equal(canCreateTool('emergency','supervisor'),false);assert.equal(canCreateTool('toolbox','supervisor'),true);
 });
@@ -29,8 +29,8 @@ test('training record has practical construction training options and a structur
  const html=toolReportHtml({kind:'training',report_number:'TR-1',created_at:'2026-10-01T12:00:00Z',payload:{training_type:'flagger',training_date:'2026-10-01',duration:'30',instructor:'<script>bad</script>',topics:'MUTCD Part 6\nWork-zone signals',applicable_standard:'OSHA 1926.201 / MUTCD Part 6',evaluation:'Demonstrated safe STOP/SLOW signaling',result:'completed',attendance_signatures:[{name:'Crew Member',strokes:[]}],approvals:{safety:{name:'Safety Lead',strokes:[]},foreman:{name:'Foreman',strokes:[]}}}},{name:'Project'});
  assert.match(html,/Training record/);assert.match(html,/Work-zone signals/);assert.match(html,/Flagger \/ Work Zone Flagger/);assert.match(html,/Completed/);assert.match(html,/Crew Member/);assert.doesNotMatch(html,/<script>/);
 });
-test('director dashboard is readable by every jobsite role and report creation is admin-only',()=>{
- for(const role of ['admin','safety_director','safety','supervisor','worker'])assert.equal(canReadTool('director',role),true);
+test('director dashboard is visible but accessible only to administrators',()=>{
+ assert.equal(canReadTool('director','admin'),true);for(const role of ['safety_director','safety','supervisor','worker'])assert.equal(canReadTool('director',role),false);
  assert.equal(canCreateTool('director','admin'),true);
  for(const role of ['safety_director','safety','supervisor','worker'])assert.equal(canCreateTool('director',role),false);
 });
@@ -48,7 +48,7 @@ test('director summary keeps projects independent and excludes closed high prior
 });
 test('new home links expose authorized tools without an administration link for worker',()=>{
  const admin=toolsHomeMarkup('admin',x=>x),worker=toolsHomeMarkup('worker',x=>x);
- assert.equal((admin.match(/data-safety-tool=/g)||[]).length,9);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(admin.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="medical_followup"'));assert.ok(worker.includes('data-safety-tool="director"'));assert.ok(worker.includes('data-safety-tool="hazard"'));
+ assert.equal((admin.match(/data-safety-tool=/g)||[]).length,9);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(admin.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="medical_followup"'));assert.ok(worker.includes('data-safety-tool="director"'));assert.match(worker,/admin-only-lock/);assert.ok(worker.includes('data-safety-tool="hazard"'));
  const order=[...admin.matchAll(/data-safety-tool="([^"]+)"/g)].map(x=>x[1]);
  assert.deepEqual(order,['safety_notes','toolbox','training','safety_net','emergency','director','qr','medical_followup','hazard']);
  assert.equal((admin.match(/class="module-icon-svg"/g)||[]).length,12);
