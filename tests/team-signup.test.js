@@ -46,3 +46,11 @@ test('automatic email fallback keeps the secure invitation link after resetting 
  const fallback=source.slice(start,end);
  assert.ok(fallback.indexOf('form.reset()')<fallback.indexOf('out.append(linkBox)'),'reset happens before the secure link is attached to the form');
 });
+
+test('automatic email fallback displays the sanitized provider delivery detail',()=>{
+ const start=source.indexOf('if(result?.invite_link&&!result?.email_sent){');
+ const end=source.indexOf('if(result?.email_sent!==true',start);
+ const fallback=source.slice(start,end);
+ assert.match(fallback,/deliveryDetail\.textContent=.*result\.delivery_error/);
+ assert.match(fallback,/out\.append\(deliveryDetail\)/);
+});
