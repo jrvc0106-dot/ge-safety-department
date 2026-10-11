@@ -1107,6 +1107,7 @@ document.querySelector('#invite-member').onsubmit=async ev=>{
    const copyButton=document.createElement('button');copyButton.type='button';copyButton.className='secondary';copyButton.textContent=tr('Copy invitation link','Copiar enlace de invitación');
    copyButton.onclick=async()=>{try{await navigator.clipboard.writeText(linkInput.value);copyButton.textContent=tr('Copied','Copiado')}catch{linkInput.focus();linkInput.select();copyButton.textContent=tr('Select and copy the link','Selecciona y copia el enlace')}};
    linkBox.append(linkLabel,linkInput,copyButton);form.reset();out.append(linkBox);
+   const deliveryDetail=document.createElement('small');deliveryDetail.className='invite-delivery-detail';deliveryDetail.textContent=tr('Email delivery detail: ','Detalle del envío: ')+(result.delivery_error||tr('No additional detail was returned.','No se recibió más detalle.'));out.append(deliveryDetail);
    confirmAction(tr('Automatic email delivery failed. Secure invitation link is available below.','Falló el envío automático. El enlace seguro está disponible abajo.'),'error');return
   }
   if(result?.email_sent!==true&&result?.existing!==true)throw new Error(tr('The server did not confirm that an invitation email was sent.','El servidor no confirmó el envío del correo de invitación.'));
