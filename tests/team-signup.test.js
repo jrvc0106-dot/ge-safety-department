@@ -38,3 +38,11 @@ test('team invite acceptance opens password setup only for invite and manual inv
  assert.equal(isTeamInviteActivation('', '#access_token=x&type=recovery'), false);
  assert.equal(isTeamInviteActivation('', ''), false);
 });
+
+test('automatic email fallback keeps the secure invitation link after resetting the form',()=>{
+ const start=source.indexOf('if(result?.invite_link&&!result?.email_sent){');
+ const end=source.indexOf('if(result?.email_sent!==true',start);
+ assert.ok(start>=0&&end>start,'automatic email fallback branch is present');
+ const fallback=source.slice(start,end);
+ assert.ok(fallback.indexOf('form.reset()')<fallback.indexOf('out.append(linkBox)'),'reset happens before the secure link is attached to the form');
+});
