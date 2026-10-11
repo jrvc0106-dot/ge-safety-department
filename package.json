@@ -18,5 +18,9 @@
   },
   "devDependencies": {
     "jsdom": "26.1.0"
+  },
+  "allowScripts": {
+    "core-js@3.50.0": true,
+    "esbuild@0.28.2": true
   }
 }
