@@ -63,7 +63,8 @@ async function sendInviteEmail(args: {
   const safe = (s: string) => s.replace(/[\r\n]/g, " ").trim();
   const name = safe(args.name);
   const project = safe(args.projectName);
-  const role = safe(args.role.replaceAll("_", " "));
+  const roleLabels: Record<string, string> = { admin: "Administrator", safety_director: "Safety Director", safety: "Safety", superintendent: "Superintendent", supervisor: "Supervisor", worker: "Worker" };
+  const role = safe(roleLabels[args.role] || args.role.replaceAll("_", " "));
   const plainText = [
     `Hello ${name},`,
     "",
@@ -128,7 +129,7 @@ Deno.serve(async (req) => {
     const { email, name, role, project_id, redirect_to } = await req.json();
     const cleanEmail = String(email || "").trim().toLowerCase();
     const cleanName = String(name || "").trim();
-    const allowed = ["safety_director", "safety", "supervisor", "worker"];
+    const allowed = ["safety_director", "safety", "superintendent", "supervisor", "worker"];
     if (cleanEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
       return json({ error: "A valid email address is required" }, 400);
     }
