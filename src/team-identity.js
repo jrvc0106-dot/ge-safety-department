@@ -18,3 +18,12 @@ export function matchOrientationWarnings(orientation,records=[]){
  if(!employeeName)return [];
  return records.filter(record=>normalizedName(record?.employee_name||record?.employee?.name)===employeeName);
 }
+
+export function summarizeOrientationWarnings(records=[]){
+ const counts=new Map();
+ for(const record of records){
+  const type=String(record?.violation_type??'').trim()||'Unspecified';
+  counts.set(type,(counts.get(type)||0)+1);
+ }
+ return [...counts].map(([type,count])=>({type,count})).sort((a,b)=>b.count-a.count||a.type.localeCompare(b.type));
+}
