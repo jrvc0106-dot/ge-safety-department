@@ -23,7 +23,8 @@ export const QUICK_ORIENTATION_ACK = {
 };
 
 export function quickSafetyAccountName(profile, accountEmail=''){
- return String(profile?.name||profile?.email||accountEmail||'').trim();
+ const name=String(profile?.name||profile?.email||accountEmail||'').trim(),position=String(profile?.position||'').trim();
+ return [name,position].filter(Boolean).join(' — ');
 }
 
 export function attachQuickHazardSelection(form,tr){

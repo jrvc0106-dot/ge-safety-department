@@ -14,8 +14,9 @@ test('quick orientation provides separate employee fields, risk selection, conse
 });
 
 test('safety signer name comes from the signed-in account with email fallback',()=>{
- assert.equal(quickSafetyAccountName({name:'Safety Director',email:'safety@example.com'},'login@example.com'),'Safety Director');
- assert.equal(quickSafetyAccountName({name:'',email:'safety@example.com'},'login@example.com'),'safety@example.com');
+ assert.equal(quickSafetyAccountName({name:'Jairo Valdivia',position:'Safety Director',email:'safety@example.com'},'login@example.com'),'Jairo Valdivia — Safety Director');
+ assert.equal(quickSafetyAccountName({name:'Jairo Valdivia',position:'',email:'safety@example.com'},'login@example.com'),'Jairo Valdivia');
+ assert.equal(quickSafetyAccountName({name:'',position:'Safety Director',email:'safety@example.com'},'login@example.com'),'safety@example.com — Safety Director');
  assert.equal(quickSafetyAccountName({},'login@example.com'),'login@example.com');
 });
 
