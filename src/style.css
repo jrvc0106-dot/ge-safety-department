@@ -1840,3 +1840,12 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 
 /* Distinguish formal warnings from other disciplinary actions and unmatched records */
 .other-disciplinary-actions{border-top:1px solid #e6eaec}.other-disciplinary-actions>summary{cursor:pointer;padding:12px 14px;color:#4f5c62;font-size:12px;font-weight:800}.other-disciplinary-actions .warning-list{border-top:1px solid #e6eaec}.warning-linkage-note{margin:0;padding:12px 14px;border-top:1px solid #e6eaec;background:#fff8e6;color:#805b11;font-size:12px;line-height:1.5}
+
+
+/* Disciplinary form: direct sticker linking stays clear on phones and tablets. */
+.discipline-sticker-lookup{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px;margin:8px 0 14px;padding:12px;border:1px solid #d8e5f2;border-radius:11px;background:#f7fbff}
+.discipline-sticker-lookup label{margin:0}
+.discipline-sticker-lookup #discipline-sticker-verify{align-self:end;white-space:nowrap}
+.discipline-sticker-lookup .discipline-sticker-camera,.discipline-sticker-lookup #discipline-sticker-status{grid-column:1/-1}
+.discipline-sticker-lookup #discipline-sticker-status{color:#536878;font-size:12px;line-height:1.45}
+@media(max-width:600px){.discipline-sticker-lookup{grid-template-columns:1fr}.discipline-sticker-lookup #discipline-sticker-verify{width:100%}}

@@ -8,18 +8,10 @@ export function normalizeMemberEmail(value){
  if(labels.length<2||labels.some(label=>! /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)))return null;
  return email;
 }
-function normalizedName(value){
- return String(value??'').normalize('NFKC').trim().replace(/\s+/g,' ').toLocaleLowerCase();
-}
 export function matchOrientationWarnings(orientation,records=[]){
- const employeeId=String(orientation?.employee_profile_id??'').trim();
- const employeeName=normalizedName(orientation?.employee_name);
- if(employeeId)return records.filter(record=>{
-  const recordId=String(record?.employee_id??'').trim();
-  return recordId?recordId===employeeId:!!employeeName&&normalizedName(record?.employee_name||record?.employee?.name)===employeeName;
- });
- if(!employeeName)return [];
- return records.filter(record=>!String(record?.employee_id??'').trim()&&normalizedName(record?.employee_name||record?.employee?.name)===employeeName);
+ const orientationId=String(orientation?.id??'').trim();
+ if(!orientationId)return [];
+ return records.filter(record=>String(record?.employee_orientation_id??'').trim()===orientationId);
 }
 
 export function summarizeOrientationWarnings(records=[]){
