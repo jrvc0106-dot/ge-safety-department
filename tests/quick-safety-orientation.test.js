@@ -1,15 +1,32 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {QUICK_ORIENTATION_ACK,QUICK_ORIENTATION_HAZARDS,quickSafetyOrientationForm,quickSafetyOrientationReport} from '../src/quick-safety-orientation.js';
+import {JSDOM} from 'jsdom';
+import {attachQuickHazardSelection,QUICK_ORIENTATION_ACK,QUICK_ORIENTATION_HAZARDS,quickSafetyAccountName,quickSafetyOrientationForm,quickSafetyOrientationReport} from '../src/quick-safety-orientation.js';
 
 const tr=(en)=>en;
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 
 test('quick orientation provides separate employee fields, risk selection, consent and four-photo limit',()=>{
  const html=quickSafetyOrientationForm({tr,esc,project:{name:'Rivage Bal Harbour'},profile:{}});
- for(const text of ['Quick Safety Orientation','Employee Name','Sticker Number','Position / Trade','Company','Jobsite Hazards & Safety Controls','Take photo','Choose from gallery','/ 4','Employee Acknowledgment','Save & Create Final Report'])assert.ok(html.includes(text),text);
+ for(const text of ['Quick Safety Orientation','Employee Name','Sticker Number','Position / Trade','Company','quick-employee-field','Jobsite Hazards & Safety Controls','quick-hazard-toggle-all','Select all','Take photo','Choose from gallery','/ 4','Employee Acknowledgment','Save & Create Final Report'])assert.ok(html.includes(text),text);
  assert.equal(QUICK_ORIENTATION_HAZARDS.length,16);
  assert.ok(html.includes('name="acknowledged" required'));
+});
+
+test('safety signer name comes from the signed-in account with email fallback',()=>{
+ assert.equal(quickSafetyAccountName({name:'Safety Director',email:'safety@example.com'},'login@example.com'),'Safety Director');
+ assert.equal(quickSafetyAccountName({name:'',email:'safety@example.com'},'login@example.com'),'safety@example.com');
+ assert.equal(quickSafetyAccountName({},'login@example.com'),'login@example.com');
+});
+
+test('select all toggles every hazard and keeps the count and button state in sync',()=>{
+ const dom=new JSDOM('<form><button id="quick-hazard-toggle-all" type="button"></button><span id="quick-hazard-selected"></span><input type="checkbox" name="hazards"><input type="checkbox" name="hazards"></form>');
+ const form=dom.window.document.querySelector('form');attachQuickHazardSelection(form,tr);
+ const button=form.querySelector('#quick-hazard-toggle-all'),count=form.querySelector('#quick-hazard-selected'),inputs=[...form.querySelectorAll('[name="hazards"]')];
+ assert.equal(button.textContent,'Select all');assert.equal(count.textContent,'0');
+ button.click();assert.ok(inputs.every(input=>input.checked));assert.equal(button.textContent,'Clear all');assert.equal(button.getAttribute('aria-pressed'),'true');assert.equal(count.textContent,'2');
+ button.click();assert.ok(inputs.every(input=>!input.checked));assert.equal(button.textContent,'Select all');assert.equal(button.getAttribute('aria-pressed'),'false');assert.equal(count.textContent,'0');
+ dom.window.close();
 });
 
 test('final report only lists selected hazards and includes acknowledgment, photos and signatures',()=>{
