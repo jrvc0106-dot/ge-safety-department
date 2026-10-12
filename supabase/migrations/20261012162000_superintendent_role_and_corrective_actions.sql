@@ -32,7 +32,7 @@ create or replace function private.admin_update_member_profile(
   p_position text,
   p_role text
 )
-returns table(id uuid, name text, position text, role text)
+returns table(id uuid, name text, "position" text, role text)
 language plpgsql
 security definer
 set search_path = ''
@@ -88,7 +88,7 @@ create or replace function public.admin_update_member_profile(
   p_position text,
   p_role text
 )
-returns table(id uuid, name text, position text, role text)
+returns table(id uuid, name text, "position" text, role text)
 language sql
 security invoker
 set search_path = ''
