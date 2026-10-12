@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeMemberEmail,matchOrientationWarnings} from '../src/team-identity.js';
+import {normalizeMemberEmail,matchOrientationWarnings,summarizeOrientationWarnings} from '../src/team-identity.js';
 
 test('normalizes valid email addresses from any domain',()=>{
  assert.equal(normalizeMemberEmail('  Worker+Field@Example.org  '),'worker+field@example.org');
@@ -25,4 +25,18 @@ test('legacy unlinked orientations keep exact normalized-name matching',()=>{
  ];
  assert.deepEqual(matchOrientationWarnings({employee_name:'José Rivera'},records).map(x=>x.id),['legacy']);
  assert.deepEqual(matchOrientationWarnings({},records),[]);
+});
+
+test('summarizes warning counts by violation type and handles missing types',()=>{
+ const summary=summarizeOrientationWarnings([
+  {violation_type:'Fall Protection'},
+  {violation_type:'Housekeeping'},
+  {violation_type:'Fall Protection'},
+  {violation_type:'  '}
+ ]);
+ assert.deepEqual(summary,[
+  {type:'Fall Protection',count:2},
+  {type:'Housekeeping',count:1},
+  {type:'Unspecified',count:1}
+ ]);
 });
