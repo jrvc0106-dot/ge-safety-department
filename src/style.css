@@ -1828,3 +1828,6 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .admin-only-module{cursor:pointer}
 .home-action .admin-only-lock{font-size:.9em;line-height:1;opacity:.88}
 .admin-access-restricted{border-left:5px solid #a51f27}
+
+.team-user-card header .team-role-badge{display:inline-flex;align-items:center;max-width:max-content;margin-top:5px;padding:4px 8px;border:1px solid #cfe0f1;border-radius:999px;background:#eef5fb;color:#234b70;font-size:10px;font-weight:700;line-height:1.25}
+.team-member-edit select[name="role"]{min-height:44px}
