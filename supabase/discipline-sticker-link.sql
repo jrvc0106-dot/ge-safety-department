@@ -28,4 +28,4 @@ end $$;
 
 drop index if exists public.safety_discipline_employee_orientation_id_idx;
 create index if not exists safety_discipline_project_orientation_id_idx
-  on public.safety_discipline (project_id, employee_orientation_id);
+  on public.safety_discipline (employee_orientation_id, project_id);
