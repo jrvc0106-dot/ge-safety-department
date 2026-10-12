@@ -10,21 +10,23 @@ test('rejects malformed email addresses without restricting company domains',()=
   assert.equal(normalizeMemberEmail(value),null,value);
  }
 });
-test('linked orientation warnings match by employee id even when names collide',()=>{
- const orientation={employee_profile_id:'employee-1',employee_name:'Alex Smith'};
+
+test('sticker warnings match only the exact orientation record id',()=>{
+ const orientation={id:'orientation-1',employee_profile_id:'employee-1',employee_name:'Alex Smith'};
  const records=[
-  {employee_id:'employee-1',employee_name:'Alex Smith',id:'match'},
-  {employee_id:'employee-2',employee_name:'Alex Smith',id:'different'}
+  {employee_orientation_id:'orientation-1',employee_id:'employee-1',employee_name:'Alex Smith',id:'direct'},
+  {employee_orientation_id:'orientation-2',employee_id:'employee-1',employee_name:'Alex Smith',id:'other-sticker'},
+  {employee_orientation_id:null,employee_id:'employee-1',employee_name:'Alex Smith',id:'profile-only'},
+  {employee_orientation_id:null,employee_id:null,employee_name:'Alex Smith',id:'legacy-name'}
  ];
- assert.deepEqual(matchOrientationWarnings(orientation,records).map(x=>x.id),['match']);
+ assert.deepEqual(matchOrientationWarnings(orientation,records).map(x=>x.id),['direct']);
 });
-test('legacy unlinked orientations keep exact normalized-name matching',()=>{
+test('an orientation without an id does not match profile, name, or unlinked history',()=>{
  const records=[
-  {employee_id:null,employee_name:'  José  Rivera ',id:'legacy'},
-  {employee_id:'employee-1',employee_name:'Other Person',id:'other'}
+  {employee_orientation_id:'orientation-1',employee_name:'Jordan Lee',id:'linked'},
+  {employee_orientation_id:null,employee_id:null,employee_name:'Jordan Lee',id:'legacy'}
  ];
- assert.deepEqual(matchOrientationWarnings({employee_name:'José Rivera'},records).map(x=>x.id),['legacy']);
- assert.deepEqual(matchOrientationWarnings({},records),[]);
+ assert.deepEqual(matchOrientationWarnings({employee_name:'Jordan Lee'},records),[]);
 });
 
 test('summarizes warning counts by violation type and handles missing types',()=>{
@@ -41,27 +43,10 @@ test('summarizes warning counts by violation type and handles missing types',()=
  ]);
 });
 
-test('linked orientation includes exact-name legacy rows but excludes other linked employees with same name',()=>{
- const orientation={employee_profile_id:'employee-1',employee_name:'Alex Smith'};
- const records=[
-  {employee_id:'employee-1',employee_name:'Alex Smith',id:'linked'},
-  {employee_id:null,employee_name:'  alex   smith ',id:'legacy'},
-  {employee_id:'employee-2',employee_name:'Alex Smith',id:'other'}
- ];
- assert.deepEqual(matchOrientationWarnings(orientation,records).map(x=>x.id),['linked','legacy']);
-});
 test('only verbal, written and final notices count as formal warnings',()=>{
  assert.equal(isFormalOrientationWarning({action_level:'verbal_warning'}),true);
  assert.equal(isFormalOrientationWarning({action_level:'written_warning'}),true);
  assert.equal(isFormalOrientationWarning({action_level:'final_warning'}),true);
  assert.equal(isFormalOrientationWarning({action_level:'coaching'}),false);
  assert.equal(isFormalOrientationWarning({action_level:'removal_suspension'}),false);
-});
-
-test('unlinked orientation does not inherit a linked warning by a possibly duplicated name',()=>{
- const records=[
-  {employee_id:'employee-1',employee_name:'Jordan Lee',id:'linked'},
-  {employee_id:null,employee_name:'Jordan Lee',id:'legacy'}
- ];
- assert.deepEqual(matchOrientationWarnings({employee_name:'Jordan Lee'},records).map(x=>x.id),['legacy']);
 });
