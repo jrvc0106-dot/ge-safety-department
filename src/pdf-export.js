@@ -27,3 +27,54 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
   }
   return pdf.output('blob');
 }
+
+// This independent report always exports one landscape letter sheet. Fit uniformly,
+// rather than slicing or stretching the document; other report exporters stay unchanged.
+export async function renderQuickOrientationPdf(container,pageSize,options,render=html2canvas,Pdf=jsPDF){
+  const report=container.querySelector('.quick-safety-orientation-report');
+  if(!report)throw new Error('Quick orientation report not found');
+  const style=container.ownerDocument.createElement('style');
+  style.textContent=`
+    .quick-safety-orientation-report{box-sizing:border-box!important;width:1008px!important;max-width:none!important;margin:0!important;padding:10px!important;border:0!important;box-shadow:none!important}
+    .quick-safety-orientation-report .no-print{display:none!important}
+    .quick-report-header{grid-template-columns:130px 1fr auto!important;gap:12px!important;padding-bottom:8px!important}
+    .quick-report-header>img{width:120px!important;max-height:60px!important}
+    .quick-report-complete{grid-column:auto!important}
+    .quick-report-employee{grid-template-columns:1.05fr .8fr 1fr 1.3fr 1.2fr .95fr!important;margin-top:8px!important}
+    .quick-report-employee>div{padding:7px!important;border-top:0!important}
+    .quick-report-hazards{margin-top:8px!important}
+    .quick-report-hazards>header{padding:7px 9px!important}
+    .quick-report-hazard-columns{grid-template-columns:1fr 1fr!important}
+    .quick-report-hazard{padding:5px 8px!important}
+    .quick-report-photos{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+    .quick-report-photos img{height:115px!important;object-fit:contain!important}
+    .quick-report-photo-section,.quick-report-acknowledgment,.quick-report-signatures{margin-top:8px!important}
+    .quick-report-acknowledgment,.quick-report-signatures{padding:7px 9px!important}
+    .quick-report-signatures .report-signatures{grid-template-columns:1fr 1fr!important}
+    .quick-report-signatures .report-signatures>div{min-height:48px!important}
+    .quick-report-footer{margin-top:8px!important;flex-wrap:nowrap!important}
+  `;
+  container.append(style);
+  container.style.width='1008px';
+  // Explicit intrinsic dimensions also preserve aspect ratio in canvas renderers
+  // whose support for object-fit differs from the browser's image rendering.
+  for(const img of report.querySelectorAll('.quick-report-photos img,.quick-report-header>img')){
+    if(img.decode)await img.decode();
+    if(!img.naturalWidth||!img.naturalHeight)throw new Error('Report image could not be loaded');
+    const box=img.getBoundingClientRect(),ratio=Math.min(box.width/img.naturalWidth,box.height/img.naturalHeight);
+    img.style.setProperty('width',img.naturalWidth*ratio+'px','important');
+    img.style.setProperty('height',img.naturalHeight*ratio+'px','important');
+    img.style.margin='auto';
+    if(img.closest('figure')){const figure=img.closest('figure');figure.style.minHeight='135px';}
+  }
+  const width=1008,height=Math.ceil(report.getBoundingClientRect().height);
+  const pdf=new Pdf({...options.jsPDF,compress:true});let canvas;
+  try{
+    canvas=await render(report,{...options.html2canvas,scale:2,width,height,windowWidth:1200,scrollX:0,scrollY:0});
+    if(!canvas.width||!canvas.height)throw new Error('Unable to render orientation PDF');
+    const fit=Math.min(pageSize.inner.width/width,pageSize.inner.height/height);
+    const outputWidth=width*fit,outputHeight=height*fit;
+    pdf.addImage(canvas.toDataURL('image/png'),'PNG',options.margin[1]+(pageSize.inner.width-outputWidth)/2,options.margin[0],outputWidth,outputHeight,undefined,'FAST');
+    return pdf.output('blob');
+  }finally{if(canvas){canvas.width=0;canvas.height=0}}
+}

@@ -339,10 +339,10 @@ function loadOptionalScript(name,src){
   return task;
 }
 const ensureHeicConverter=()=>loadOptionalScript('heic2any','https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js');
-let renderPaginatedPdf;
+let renderPaginatedPdf,renderQuickOrientationPdf;
 const loadPdfTools=createPdfLoader(()=>import('./pdf-tools.js'));
 async function ensurePdfExporter(){
-  try{const tools=await loadPdfTools();renderPaginatedPdf=tools.renderPaginatedPdf;return tools.html2pdf}
+  try{const tools=await loadPdfTools();renderPaginatedPdf=tools.renderPaginatedPdf;renderQuickOrientationPdf=tools.renderQuickOrientationPdf;return tools.html2pdf}
   catch{throw new Error(tr('PDF tools could not load. Check your connection and try again.','No se pudieron cargar las herramientas PDF. Revise su conexión e intente nuevamente.'))}
 }
 const preparedReportPdfs=new WeakMap();
@@ -485,7 +485,12 @@ async function buildReportPdf(highQuality=false){
   const container=await worker.get('container');
   try{await rasterizePdfSignatures(container)}catch(err){(await worker.get('overlay'))?.remove();throw err}
   let blob;
-  if(highQuality){
+  if(report.classList?.contains?.('quick-safety-orientation-report')){
+    try{
+      if(document.fonts?.ready)await document.fonts.ready;
+      blob=await renderQuickOrientationPdf(container,await worker.get('pageSize'),options);
+    }finally{(await worker.get('overlay'))?.remove()}
+  }else if(highQuality){
     try{
       if(document.fonts?.ready)await document.fonts.ready;
       const pageSize=await worker.get('pageSize');if(report.classList?.contains?.('ge-reference-jha')&&typeof alignJhaPhotoPageStarts==='function')alignJhaPhotoPageStarts(container,pageSize.inner.px.height);if(report.classList?.contains?.('equipment-pdf'))alignEquipmentPhotoPageStarts(container,pageSize.inner.px.height);blob=await renderPaginatedPdf(container,pageSize,options);
