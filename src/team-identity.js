@@ -13,10 +13,13 @@ function normalizedName(value){
 }
 export function matchOrientationWarnings(orientation,records=[]){
  const employeeId=String(orientation?.employee_profile_id??'').trim();
- if(employeeId)return records.filter(record=>String(record?.employee_id??'')===employeeId);
  const employeeName=normalizedName(orientation?.employee_name);
+ if(employeeId)return records.filter(record=>{
+  const recordId=String(record?.employee_id??'').trim();
+  return recordId?recordId===employeeId:!!employeeName&&normalizedName(record?.employee_name||record?.employee?.name)===employeeName;
+ });
  if(!employeeName)return [];
- return records.filter(record=>normalizedName(record?.employee_name||record?.employee?.name)===employeeName);
+ return records.filter(record=>!String(record?.employee_id??'').trim()&&normalizedName(record?.employee_name||record?.employee?.name)===employeeName);
 }
 
 export function summarizeOrientationWarnings(records=[]){
@@ -26,4 +29,9 @@ export function summarizeOrientationWarnings(records=[]){
   counts.set(type,(counts.get(type)||0)+1);
  }
  return [...counts].map(([type,count])=>({type,count})).sort((a,b)=>b.count-a.count||a.type.localeCompare(b.type));
+}
+
+const FORMAL_WARNING_LEVELS=new Set(['verbal_warning','written_warning','final_warning']);
+export function isFormalOrientationWarning(record){
+ return FORMAL_WARNING_LEVELS.has(String(record?.action_level??''));
 }
