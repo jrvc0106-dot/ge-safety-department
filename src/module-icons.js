@@ -17,7 +17,7 @@ const paths = {
   toolbox: '<path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18m-13 0v3h8v-3"/>',
   training: '<path d="m2.5 8.5 9.5-5 9.5 5-9.5 5-9.5-5Z"/><path d="M6 10.5v5c3.6 2.8 8.4 2.8 12 0v-5M21.5 8.5v6"/>',
   safety_net: '<path d="M4 4h16v13H4z"/><path d="M8 4v13m4-13v13m4-13v13M4 8h16m-16 5h16"/><path d="m7 17 5 4 5-4"/>',
-  emergency: '<path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v10m-5-5h10"/><path d="M17 3h4v4m0-4-5 5"/>',
+  emergency: '<path d="M5 17h14l-1.5-7a5.5 5.5 0 0 0-11 0L5 17Z"/><path d="M4 20h16m-8-19v2m-7 1 1.5 1.5m13-1.5L18 6.5"/>',
   director: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 16v-3m5 3V9m5 7V7m-10 12h11"/>',
   qr: '<path d="M3 9V3h6m6 0h6v6m0 6v6h-6m-6 0H3v-6"/><path d="M7 7h3v3H7zM15 7h2v2h-2zM7 15h2v2H7zM13 13h4v4h-4zM18 11v2m-7 0h1"/>',
   medical: '<path d="M5 7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5v13A1.5 1.5 0 0 1 17.5 22h-11A1.5 1.5 0 0 1 5 20.5v-13Z"/><path d="M9 5V3h6v2m-3 5v7m-3.5-3.5h7"/>',
