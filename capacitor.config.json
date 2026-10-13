@@ -1,0 +1,8 @@
+{
+  "appId": "com.geflcontractors.geone",
+  "appName": "G&E ONE",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

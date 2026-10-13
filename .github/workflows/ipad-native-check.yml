@@ -1,0 +1,63 @@
+# G&E ONE iPad native compilation check for developers working on Windows.
+# This does NOT produce a signed IPA or an offline-ready app.
+# No Apple signing material, Supabase credentials, or Vercel credentials are used.
+name: Validate iPad Native Wrapper
+on:
+  push:
+    branches:
+      - migration/ipad-local-first-2026-10-12
+    paths:
+      - '.github/workflows/ipad-native-check.yml'
+      - 'capacitor.config.json'
+      - 'native/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/prepare-ipad-native.sh'
+      - 'src/**'
+      - 'public/**'
+jobs:
+  unsigned-ios-simulator:
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout iPad migration branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install existing dependencies
+        run: npm ci
+      - name: Existing regression tests
+        run: npm test
+      - name: Compile web assets
+        run: npm run build
+      - name: Install pinned Capacitor 8 for this disposable CI environment
+        run: |
+          npm install --no-save --package-lock=false \
+            @capacitor/core@8.5.3 @capacitor/ios@8.5.3 @capacitor/cli@8.5.3
+      - name: Generate unsigned iOS native project
+        run: npx cap add ios
+      - name: Confirm Apple SDK
+        run: xcodebuild -version
+      - name: Compile for iOS Simulator without Apple signing
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ge-one-ios-build" \
+            CODE_SIGNING_ALLOWED=NO \
+            build -quiet
+      - name: Explain development-only output
+        run: |
+          echo "The iOS simulator wrapper compiled."
+          echo "This build is NOT an IPA and must NOT be installed on employees' iPads."
+          echo "Cloud APIs are still used by existing modules."
