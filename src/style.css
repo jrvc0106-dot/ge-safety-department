@@ -1867,3 +1867,10 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 /* Quick Safety Orientation: keep the optional phone readable without altering other forms. */
 .quick-employee-phone{grid-column:1/-1}
 .quick-report-employee .quick-report-phone-label{margin-top:6px}
+
+/* Quick Safety Orientation: emergency contact uses existing employee grid and compact PDF row. */
+.quick-employee-phone{grid-column:auto}
+.quick-employee-emergency{min-width:0}
+.quick-report-employee>.quick-report-emergency-contact{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;padding:5px 9px;border-top:1px solid #d9e2ec;border-right:0}
+.quick-report-employee>.quick-report-emergency-contact span{flex:0 0 auto;margin:0}
+.quick-report-employee>.quick-report-emergency-contact b{flex:1;min-width:0;margin:0}
