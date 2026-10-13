@@ -17,6 +17,7 @@
 - Per-device accounts/roles with an admin-signed authorization mechanism (NOT the current Supabase Auth).
 - Admin revocations cannot be instantaneous on a disconnected iPad. Define bounded offline entitlement expiry and the renewal procedure before production.
 - Offline record repository contract in `native/local-record-contract.mjs` and parameterized SQLite adapter in `native/sqlite-record-adapter.mjs`. Neither is connected to the live UI yet.
+- Lossless evidence vault `native/local-evidence-vault.mjs` and injected Capacitor file bridge `native/capacitor-file-driver.mjs` added. Preserve exact HEIC/JPG/PDF bytes, verify SHA-256, reject cross-report paths, test retry integrity. Five isolated unit tests in `tests/local-evidence-vault.test.js` use mocked drivers; **not tested on physical iPad**. No UI integration or native plugin installation yet.
 - Data export with encrypted backups and an operator-verified restore is a release blocker. Store copies outside the iPad; a lost/broken iPad must not mean irreversible evidence loss.
 
 ## Required feature equivalence (must all PASS on physical iPads)
@@ -62,5 +63,6 @@ This script installs *pinned* Capacitor 8 packages locally and updates the local
 - Exact device iPadOS versions and Apple signing/distribution ownership.
 - Migration/export of restricted Supabase Storage files.
 - Replacement for shared live notifications, central team management, mail, AI, and remote analytics without a server.
-- Secure native database and file encryption, attachment integrity, key management and recovery.
+- Secure native database and file encryption, native iPad file protection, SHA-256 integrity on physical devices, key management and recovery.
+- Install and validate `@capacitor/filesystem` and native SQLite plugin in a controlled macOS/Xcode development build; the pure modules alone do not provide a ready-to-install IPA.
 - Full audit against all Supabase calls in the UI, Edge Functions and Vercel endpoints.
