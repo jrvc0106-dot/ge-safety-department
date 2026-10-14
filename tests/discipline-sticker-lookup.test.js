@@ -20,7 +20,7 @@ async function setup({old=[traditional],fast=[quick],hist=[]}={}){
  const dom=new JSDOM('<main></main>'),doc=dom.window.document;
  const writes=[],errors=[],nav=[];
  const rows={project_members:[],safety_discipline:hist,safety_orientations:old,quick_safety_orientations:fast};
- const reads=[];
+ const reads=[],failedReads=new Set();
  const db={from(table){let inserted=false,conditions=[];
    const q={
     select(){return q},eq(name,value){conditions.push([name,value]);return q},order(){return q},
@@ -31,7 +31,7 @@ async function setup({old=[traditional],fast=[quick],hist=[]}={}){
      const source=rows[table]||[];
      const data=inserted?{id:id(900)}:source.filter(row=>conditions.every(([key,value])=>!(key in row)||row[key]===value));
      reads.push({table,conditions:conditions.slice()});
-     return Promise.resolve({data,error:null}).then(resolve,reject)
+     return Promise.resolve({data:failedReads.has(table)&&!inserted?null:data,error:failedReads.has(table)&&!inserted?new Error('Simulated read outage'):null}).then(resolve,reject)
     }
    };return q;
   },storage:{from:()=>({remove:async()=>{}})}
@@ -50,7 +50,7 @@ async function setup({old=[traditional],fast=[quick],hist=[]}={}){
  await context.discipline();
  const form=doc.querySelector('#discipline-form');
  assert.ok(form);
- return {dom,doc,db,form,writes,errors,nav,rows,reads};
+ return {dom,doc,db,form,writes,errors,nav,rows,reads,failedReads};
 }
 
 test('Find Sticker resolves finalized Quick Orientation and saves a real Quick employee link',async()=>{
@@ -161,6 +161,67 @@ test('Find Sticker never includes unfinished Quick orientation drafts',async()=>
  assert.equal(t.form.elements.employee_orientation_id.value,'');
  assert.match(t.doc.querySelector('#discipline-sticker-status').textContent,/not found/);
  assert.ok(t.reads.filter(r=>r.table==='quick_safety_orientations').every(r=>r.conditions.some(([key,value])=>key==='status'&&value==='final')));
+ t.dom.window.close();
+});
+
+
+test('a failed search clears the previously verified worker instead of retaining a wrong disciplinary identity',async()=>{
+ const t=await setup();
+ const number=t.doc.querySelector('#discipline-sticker-number'),find=t.doc.querySelector('#discipline-sticker-verify');
+ number.value='0781';find.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_name.value,'Traditional Worker');
+ assert.equal(t.form.elements.employee_orientation_id.value,traditional.id);
+ number.value='9999';find.click();
+ assert.equal(t.form.querySelector('button[type=submit]').disabled,true);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_orientation_id.value,'');
+ assert.equal(t.form.elements.employee_name.value,'');
+ assert.equal(t.form.elements.employee_position.value,'');
+ assert.equal(t.form.querySelector('button[type=submit]').disabled,false);
+ assert.match(t.doc.querySelector('#discipline-sticker-status').textContent,/not found in this project/);
+ t.dom.window.close();
+});
+
+test('a duplicate sticker does not leave an unrelated previously verified worker in the form',async()=>{
+ const t=await setup({old:[traditional,{...traditional,id:id(88),employee_name:'Different Worker',sticker_number:'0585'}]});
+ const number=t.doc.querySelector('#discipline-sticker-number'),find=t.doc.querySelector('#discipline-sticker-verify');
+ number.value='0781';find.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_orientation_id.value,traditional.id);
+ number.value='0585';find.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_orientation_id.value,'');
+ assert.equal(t.form.elements.employee_name.value,'');
+ assert.match(t.doc.querySelector('#discipline-sticker-status').textContent,/Multiple employee records/);
+ t.dom.window.close();
+});
+
+test('network lookup errors clear stale identity, release buttons and allow a retry',async()=>{
+ const t=await setup();
+ const number=t.doc.querySelector('#discipline-sticker-number'),find=t.doc.querySelector('#discipline-sticker-verify');
+ number.value='0781';find.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_name.value,'Traditional Worker');
+ t.failedReads.add('quick_safety_orientations');
+ number.value='0585';find.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_orientation_id.value,'');
+ assert.equal(t.form.elements.employee_name.value,'');
+ assert.match(t.doc.querySelector('#discipline-sticker-status').textContent,/Could not refresh/);
+ assert.equal(find.disabled,false);
+ assert.equal(t.form.querySelector('button[type=submit]').disabled,false);
+ t.failedReads.clear();
+ find.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_orientation_id.value,'quick:'+quick.id);
+ t.dom.window.close();
+});
+
+test('manual employee entries stay intact after searching an unknown sticker',async()=>{
+ const t=await setup();
+ t.form.elements.employee_name.value='Manual Worker';
+ t.form.elements.employee_position.value='Laborer';
+ t.doc.querySelector('#discipline-sticker-number').value='NOT-REGISTERED';
+ t.doc.querySelector('#discipline-sticker-verify').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_orientation_id.value,'');
+ assert.equal(t.form.elements.employee_name.value,'Manual Worker');
+ assert.equal(t.form.elements.employee_position.value,'Laborer');
  t.dom.window.close();
 });
 
