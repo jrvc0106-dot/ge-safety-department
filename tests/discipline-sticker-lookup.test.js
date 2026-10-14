@@ -16,9 +16,9 @@ const project=id(1);
 const traditional={id:id(3),sticker_number:'0781',employee_name:'Traditional Worker',employee_position:'Foreman',employee_profile_id:null};
 const quick={id:id(4),sticker_number:'0585',employee_name:'Quick Worker',employee_trade:'Glazier'};
 
-async function setup({old=[traditional],fast=[quick],hist=[]}={}){
+async function setup({old=[traditional],fast=[quick],hist=[],confirmResult=true}={}){
  const dom=new JSDOM('<main></main>'),doc=dom.window.document;
- const writes=[],errors=[],nav=[];
+ const writes=[],errors=[],nav=[],confirmCalls=[];
  const rows={project_members:[],safety_discipline:hist,safety_orientations:old,quick_safety_orientations:fast};
  const reads=[],failedReads=new Set();
  const db={from(table){let inserted=false,conditions=[];
@@ -41,16 +41,19 @@ async function setup({old=[traditional],fast=[quick],hist=[]}={}){
   state:{project,profile:{id:id(2),name:'Safety',role:'admin'},projects:[{id:project,name:'Jobsite'}]},db,document:doc,window:dom.window,FormData:dom.window.FormData,File:dom.window.File,Event:dom.window.Event,
   captureView:()=>()=>true,frame:html=>{doc.querySelector('main').innerHTML=html},tr,esc,fmt:()=>'',error:e=>errors.push(String(e?.message||e)),
   disciplinaryActionLabel:r=>r.action_level||'Warning',simplifyDisciplineForm,
-  mountReportSignatures:form=>form.querySelector('button[type=submit]').insertAdjacentHTML('beforebegin','<div class="jha-approval-fields"><input name="jha_employee_name"></div>'),
+  mountReportSignatures:form=>{
+   form.querySelector('button[type=submit]').insertAdjacentHTML('beforebegin','<div class="jha-approval-fields"><input name="jha_safety_name"><input name="jha_employee_name"><input type="hidden" name="jha_employee_signature" value="[]"><button type="button" data-jha-clear="employee">Clear signature</button></div>');
+   form.querySelector('[data-jha-clear="employee"]').onclick=()=>{form.elements.jha_employee_signature.value='[]'}
+  },
   reportApprovals:()=>({employee:{name:'Worker',strokes:[]}}),draftFilesFor:async()=>[],
-  clearDraft:async()=>{},savedAction(){},navigate:(...a)=>nav.push(a),readStickerNumber:async()=>'',console,
+  clearDraft:async()=>{},savedAction(){},navigate:(...a)=>nav.push(a),readStickerNumber:async()=>'',confirm:message=>{confirmCalls.push(message);return confirmResult},console,
   crypto:{randomUUID:()=>id(33)}
  });
  vm.runInContext(disciplineSource,context);
  await context.discipline();
  const form=doc.querySelector('#discipline-form');
  assert.ok(form);
- return {dom,doc,db,form,writes,errors,nav,rows,reads,failedReads};
+ return {dom,doc,db,form,writes,errors,nav,rows,reads,failedReads,confirmCalls};
 }
 
 test('Find Sticker resolves finalized Quick Orientation and saves a real Quick employee link',async()=>{
@@ -222,6 +225,94 @@ test('manual employee entries stay intact after searching an unknown sticker',as
  assert.equal(t.form.elements.employee_orientation_id.value,'');
  assert.equal(t.form.elements.employee_name.value,'Manual Worker');
  assert.equal(t.form.elements.employee_position.value,'Laborer');
+ t.dom.window.close();
+});
+
+
+test('safety and matched employee signature names are filled without redesigning the report',async()=>{
+ const t=await setup();
+ assert.equal(t.form.elements.jha_safety_name.value,'Safety');
+ const input=t.doc.querySelector('#discipline-sticker-number');
+ input.value='0585';t.doc.querySelector('#discipline-sticker-verify').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_name.value,'Quick Worker');
+ assert.equal(t.form.elements.jha_employee_name.value,'Quick Worker');
+ t.form.elements.description.value='An observed hazard';
+ await t.form.onsubmit({preventDefault(){},target:t.form});
+ assert.equal(t.confirmCalls.length,1);
+ assert.match(t.confirmCalls[0],/Quick Worker/);
+ assert.match(t.confirmCalls[0],/Jobsite/);
+ assert.match(t.confirmCalls[0],/Sticker: #0585/);
+ t.dom.window.close();
+});
+
+test('cancelling the save review leaves disciplinary data and evidence unchanged',async()=>{
+ const t=await setup({confirmResult:false});
+ t.form.elements.employee_name.value='Manual Worker';
+ t.form.elements.description.value='Unsafe operation';
+ await t.form.onsubmit({preventDefault(){},target:t.form});
+ assert.equal(t.confirmCalls.length,1);
+ assert.equal(t.writes.filter(x=>x.table==='safety_discipline').length,0);
+ assert.equal(t.form.elements.employee_name.value,'Manual Worker');
+ assert.equal(t.form.querySelector('button[type=submit]').disabled,false);
+ assert.equal(t.form.dataset.submitting,undefined);
+ t.dom.window.close();
+});
+
+test('changing sticker input after verification clears linked identity and signature from previous employee',async()=>{
+ const t=await setup();
+ const lookup=t.doc.querySelector('#discipline-sticker-number');
+ lookup.value='0781';t.doc.querySelector('#discipline-sticker-verify').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ t.form.elements.jha_employee_signature.value='[[[0.1,0.2]]]';
+ t.form.elements.employee_acknowledged.checked=true;
+ lookup.value='0585';lookup.dispatchEvent(new t.dom.window.Event('input',{bubbles:true}));
+ assert.equal(t.form.elements.employee_orientation_id.value,'');
+ assert.equal(t.form.elements.employee_name.value,'');
+ assert.equal(t.form.elements.jha_employee_name.value,'');
+ assert.equal(t.form.elements.jha_employee_signature.value,'[]');
+ assert.equal(t.form.elements.employee_acknowledged.checked,false);
+ assert.match(t.doc.querySelector('#discipline-sticker-status').textContent,/Sticker changed/);
+ t.dom.window.close();
+});
+
+test('switching verified workers does not carry an earlier employee signature forward',async()=>{
+ const t=await setup();
+ const input=t.doc.querySelector('#discipline-sticker-number'),find=t.doc.querySelector('#discipline-sticker-verify');
+ input.value='0781';find.click();await new Promise(resolve=>setImmediate(resolve));
+ t.form.elements.jha_employee_signature.value='[[[0.1,0.2]]]';
+ t.form.elements.employee_acknowledged.checked=true;
+ input.value='0585';find.click();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(t.form.elements.employee_orientation_id.value,'quick:'+quick.id);
+ assert.equal(t.form.elements.jha_employee_name.value,'Quick Worker');
+ assert.equal(t.form.elements.jha_employee_signature.value,'[]');
+ assert.equal(t.form.elements.employee_acknowledged.checked,false);
+ t.dom.window.close();
+});
+
+test('inconsistent verified sticker identity cannot be saved even after programmatic field changes',async()=>{
+ const t=await setup();
+ const input=t.doc.querySelector('#discipline-sticker-number');
+ input.value='0781';t.doc.querySelector('#discipline-sticker-verify').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ t.form.elements.description.value='Observed safety violation';
+ t.form.elements.employee_name.value='Different Person';
+ await t.form.onsubmit({preventDefault(){},target:t.form});
+ assert.equal(t.writes.filter(x=>x.table==='safety_discipline').length,0);
+ assert.match(t.errors.join(' '),/no longer match the verified sticker/);
+ assert.equal(t.confirmCalls.length,0);
+ t.dom.window.close();
+});
+
+test('manually adjusting employee name unlinks an old sticker and prompts reverification',async()=>{
+ const t=await setup();
+ const input=t.doc.querySelector('#discipline-sticker-number');
+ input.value='0781';t.doc.querySelector('#discipline-sticker-verify').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ t.form.elements.employee_name.value='Manually Edited';
+ t.form.elements.employee_name.dispatchEvent(new t.dom.window.Event('input',{bubbles:true}));
+ assert.equal(t.form.elements.employee_orientation_id.value,'');
+ assert.match(t.doc.querySelector('#discipline-sticker-status').textContent,/Find Sticker again/);
  t.dom.window.close();
 });
 
