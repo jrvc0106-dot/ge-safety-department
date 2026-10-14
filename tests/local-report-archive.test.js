@@ -85,7 +85,7 @@ test('local shortcut opens its original file and fails clearly if removed',async
  const doc=await saveLocalReport({...params,blob:smallPdf(),env:f.runtime});
  assert.equal(await openLocalReport(doc,{env:f.runtime}),true);
  assert.equal(f.events.opens.length,1);
- assert.match(f.events.opens[0].url,/^file:/);
+ assert.match(f.events.opens[0].files[0],/^file:/);
  f.fileMap.delete(doc.path);
  await assert.rejects(openLocalReport(doc,{env:f.runtime}),/moved or deleted/);
 });
