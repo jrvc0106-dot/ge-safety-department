@@ -1917,3 +1917,44 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .discipline-report-pro .dr-section-title h2{color:#1d2a35;letter-spacing:.01em}
 .discipline-report-pro .dr-narrative p{overflow-wrap:anywhere}
 .discipline-report-pro .dr-grid strong{overflow-wrap:anywhere}
+
+
+/* Employee Safety Discipline: bright white field bars and clear dark lettering. */
+.discipline-shell #discipline-form .discipline-simple-heading{
+ background:#fff!important;color:#162b3a!important;
+ border:1px solid #dce3e9!important;border-left:5px solid #a1b3c2!important;
+ box-shadow:0 2px 6px rgba(0,0,0,.08)
+}
+.discipline-shell #discipline-form .discipline-simple-fields input:not([type="checkbox"]):not([type="file"]),
+.discipline-shell #discipline-form .discipline-simple-fields select,
+.discipline-shell #discipline-form .discipline-simple-fields textarea{
+ background:#fff!important;color:#14212c!important;
+ border:1px solid #b8c6d2!important;
+ box-shadow:none!important;font-weight:650!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields input::placeholder,
+.discipline-shell #discipline-form .discipline-simple-fields textarea::placeholder{
+ color:#506575!important;opacity:1!important;font-weight:500!important
+}
+.discipline-shell #discipline-form .discipline-simple-fields select option{
+ background:#fff!important;color:#152635!important
+}
+.discipline-shell #discipline-form .discipline-sticker-lookup{
+ background:#fff!important;color:#172a39!important;
+ border:1px solid #c6d2dc!important
+}
+.discipline-shell #discipline-form .discipline-sticker-lookup label,
+.discipline-shell #discipline-form .discipline-sticker-lookup small,
+.discipline-shell #discipline-form #discipline-sticker-status{
+ color:#1b3040!important;font-weight:700!important
+}
+.discipline-shell #discipline-form #discipline-sticker-verify{
+ background:#f5f8fa!important;color:#142a3a!important;
+ border:1px solid #9eafbd!important;font-weight:850!important
+}
+.discipline-shell #discipline-form .employee-discipline-summary{
+ background:#fff!important;color:#172a38!important;border-color:#c6d2dc!important
+}
+.discipline-shell #discipline-form .employee-discipline-summary strong{
+ color:#172a38!important
+}
