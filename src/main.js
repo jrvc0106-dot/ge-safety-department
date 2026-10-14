@@ -1781,7 +1781,7 @@ async function reportCenter(){
    record.parentNode.insertBefore(wrapper,record);wrapper.append(record);
    const button=document.createElement('button');button.type='button';
    button.className='report-center-admin-delete';
-   button.textContent='⌫ '+tr('Delete','Eliminar');
+   button.textContent='⌫ '+tr('Move to Trash','Enviar a papelera');
    button.setAttribute('aria-label',tr('Delete from Report Center: ','Eliminar del Centro de Reportes: ')+title);
    button.onclick=async()=>{
     if(!window.confirm(reportCenterDeleteMessage(title,project.name||'',tr)))return;
