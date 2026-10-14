@@ -81,7 +81,7 @@ async function setup(role='admin'){
   toolsHomeMarkup:()=>'',safetyTools:{bindHome(){}},nativeReportArchiveAvailable:()=>false,
   reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,
   groupFinalWalkReportsByCreator,effectiveWalkStatus:()=> 'safe',disciplinaryActionLabel:()=> 'Coaching',
-  confirmAction:msg=>messages.push(msg),error:e=>{throw e},
+  confirmAction:msg=>messages.push(msg),error:e=>messages.push('ERROR: '+e.message),
   navigate:(...args)=>navigation.push(args),Date,console
  });
  vm.runInContext(body,context);
