@@ -105,7 +105,9 @@ export async function saveLocalReport({blob,filename,projectId,projectName,repor
 export async function openLocalReport(record,{env=globalThis}={}){
  const fs=nativePlugin(env);
  if(!fs||!record?.path?.startsWith(ROOT+'/'))throw new Error('Local report unavailable');
- const stat=await fs.stat({path:record.path,directory:DIRECTORY});
+ let stat;
+ try{stat=await fs.stat({path:record.path,directory:DIRECTORY})}
+ catch{throw new Error('The report was moved or deleted from Files')}
  if(!Number(stat.size))throw new Error('The report was moved or deleted from Files');
  const share=env.Capacitor?.Plugins?.Share;
  if(!share||typeof share.share!=='function')throw new Error('Install @capacitor/share to open saved reports');
