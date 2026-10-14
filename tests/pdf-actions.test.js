@@ -19,6 +19,22 @@ function setup({archiveFails=false,canShare=false,userAgent='test-browser'}={}){
  context.state={page:'safetyWalkReport',project:'project-1',profile:{id:'user-1'}};
  return {context,report,button,messages,downloads,shares,metrics};
 }
+
+test('installed iPad saves one local PDF reference and skips a second cloud PDF upload',async()=>{
+ const t=setup(),localWrites=[];
+ t.context.nativeReportArchiveAvailable=()=>true;
+ t.context.state.projects=[{id:'original',name:'Rivage Bal Harbour'}];
+ t.context.saveLocalReport=async args=>{localWrites.push(args);return {path:'G&E Reports/Rivage/Disciplinary Actions/test.pdf'}};
+ t.context.registerFinalReport=()=>{throw new Error('Native device must not upload duplicate cloud PDF')};
+ const result=await t.context.buildReportPdf(true);
+ assert.equal(localWrites.length,1);
+ assert.strictEqual(localWrites[0].blob,result.blob);
+ assert.equal(localWrites[0].userId,'user-1');
+ assert.equal(result.localArchive.path,'G&E Reports/Rivage/Disciplinary Actions/test.pdf');
+ assert.equal(t.downloads.length,0);
+ assert.equal(t.messages.length,0);
+});
+
 test('cloud archive failure still downloads and repeated exports reuse the PDF',async()=>{
  const t=setup({archiveFails:true});await t.context.runPdfAction('download',t.button);await Promise.resolve();
  assert.equal(t.downloads.length,1);assert.ok(t.messages.some(m=>m[0].includes('cloud copy')));
