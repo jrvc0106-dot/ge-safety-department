@@ -49,7 +49,11 @@ export async function permanentlyPurgeReportFromSupabase(db,{projectId,kind,id})
  const result=await db.functions.invoke('purge-report-center',{body:{
   project_id:projectId,report_kind:kind,report_id:String(id)
  }});
- if(result.error)throw result.error;
+ if(result.error){
+  let detail;
+  try{detail=(await result.error.context?.json?.())?.error}catch{}
+  throw new Error(detail||result.error.message||'Secure Supabase deletion failed');
+ }
  if(result.data?.error)throw new Error(result.data.error);
  if(!result.data?.ok||result.data?.entry?.state!=='permanent')
   throw new Error('Supabase did not confirm permanent report deletion');
