@@ -1958,3 +1958,161 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .discipline-shell #discipline-form .employee-discipline-summary strong{
  color:#172a38!important
 }
+
+
+/* Disciplinary Action: refined one-page field workflow (tablet + desktop).
+   These rules affect only the entry form, never the saved PDF. */
+.discipline-shell #discipline-form{
+ max-width:1090px;gap:16px;
+}
+.discipline-shell #discipline-form .discipline-simple-section{
+ display:block;min-width:0;padding:19px 21px 22px!important;
+ border:1px solid #d3dde5!important;border-radius:15px;
+ background:#f8fafc!important;color:#1a2e3c!important;
+ box-shadow:0 3px 12px rgba(0,0,0,.12);
+}
+.discipline-shell #discipline-form .discipline-section-header{
+ display:flex;align-items:flex-start;gap:12px;min-width:0;
+ margin-bottom:17px;padding-bottom:13px;border-bottom:1px solid #dbe3e9;
+}
+.discipline-shell #discipline-form .discipline-section-number{
+ display:grid;place-items:center;flex:none;width:38px;height:38px;
+ border-radius:10px;background:#2f4353;color:#fff;font-size:13px;
+ font-weight:900;letter-spacing:.03em;
+}
+.discipline-shell #discipline-form .discipline-section-copy{min-width:0;flex:1}
+.discipline-shell #discipline-form .discipline-simple-heading{
+ background:transparent!important;border:0!important;border-left:0!important;
+ border-radius:0!important;box-shadow:none!important;
+ color:#162b3b!important;font-size:18px!important;line-height:1.25!important;
+ padding:0!important;margin:0 0 4px!important;font-weight:850!important;
+}
+.discipline-shell #discipline-form .discipline-section-hint{
+ margin:0!important;color:#526776!important;
+ font-size:12.5px!important;line-height:1.5!important;font-weight:500;
+}
+.discipline-shell #discipline-form .discipline-simple-fields{
+ gap:15px 16px;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>label{
+ margin:0!important;min-width:0;color:#203747!important;
+ font-size:13px!important;font-weight:800!important;line-height:1.5;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>label.discipline-priority-field{
+ font-weight:900!important;color:#132d3f!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>label.discipline-manual-lookup{
+ grid-column:1/-1;
+}
+.discipline-shell #discipline-form .discipline-simple-fields input:not([type="checkbox"]):not([type="file"]),
+.discipline-shell #discipline-form .discipline-simple-fields select,
+.discipline-shell #discipline-form .discipline-simple-fields textarea{
+ min-height:49px;background:#fff!important;color:#152b3b!important;
+ border:1.5px solid #b8c8d5!important;border-radius:10px!important;
+ padding:12px 13px!important;font-size:15px!important;
+ box-shadow:0 1px 1px rgba(18,40,56,.04)!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields textarea{
+ min-height:108px;line-height:1.5;resize:vertical;
+}
+.discipline-shell #discipline-form .discipline-simple-fields [name="description"]{
+ min-height:128px;
+}
+.discipline-shell #discipline-form .discipline-simple-fields input:focus,
+.discipline-shell #discipline-form .discipline-simple-fields select:focus,
+.discipline-shell #discipline-form .discipline-simple-fields textarea:focus{
+ outline:3px solid rgba(67,103,132,.23)!important;
+ outline-offset:1px!important;border-color:#516c80!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields input::placeholder,
+.discipline-shell #discipline-form .discipline-simple-fields textarea::placeholder{
+ color:#576a78!important;opacity:1!important;
+}
+.discipline-shell #discipline-form .discipline-sticker-lookup{
+ grid-template-columns:minmax(0,1fr) auto!important;
+ gap:12px!important;padding:16px!important;margin:0!important;
+ background:#fff!important;border:1px solid #c5d4df!important;
+ border-radius:12px!important;
+}
+.discipline-shell #discipline-form .discipline-sticker-lookup label{
+ color:#173144!important;font-weight:850!important;
+}
+.discipline-shell #discipline-form #discipline-sticker-verify{
+ background:#2a4559!important;color:#fff!important;
+ border:1px solid #2a4559!important;min-height:49px!important;
+ padding:10px 19px!important;border-radius:9px!important;
+ font-size:14px!important;font-weight:850!important;
+}
+.discipline-shell #discipline-form #discipline-sticker-verify:focus-visible{
+ outline:3px solid #98afbe;outline-offset:3px;
+}
+.discipline-shell #discipline-form #discipline-sticker-verify:disabled{
+ opacity:.6;cursor:progress;
+}
+.discipline-shell #discipline-form #discipline-sticker-status{
+ display:block;margin:0!important;padding:10px 12px!important;
+ border:1px solid #e0e7ec;border-radius:8px;background:#f5f8fa;
+ color:#264355!important;font-weight:700!important;font-size:12px!important;
+}
+.discipline-shell #discipline-form .employee-discipline-summary{
+ background:#fff!important;border:1px solid #d5e0e8!important;
+ border-radius:10px!important;margin:0!important;
+}
+.discipline-shell #discipline-form .employee-discipline-summary small,
+.discipline-shell #discipline-form .employee-history-preview small{
+ color:#4a6476!important;
+}
+.discipline-shell #discipline-form .employee-discipline-summary strong{
+ color:#172f3d!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>label.check-line{
+ background:#fff;border:1px solid #d8e3ea;border-radius:10px;
+ padding:12px 14px;min-height:50px;
+ display:flex!important;align-items:center;gap:11px;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>label.check-line input{
+ flex:none;width:20px!important;height:20px!important;accent-color:#2a4559;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>small{
+ font-size:12px!important;color:#405a6a!important;line-height:1.4;
+}
+.discipline-shell #discipline-form .jha-approval-fields{
+ grid-column:1/-1;gap:14px;
+}
+.discipline-shell #discipline-form .jha-approval{
+ background:#fff;border:1px solid #d3dee7;border-radius:11px;
+ padding:14px;color:#1d3545;
+}
+.discipline-shell #discipline-form .jha-approval label,
+.discipline-shell #discipline-form .jha-approval small{
+ color:#264052!important;font-weight:750!important;
+}
+.discipline-shell #discipline-form .jha-approval canvas{
+ background:#fff!important;border:1px solid #b9cbd7!important;
+ border-radius:8px;min-height:105px;touch-action:none;
+}
+.discipline-shell #discipline-form .discipline-simple-footer{
+ padding:14px 18px!important;background:#f8fafc;
+ border:1px solid #d3dde5!important;border-radius:12px;
+}
+.discipline-shell #discipline-form .discipline-simple-footer p{
+ color:#3e5667!important;font-size:13px!important;
+}
+.discipline-shell #discipline-form .discipline-simple-footer button[type="submit"]{
+ background:#273f52!important;color:#fff!important;
+ border:1px solid #273f52!important;border-radius:10px!important;
+ min-height:51px;font-weight:900!important;
+}
+@media(max-width:800px){
+ .discipline-shell #discipline-form .discipline-simple-section{padding:14px!important}
+ .discipline-shell #discipline-form .discipline-simple-fields{
+  grid-template-columns:minmax(0,1fr);gap:12px;
+ }
+ .discipline-shell #discipline-form .discipline-simple-heading{font-size:16px!important}
+ .discipline-shell #discipline-form .discipline-sticker-lookup{
+  grid-template-columns:1fr!important;padding:12px!important;
+ }
+ .discipline-shell #discipline-form #discipline-sticker-verify{width:100%!important}
+ .discipline-shell #discipline-form .discipline-sticker-camera,
+ .discipline-shell #discipline-form #discipline-sticker-status{grid-column:1/-1}
+}
