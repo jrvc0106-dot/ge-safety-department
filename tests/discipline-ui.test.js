@@ -22,28 +22,32 @@ function sample(){
  return {dom:doc,form,names};
 }
 
-test('exactly four collapsible discipline steps preserve every existing input and signature',()=>{
+test('discipline stays a continuous form: all original fields and signatures visible',()=>{
  const {dom,form,names}=sample();
- const inputCount=form.querySelectorAll('[name]').length;
+ const count=form.querySelectorAll('[name]').length;
  const submit=form.querySelector('button[type=submit]'),signature=form.querySelector('.jha-approval-fields');
+ const originals=new Map(names.map(name=>[name,form.elements.namedItem(name)]));
  simplifyDisciplineForm(form,tr);
- assert.equal(form.querySelectorAll('.discipline-step').length,4);
- assert.equal(form.querySelectorAll('.discipline-progress-label').length,4);
- assert.equal(form.querySelectorAll('[name]').length,inputCount);
- for(const name of names)assert.ok(form.elements.namedItem(name),name);
+ assert.equal(form.querySelectorAll('.discipline-simple-section').length,4);
+ assert.equal(form.querySelectorAll('.discipline-simple-heading').length,4);
+ assert.equal(form.querySelectorAll('details,summary,.discipline-step-progress,.discipline-step-next').length,0);
+ assert.equal(form.querySelectorAll('[name]').length,count);
+ for(const name of names){
+  assert.strictEqual(form.elements.namedItem(name),originals.get(name),name);
+  assert.equal(form.elements.namedItem(name).closest('details'),null,name);
+ }
  assert.equal(form.querySelector('button[type=submit]'),submit);
  assert.equal(form.querySelector('.jha-approval-fields'),signature);
- assert.equal(form.querySelectorAll('.discipline-extra').length,2);
- assert.equal(form.querySelector('.discipline-step[data-step="1"]').open,true);
- assert.equal(form.querySelector('.discipline-step[data-step="2"]').open,false);
- assert.ok(form.querySelector('.discipline-step[data-step="4"]').contains(signature));
- assert.ok(form.querySelector('.discipline-step[data-step="4"]').textContent.includes('Photo evidence 10 MB'));
+ assert.ok(form.querySelector('.discipline-simple-section:last-of-type').contains(signature));
+ assert.ok(form.querySelector('.discipline-simple-section:last-of-type').textContent.includes('Photo evidence 10 MB'));
+ assert.equal(form.querySelector('button[type=submit]').closest('.discipline-simple-footer')?.tagName,'DIV');
+ assert.deepEqual([...form.querySelectorAll('.discipline-simple-heading')].map(x=>x.textContent),['Employee Information','Safety Violation','Disciplinary Action','Evidence & Signatures']);
  simplifyDisciplineForm(form,tr);
- assert.equal(form.querySelectorAll('.discipline-step').length,4);
+ assert.equal(form.querySelectorAll('.discipline-simple-section').length,4);
  dom.window.close();
 });
 
-test('navigation and validation reveal the correct step while keeping optional fields saved',()=>{
+test('single-form layout retains all optional values, required fields and the current save payload',()=>{
  const {dom,form}=sample();
  simplifyDisciplineForm(form,tr);
  form.elements.employee_name.value='Worker';
@@ -51,15 +55,26 @@ test('navigation and validation reveal the correct step while keeping optional f
  form.elements.custom_action.value='Additional training before reinstatement';
  form.elements.company_rule.value='Use required harness';
  form.elements.retraining_required.checked=true;
- form.querySelector('.discipline-step-next').click();
- assert.equal(form.querySelector('.discipline-step[data-step="1"]').open,false);
- assert.equal(form.querySelector('.discipline-step[data-step="2"]').open,true);
- assert.equal(form.querySelector('.discipline-step[data-step="2"] .discipline-extra').open,false);
- form.elements.company_rule.dispatchEvent(new dom.window.Event('invalid',{bubbles:false}));
- assert.equal(form.querySelector('.discipline-step[data-step="2"] .discipline-extra').open,true);
- const formData=new dom.window.FormData(form);
- assert.equal(formData.get('company_rule'),'Use required harness');
- assert.equal(formData.get('custom_action'),'Additional training before reinstatement');
- assert.equal(formData.get('retraining_required'),'on');
+ assert.equal(form.elements.employee_name.required,true);
+ assert.equal(form.elements.description.required,true);
+ assert.equal(form.querySelectorAll('details').length,0);
+ const data=new dom.window.FormData(form);
+ assert.equal(data.get('employee_name'),'Worker');
+ assert.equal(data.get('description'),'Observed missing fall protection');
+ assert.equal(data.get('company_rule'),'Use required harness');
+ assert.equal(data.get('custom_action'),'Additional training before reinstatement');
+ assert.equal(data.get('retraining_required'),'on');
+ assert.equal(form.querySelectorAll('button[type=submit]').length,1);
+ dom.window.close();
+});
+
+test('new unknown form controls are kept visible and included in FormData',()=>{
+ const {dom,form}=sample();
+ const label=dom.window.document.createElement('label');
+ const input=dom.window.document.createElement('input');input.name='future_field';input.value='preserved';
+ label.append(input);form.append(label);
+ simplifyDisciplineForm(form,tr);
+ assert.ok(form.querySelector('.discipline-simple-section:last-of-type').contains(label));
+ assert.equal(new dom.window.FormData(form).get('future_field'),'preserved');
  dom.window.close();
 });
