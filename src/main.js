@@ -1571,7 +1571,7 @@ async function quickSafetyOrientation(){
  const paintFacePhoto=()=>{facePreview.innerHTML=facePhoto?`<div class="quick-face-photo"><img src="${esc(facePhoto.preview)}" alt="${esc(tr('Employee Face ID','Foto del rostro del empleado'))}"><button type="button" class="secondary" id="quick-face-remove">${tr('Remove photo','Quitar foto')}</button></div>`:`<span>${tr('Employee Face ID photo required','Se requiere foto del rostro del empleado')}</span>`;const remove=facePreview.querySelector('#quick-face-remove');if(remove)remove.onclick=()=>{if(facePhoto)URL.revokeObjectURL(facePhoto.preview);facePhoto=null;paintFacePhoto()};};
  for(const id of ['quick-face-camera','quick-face-gallery'])document.getElementById(id).onchange=event=>{
   const file=event.target.files?.[0];event.target.value='';if(!file)return;
-  if(file.size>10485760||(!file.type.startsWith('image/')&&!/\\.hei[cf]$/i.test(file.name)))return error(tr('Choose a supported employee face photo of 10 MB or less.','Seleccione una foto del rostro compatible de 10 MB o menos.'));
+  if(file.size>10485760||(!file.type.startsWith('image/')&&!/\.hei[cf]$/i.test(file.name)))return error(tr('Choose a supported employee face photo of 10 MB or less.','Seleccione una foto del rostro compatible de 10 MB o menos.'));
   if(facePhoto)URL.revokeObjectURL(facePhoto.preview);facePhoto={file,preview:URL.createObjectURL(file)};paintFacePhoto();
  };
  paintFacePhoto();
