@@ -2146,6 +2146,7 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
  .report-center .report-center-admin-actions>.report-center-admin-delete{max-width:calc(50% - 3px);flex:0 1 auto}
 }
 .report-center .report-center-admin-delete:hover{background:#fce8e6}
+.report-center .report-center-direct-permanent:hover{background:#852126;color:#fff}
 .report-center .report-center-admin-delete:focus-visible,
 .report-center .report-center-trash-toggle:focus-visible,
 .report-center .report-center-trash-controls button:focus-visible{
