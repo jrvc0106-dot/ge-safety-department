@@ -54,6 +54,15 @@ export function quickSafetyOrientationReport(record,{tr,esc,fmt,project,photos,s
 
 // Distinct verified view for a Quick Orientation sticker. A quick record does not
 // carry the four mandatory evidence categories of Register Safety Orientation.
+// For a historical Quick Orientation, keep its first uploaded photo as the
+// profile picture. New registrations save Face ID separately and have no
+// Jobsite Photos, so they use face_photo_path instead.
+export function quickOrientationPrimaryPhotoPath(record){
+ const firstPhoto=Array.isArray(record?.photo_paths)?record.photo_paths[0]:null;
+ if(typeof firstPhoto==='string'&&firstPhoto.trim())return firstPhoto.trim();
+ return typeof record?.face_photo_path==='string'?record.face_photo_path.trim():'';
+}
+
 export function quickStickerVerificationMarkup(record,{tr,esc,fmt,projectName='',photos=[],facePhotoUrl='',signatures=''}) {
  const selected=new Set((Array.isArray(record.hazards)?record.hazards:[]).map(x=>x?.key));
  const hazardList=QUICK_ORIENTATION_HAZARDS.filter(x=>selected.has(x.key));
