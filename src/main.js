@@ -24,7 +24,7 @@ import {optimizePhoto} from './photo-optimizer.js';
 import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
-import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage} from './report-center-trash.js';
+import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion} from './report-center-trash.js';
 import {nativeReportArchiveAvailable,saveLocalReport,listLocalReports,openLocalReport} from './local-report-archive.js';
 import {putOfflineDraftFile,getOfflineDraftFile,deleteOfflineDraftFiles} from './offline-draft-store.js';
 import {installConnectivityStatus} from './connectivity-status.js';
@@ -1795,7 +1795,43 @@ async function reportCenter(){
     }catch(err){if(viewCurrent())error(err)}
     finally{if(button.isConnected)button.disabled=false}
    };
-   wrapper.append(button);
+   const permanent=document.createElement('button');permanent.type='button';
+   permanent.className='report-center-admin-delete report-center-direct-permanent';
+   permanent.dataset.reportAction='permanent';
+   permanent.textContent=tr('Delete permanently','Eliminar definitivamente');
+   permanent.setAttribute('aria-label',tr('Permanently delete from Supabase: ','Eliminar definitivamente de Supabase: ')+title);
+   permanent.onclick=async()=>{
+    // Both prompts run before ANY database write.
+    if(!confirmPermanentReportDeletion(window,{title,tr,language:state.lang}))return;
+    const projectId=state.project;
+    button.disabled=true;permanent.disabled=true;
+    permanent.textContent=tr('Deleting…','Eliminando…');
+    let movedToTrash=false;
+    try{
+     // Stage only this report, then invoke the admin-protected server purge.
+     // If the purge is interrupted, the report stays recoverable in Admin Trash.
+     const staged=await changeReportCenterTrash(db,{projectId,kind,id,title,action:'trash'});
+     movedToTrash=true;
+     if(!viewCurrent())return;
+     setTrashRow(staged);
+     const purged=await permanentlyPurgeReportFromSupabase(db,{projectId,kind,id});
+     if(!viewCurrent())return;
+     setTrashRow(purged.entry);
+     draw(currentCategory);
+     confirmAction(tr('The report, its stored PDF and associated Supabase records were permanently deleted.','Se eliminaron definitivamente de Supabase el reporte, su PDF y los registros asociados.'));
+    }catch(err){
+     if(!viewCurrent())return;
+     if(movedToTrash)toggleAdminTrash(true);
+     const detail=err instanceof Error?err.message:String(err);
+     error(new Error(movedToTrash?tr('Permanent deletion did not finish. The report remains in Admin Trash for a safe retry. ','La eliminación definitiva no se completó. El reporte sigue en la Papelera Admin para volver a intentarlo. ')+detail:detail));
+    }finally{
+     if(button.isConnected)button.disabled=false;
+     if(permanent.isConnected){permanent.disabled=false;permanent.textContent=tr('Delete permanently','Eliminar definitivamente')}
+    }
+   };
+   const actions=document.createElement('div');actions.className='report-center-admin-actions';
+   actions.append(button,permanent);
+   wrapper.append(actions);
   }
  }
  function renderAdminTrash(){
@@ -1827,10 +1863,7 @@ async function reportCenter(){
    const permanent=document.createElement('button');permanent.type='button';permanent.className='report-center-admin-delete';
    permanent.textContent=tr('Remove permanently','Eliminar definitivamente');
    permanent.onclick=async()=>{
-    if(!window.confirm(reportCenterPermanentMessage(entry.report_title,tr)))return;
-    const expected=state.lang==='es'?'ELIMINAR':'DELETE';
-    const response=window.prompt(tr('Type DELETE to confirm permanent removal from Report Center:','Escriba ELIMINAR para confirmar la eliminación definitiva del Centro de Reportes:'), '');
-    if(String(response||'').trim()!==expected)return;
+    if(!confirmPermanentReportDeletion(window,{title:entry.report_title,tr,language:state.lang}))return;
     permanent.disabled=true;restore.disabled=true;
     try{
      const response=await permanentlyPurgeReportFromSupabase(db,{projectId:state.project,kind:entry.report_kind,id:entry.report_id});
