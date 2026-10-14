@@ -45,6 +45,14 @@ export async function changeReportCenterTrash(db,{projectId,kind,id,title,action
  const table=db.from('report_center_trash'),match={project_id:projectId,report_kind:kind,report_id:String(id)};
  let result;
  if(action==='trash'){
+  // An already trashed report is ready for purge. Re-upserting it would
+  // fail the database's "No state change requested" protection trigger.
+  const existing=await db.from('report_center_trash')
+   .select('project_id,report_kind,report_id,report_title,state,deleted_at,deleted_by')
+   .eq('project_id',projectId).eq('report_kind',kind).eq('report_id',String(id)).maybeSingle();
+  if(existing.error)throw existing.error;
+  if(existing.data?.state==='trashed')return existing.data;
+  if(existing.data?.state==='permanent')throw new Error('This report has already been permanently removed');
   result=await table.upsert({...match,report_title:String(title||'Report').slice(0,240),state:'trashed'},{onConflict:'project_id,report_kind,report_id'}).select('project_id,report_kind,report_id,report_title,state,deleted_at,deleted_by').single();
  }else{
   result=await table.update({state:'active'})
