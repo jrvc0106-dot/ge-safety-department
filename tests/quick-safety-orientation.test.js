@@ -6,9 +6,11 @@ import {attachQuickHazardSelection,QUICK_ORIENTATION_ACK,QUICK_ORIENTATION_HAZAR
 const tr=(en)=>en;
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 
-test('quick orientation provides separate employee fields, risk selection, consent and four-photo limit',()=>{
+test('quick orientation retains employee fields, Face ID, risk selection and consent without Jobsite Photos',()=>{
  const html=quickSafetyOrientationForm({tr,esc,project:{name:'Rivage Bal Harbour'},profile:{}});
- for(const text of ['Quick Safety Orientation','Employee Name','Sticker Number','Position / Trade','Company','quick-employee-field','Jobsite Hazards & Safety Controls','quick-hazard-toggle-all','Select all','Take photo','Choose from gallery','/ 4','Employee Acknowledgment','Save & Create Final Report'])assert.ok(html.includes(text),text);
+ for(const text of ['Quick Safety Orientation','Employee Name','Sticker Number','Position / Trade','Company','quick-employee-field','Jobsite Hazards & Safety Controls','quick-hazard-toggle-all','Select all','Employee Face ID','quick-face-camera','quick-face-gallery','Employee Acknowledgment','Save & Create Final Report'])assert.ok(html.includes(text),text);
+ assert.ok(!html.includes('Jobsite Photos'));
+ assert.ok(!html.includes('id="quick-photo-camera"'));
  assert.equal(QUICK_ORIENTATION_HAZARDS.length,16);
  assert.ok(html.includes('name="acknowledged" required'));
 });
