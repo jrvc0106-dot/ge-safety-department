@@ -1033,7 +1033,7 @@ async function team(){const viewCurrent=captureView(),teamUserId=state.profile.i
  const input=document.querySelector('#sticker-number'),result=document.querySelector('#orientation-result'),status=document.querySelector('#sticker-ocr-status');
  const lookup=async()=>{const version=++lookupVersion,current=()=>viewCurrent()&&version===lookupVersion;const number=input.value.trim().toUpperCase();if(!teamProjectId){status.textContent=tr('Select a jobsite before verifying a sticker.','Seleccione un jobsite antes de verificar un sticker.');return}if(!number){status.textContent=tr('Enter a sticker number first.','Ingrese primero un número de sticker.');return}status.textContent='';try{result.innerHTML='<div class="card">'+tr('Verifying…','Verificando…')+'</div>';const [q,quickQuery]=await Promise.all([
  db.from('safety_orientations').select('*,employee_profile:profiles!safety_orientations_employee_profile_id_fkey(id,name,email,role,position,phone,bio)').eq('sticker_number',number).eq('project_id',teamProjectId).maybeSingle(),
- db.from('quick_safety_orientations').select('*').eq('sticker_number',number).eq('project_id',teamProjectId).eq('status','final').order('orientation_at',{ascending:false}).limit(10)
+ db.from('quick_safety_orientations').select('*').eq('sticker_number',number).eq('project_id',teamProjectId).eq('status','final').order('orientation_at',{ascending:false})
 ]);if(!current())return;if(q.error||quickQuery.error)return error(q.error||quickQuery.error);
 const quickRecords=quickQuery.data||[];
 const renderQuickMatches=async()=>{
