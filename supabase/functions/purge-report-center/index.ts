@@ -113,7 +113,11 @@ Deno.serve(async(req:Request)=>{
     sources.push({table:"safety_tool_records",id,projectColumn:true});
     types=["tool_"+tool.data.kind];
     for(const p of tool.data.photos||[])add("safety-tool-evidence",p.path);
-   }else return bad("Source report was not found in this project",404);
+   }else{
+    // Possible retry after storage/database deletion completed but audit update failed.
+    // Only the already-trashed exact report ID reaches this branch.
+    types=["training","tool_toolbox","tool_training","tool_safety_net","tool_emergency","tool_director","tool_qr"];
+   }
   }else if(kind==="daily"||kind==="inventory"){
    // Aggregate report: delete its PDF archives, not unrelated live observations or inventory stock.
    types=kind==="daily"?["daily_report"]:["inventory"];
@@ -124,13 +128,15 @@ Deno.serve(async(req:Request)=>{
    let record:any;
    if(kind==="correction"){
     const {data,error}=await admin.from("corrective_actions").select("id,observation_id").eq("id",id).maybeSingle();
-    check({error},"Correction lookup");if(!data)return bad("Correction no longer exists",404);
-    const {data:obs,error:oe}=await admin.from("observations").select("project_id").eq("id",data.observation_id).maybeSingle();
-    check({error:oe},"Observation lookup");if(obs?.project_id!==project)return bad("Correction belongs to another project",403);
-    record=data;
+    check({error},"Correction lookup");
+    if(data){
+     const {data:obs,error:oe}=await admin.from("observations").select("project_id").eq("id",data.observation_id).maybeSingle();
+     check({error:oe},"Observation lookup");if(obs?.project_id!==project)return bad("Correction belongs to another project",403);
+     record=data;
+    }
    }else{
     const {data,error}=await admin.from(table).select("id").eq("id",id).eq("project_id",project).maybeSingle();
-    check({error},"Source report lookup");if(!data)return bad("Source report was not found in this project",404);record=data;
+    check({error},"Source report lookup");record=data;
    }
    if(kind==="incident"){
     const {data,error}=await admin.from("employee_medical_followups").select("id").eq("incident_id",id).limit(1);
@@ -140,7 +146,7 @@ Deno.serve(async(req:Request)=>{
     const {data,error}=await admin.from("corrective_actions").select("id").eq("observation_id",id).limit(1);
     check({error},"Correction link check");if(data?.length)return bad("Observation has corrective actions; remove those reports first",409);
    }
-   sources.push({table,id,projectColumn:kind!=="correction"});
+   if(record)sources.push({table,id,projectColumn:kind!=="correction"});
    if(kind==="walk")for(const p of await listOwnFolder(admin,"daily-safety-walks",project+"/"+id))add("daily-safety-walks",p);
    if(kind==="discipline")for(const p of await collectRows(admin,"discipline_photos","discipline_id",id))add("discipline-evidence",p);
    if(kind==="incident")for(const p of await collectRows(admin,"incident_report_photos","incident_id",id))add("incident-evidence",p);
@@ -159,7 +165,12 @@ Deno.serve(async(req:Request)=>{
   }else docsQuery=docsQuery.eq("source_id",id);
   const {data:docs,error:docsError}=await docsQuery.limit(500);
   check({error:docsError},"Archived PDF lookup");
-  for(const doc of docs||[])add("final-reports",doc.pdf_path);
+  if((docs||[]).length>=500)throw Error("Report archive has too many versions for safe deletion");
+  for(const doc of docs||[]){
+   if(doc.pdf_path&&!String(doc.pdf_path).startsWith(project+"/"))
+    throw Error("Unsafe archived PDF path; no files were deleted");
+   add("final-reports",doc.pdf_path);
+  }
 
   // Storage and database cannot be in one transaction. Retain Trash on any
   // failed step; retry is safe because removals are scoped and idempotent.
