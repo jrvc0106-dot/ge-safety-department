@@ -78,3 +78,43 @@ test('new unknown form controls are kept visible and included in FormData',()=>{
  assert.equal(new dom.window.FormData(form).get('future_field'),'preserved');
  dom.window.close();
 });
+
+test('the sticker lookup is the first field and every section remains open and readable',()=>{
+ const {dom,form}=sample();
+ const lookup=form.querySelector('.discipline-sticker-lookup');
+ const signature=form.querySelector('.jha-approval-fields');
+ simplifyDisciplineForm(form,tr);
+ const sections=Array.from(form.querySelectorAll('.discipline-simple-section'));
+ assert.equal(sections[0].querySelector('.discipline-simple-fields').firstElementChild,lookup);
+ assert.equal(sections[0].dataset.section,'1');
+ assert.equal(sections[3].dataset.section,'4');
+ assert.ok(sections[0].querySelector('.discipline-section-header'));
+ assert.equal(sections[0].querySelector('.discipline-section-number').textContent,'01');
+ assert.equal(sections[3].querySelector('.discipline-section-number').textContent,'04');
+ assert.equal(sections[0].querySelector('.discipline-simple-fields [name=employee_orientation_id]')!==null,true);
+ assert.equal(sections[0].querySelector('.discipline-simple-fields [name=employee_name]')!==null,true);
+ assert.equal(sections[1].querySelector('.discipline-simple-fields [name=description]')!==null,true);
+ assert.equal(sections[2].querySelector('.discipline-simple-fields [name=action_level]')!==null,true);
+ assert.equal(sections[3].querySelector('.jha-approval-fields'),signature);
+ assert.equal(form.querySelectorAll('details,[hidden]').length,0);
+ assert.equal(sections[1].querySelector('label:has([name=description])').classList.contains('discipline-priority-field'),true);
+ assert.equal(form.querySelectorAll('input,select,textarea').length>0,true);
+ dom.window.close();
+});
+
+test('form presentation does not replace the sticker controls or touch-signature inputs',()=>{
+ const {dom,form}=sample();
+ const lookup=form.querySelector('.discipline-sticker-lookup');
+ const originalName=form.elements.employee_name;
+ const signature=form.elements.jha_employee_name;
+ const callback=()=>{};
+ lookup.addEventListener('click',callback);
+ simplifyDisciplineForm(form,tr);
+ assert.equal(form.querySelector('.discipline-sticker-lookup'),lookup);
+ assert.equal(form.elements.employee_name,originalName);
+ assert.equal(form.elements.jha_employee_name,signature);
+ assert.ok(form.querySelector('.discipline-simple-section[data-section="1"]').contains(lookup));
+ assert.ok(form.querySelector('.discipline-simple-section[data-section="4"]').contains(signature));
+ assert.equal(form.querySelectorAll('button[type=submit]').length,1);
+ dom.window.close();
+});
