@@ -32,7 +32,7 @@ import './report-groups.css';
 import {groupFinalWalkReportsByCreator} from './report-groups.js';
 import {installTabletViewport} from './tablet-viewport.js';
 import {normalizeMemberEmail,matchOrientationWarnings,summarizeOrientationWarnings,isFormalOrientationWarning} from './team-identity.js';
-import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup} from './quick-safety-orientation.js';
+import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from './quick-safety-orientation.js';
 import {isTeamInviteActivation} from './team-invitation.js';
 import {canAccessAdminOnlyPage,adminOnlyAccessMessage} from './admin-only-access.js';
 import {isAdminOnlyTool} from './safety-tools-model.js';
@@ -1042,8 +1042,10 @@ const renderQuickMatches=async()=>{
  const photoUrls=await Promise.all((record.photo_paths||[]).slice(0,4).map(async path=>{
   try{return await signedDisplayImage('quick-orientation-photos',path,3600)||''}catch{return ''}
  }));
- const facePhotoUrl=record.face_photo_path?await signedDisplayImage('quick-orientation-photos',record.face_photo_path,3600):'';
- if(record.face_photo_path&&!facePhotoUrl)throw Error(tr('Employee Face ID could not be loaded. Please try again.','No se pudo cargar la foto del rostro. Intente nuevamente.'));
+ const primaryPhotoPath=quickOrientationPrimaryPhotoPath(record);
+ const firstStoredPhoto=Array.isArray(record.photo_paths)?record.photo_paths[0]:null;
+ const facePhotoUrl=primaryPhotoPath?(primaryPhotoPath===firstStoredPhoto?photoUrls[0]:await signedDisplayImage('quick-orientation-photos',primaryPhotoPath,3600)):'';
+ if(primaryPhotoPath&&!facePhotoUrl)throw Error(tr('The first Quick Orientation photo could not be loaded. Please try again.','No se pudo cargar la primera foto de orientación rápida. Intente nuevamente.'));
  const signatures=reportSignaturesReport('orientation',record.approvals||{},tr);
  const differentEmployee=q.data&&String(q.data.employee_name||'').trim().toUpperCase()!==String(record.employee_name||'').trim().toUpperCase();
  const conflict=differentEmployee?'<div class="card orientation-not-found" role="alert"><strong>'+tr('Sticker identity conflict','Conflicto de identidad del sticker')+'</strong><p>'+tr('The traditional and quick orientations assign this number to different employee names. Review both records; they have not been merged.','La orientación tradicional y la rápida asignan este número a nombres de empleados diferentes. Revise ambas fichas; no se han fusionado.')+'</p></div>':'';
