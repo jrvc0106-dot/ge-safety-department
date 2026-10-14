@@ -1483,18 +1483,34 @@ async function discipline(){const formProjectId=state.project,formUserId=state.p
   if(!number){stickerStatus.textContent=tr('Enter a sticker number first.','Ingrese primero un número de sticker.');return}
   if(stickerLookupBusy)return;
   const button=document.querySelector('#discipline-sticker-verify');
+  const submitButton=document.querySelector('#discipline-form button[type="submit"]');
+  const hadStickerLink=Boolean(employeeOrientationInput.value);
+  const clearUnverifiedLink=()=>{
+   employeeOrientationInput.value='';employeeIdInput.value='';
+   // Do not leave the previous employee's identity on screen if a new
+   // sticker could not be verified. Preserve intentionally typed manual data.
+   if(hadStickerLink){employeeName.value='';employeePositionInput.value=''}
+   paintEmployeeHistory();
+  };
   stickerLookupBusy=true;button.disabled=true;
+  const submitWasDisabled=Boolean(submitButton?.disabled);
+  if(submitButton)submitButton.disabled=true;
   stickerStatus.textContent=tr('Checking this project’s registered stickers…','Verificando los stickers registrados en este proyecto…');
   try{
    if(!await refreshStickerOptions())return;
+   if(normalizeSticker(stickerLookupInput.value)!==number){
+    clearUnverifiedLink();
+    stickerStatus.textContent=tr('The sticker number changed during lookup. Press Find Sticker again.','El número de sticker cambió durante la búsqueda. Presione Find Sticker otra vez.');
+    return
+   }
    const matches=orientationOptions.filter(o=>normalizeSticker(o.record.sticker_number)===number);
-  if(!matches.length){employeeOrientationInput.value='';employeeIdInput.value='';stickerStatus.textContent=tr('Sticker not found in this project. Check the selected jobsite and sticker number.','Sticker no encontrado en este proyecto. Verifique el jobsite seleccionado y el número de sticker.');paintEmployeeHistory();return}
+  if(!matches.length){clearUnverifiedLink();stickerStatus.textContent=tr('Sticker not found in this project. Check the selected jobsite and sticker number.','Sticker no encontrado en este proyecto. Verifique el jobsite seleccionado y el número de sticker.');return}
   if(matches.length>1){
    const sameName=matches.every(m=>String(m.record.employee_name||'').trim().toUpperCase()===String(matches[0].record.employee_name||'').trim().toUpperCase());
    if(!sameName||matches.filter(m=>m.kind==='quick').length>1||matches.filter(m=>m.kind==='standard').length>1){
-    employeeOrientationInput.value='';employeeIdInput.value='';
-    stickerStatus.textContent=tr('Multiple employee records use this sticker. Select the correct employee and orientation type from the dropdown above.','Varios registros de trabajadores usan este sticker. Seleccione el trabajador y el tipo de orientación correctos en la lista superior.');
-    paintEmployeeHistory();return
+    clearUnverifiedLink();
+    stickerStatus.textContent=tr('Multiple employee records use this sticker. Select the correct employee and orientation type from the employee information list.','Varios registros de trabajadores usan este sticker. Seleccione el trabajador y el tipo de orientación correctos en la lista de información del trabajador.');
+    return
    }
    // If both registries represent the same person, favor the original verified
    // orientation to retain existing warning history and database linkage.
@@ -1502,9 +1518,13 @@ async function discipline(){const formProjectId=state.project,formUserId=state.p
   }
   applyStickerOrientation(matches[0]);
   }catch(err){
+   clearUnverifiedLink();
    stickerStatus.textContent=tr('Could not refresh sticker registrations. Please check the connection and try Find Sticker again.','No se pudieron consultar los registros de stickers. Revise la conexión e intente Find Sticker nuevamente.');
    console.warn('Disciplinary sticker lookup failed',err);
-  }finally{stickerLookupBusy=false;button.disabled=false}
+  }finally{
+   stickerLookupBusy=false;button.disabled=false;
+   if(submitButton&&!submitButton.closest('form')?.dataset.submitting)submitButton.disabled=submitWasDisabled;
+  }
  };
  document.querySelector('#discipline-sticker-verify').onclick=findStickerOrientation;
  stickerLookupInput.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();findStickerOrientation()}};
