@@ -41,3 +41,17 @@ export async function changeReportCenterTrash(db,{projectId,kind,id,title,action
  if(!result.data)throw new Error('Report center operation was not confirmed');
  return result.data;
 }
+
+export async function permanentlyPurgeReportFromSupabase(db,{projectId,kind,id}){
+ if(!REPORT_CENTER_KINDS.has(kind)||!projectId||!String(id||'').trim())
+  throw new Error('Invalid report center record');
+ if(!db?.functions?.invoke)throw new Error('Secure report removal service is unavailable');
+ const result=await db.functions.invoke('purge-report-center',{body:{
+  project_id:projectId,report_kind:kind,report_id:String(id)
+ }});
+ if(result.error)throw result.error;
+ if(result.data?.error)throw new Error(result.data.error);
+ if(!result.data?.ok||result.data?.entry?.state!=='permanent')
+  throw new Error('Supabase did not confirm permanent report deletion');
+ return result.data;
+}
