@@ -24,6 +24,7 @@ import {optimizePhoto} from './photo-optimizer.js';
 import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
+import {nativeReportArchiveAvailable,saveLocalReport,listLocalReports,openLocalReport} from './local-report-archive.js';
 import {putOfflineDraftFile,getOfflineDraftFile,deleteOfflineDraftFiles} from './offline-draft-store.js';
 import {installConnectivityStatus} from './connectivity-status.js';
 import {isOverdueDate} from './field-operations.js';
@@ -511,11 +512,32 @@ async function buildReportPdf(highQuality=false){
   if(document.querySelector('article.report')!==report||report.innerHTML!==snapshot)throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
   const prepared={blob,filename:options.filename,report,snapshot,highQuality};
   preparedReportPdfs.set(report,prepared);
-  // Archival failure must not prevent the user from obtaining their PDF.
-  registerFinalReport(blob,report,meta).catch(err=>{
-    console.warn('PDF cloud archive failed',err);
-    if(document.querySelector('article.report')===report)confirmAction(tr('PDF ready, but its cloud copy could not be saved. You can download or share it; reopen the report to retry saving the cloud copy.','PDF listo, pero no se pudo guardar su copia en la nube. Puede descargarlo o compartirlo; vuelva a abrir el reporte para reintentar guardar la copia en la nube.'),'error');
-  });
+  if(nativeReportArchiveAvailable()){
+    // Installed iPad app: ONE original PDF in Files; only a local shortcut
+    // is kept. Do not upload a second PDF to the cloud.
+    if(meta&&state.profile?.id){
+      try{
+        prepared.localArchive=await saveLocalReport({
+          blob,filename:options.filename,projectId:meta.projectId,
+          projectName:state.projects.find(p=>p.id===meta.projectId)?.name||'Project',
+          reportType:meta.reportType,reportNumber:meta.reportNumber,
+          sourceId:meta.sourceId,userId:state.profile.id,
+          fingerprint:meta.sourcePage+'|'+snapshot.length+'|'+snapshot
+        });
+      }catch(err){
+        prepared.localArchiveError=err;
+        console.warn('iPad local PDF archive failed',err);
+        if(document.querySelector('article.report')===report)
+          confirmAction(tr('PDF ready, but it could not be saved in iPad Files. Check available storage and retry.','PDF listo, pero no se pudo guardar en Archivos del iPad. Verifique el espacio disponible e intente nuevamente.'),'error');
+      }
+    }
+  }else{
+    // Existing web workflow remains unchanged.
+    registerFinalReport(blob,report,meta).catch(err=>{
+      console.warn('PDF cloud archive failed',err);
+      if(document.querySelector('article.report')===report)confirmAction(tr('PDF ready, but its cloud copy could not be saved. You can download or share it; reopen the report to retry saving the cloud copy.','PDF listo, pero no se pudo guardar su copia en la nube. Puede descargarlo o compartirlo; vuelva a abrir el reporte para reintentar guardar la copia en la nube.'),'error');
+    });
+  }
   return prepared;
 }
 async function auditMedicalPdfAction(action,report){
@@ -552,6 +574,9 @@ async function runPdfAction(action,button){
     }
     // Download a ready JHA directly during the click, preserving Safari activation.
     if(action==='download'&&(isJha||report?.dataset?.pdfViewMode==='ready-first')&&prepared){
+      if(nativeReportArchiveAvailable()&&prepared.localArchive){
+        confirmAction(tr('Saved in iPad Files: ','Guardado en Archivos del iPad: ')+prepared.localArchive.path);return;
+      }
       downloadReportPdf(prepared.blob,prepared.filename);
       confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+prepared.filename);return;
     }
@@ -604,8 +629,12 @@ async function runPdfAction(action,button){
       }
       confirmAction(tr('PDF ready. Tap “Share PDF now” to choose an app.','PDF listo. Pulse “Compartir PDF ahora” para elegir una aplicación.'));return;
     }
-    downloadReportPdf(blob,filename);
-    confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+filename);
+    if(nativeReportArchiveAvailable()&&prepared.localArchive){
+      confirmAction(tr('Saved in iPad Files: ','Guardado en Archivos del iPad: ')+prepared.localArchive.path);
+    }else{
+      downloadReportPdf(blob,filename);
+      confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+filename);
+    }
   }catch(e){
     if(preview&&!preview.closed)preview.close();
     if(e?.name==='AbortError')confirmAction(tr('Sharing canceled.','Se canceló la acción de compartir.'));
@@ -644,10 +673,26 @@ function installReportDocumentActions(){
     progressText:(page,total)=>tr('Preparing PDF… ','Preparando PDF… ')+page+'/'+total
   });}
 }
+const nativeAutoArchiveSeen=new WeakSet();
+function scheduleNativePdfArchive(report){
+  if(!nativeReportArchiveAvailable()||nativeAutoArchiveSeen.has(report))return;
+  if(!currentReportIdentity(report))return; // no anonymous or sensitive medical bypass
+  nativeAutoArchiveSeen.add(report);
+  // Work only on the final report screen, after layout settles. Nothing changes
+  // on Safari, desktop, or another module while a form is being filled out.
+  setTimeout(()=>{
+    const start=()=>{
+      if(report!==document.querySelector('article.report')||pdfActionBusy||!state.session)return;
+      buildReportPdf(true).catch(err=>console.warn('Background local report save failed',err));
+    };
+    if(typeof window.requestIdleCallback==='function')window.requestIdleCallback(start,{timeout:8000});
+    else setTimeout(start,600);
+  },2200);
+}
 const reportActionObserver=new MutationObserver(()=>{
   const report=document.querySelector('article.report');
   if(activeJhaPdfReport&&activeJhaPdfReport!==report){releaseJhaPdfResources(activeJhaPdfReport);activeJhaPdfReport=null}
-  if(report)installReportDocumentActions();
+  if(report){installReportDocumentActions();scheduleNativePdfArchive(report)}
 });
 reportActionObserver.observe(app,{childList:true,subtree:true});
 async function syncPendingDraftEvidence(){
@@ -1646,6 +1691,31 @@ async function reportCenter(){
  const registered=docs.data||[],finalCount=registered.filter(d=>d.document_status==='final').length,reviewCount=registered.filter(d=>['submitted','under_review'].includes(d.document_status)).length;
  if(!viewCurrent())return;
  frame('<section class="observations-shell report-center"><div class="report-center-hero"><div><small>'+tr('G&E SAFETY DOCUMENT CONTROL','CONTROL DOCUMENTAL G&E SAFETY')+'</small><h1>'+tr('Report Center','Centro de Reportes')+'</h1><p>'+esc(project.name||'—')+' · '+tr('Select a category, choose a record and open its professional PDF-ready report.','Seleccione una categoría, elija un registro y abra su reporte profesional listo para PDF.')+'</p></div><div class="report-center-project"><span>'+tr('CURRENT PROJECT','PROYECTO ACTUAL')+'</span><strong>'+esc(project.name||'—')+'</strong><small>'+esc(project.general_contractor||'')+'</small></div></div><div class="document-control-strip"><div><strong>'+registered.length+'</strong><span>'+tr('Registered Documents','Documentos Registrados')+'</span></div><div><strong>'+finalCount+'</strong><span>'+tr('Final / Locked','Finales / Bloqueados')+'</span></div><div><strong>'+reviewCount+'</strong><span>'+tr('Under Review','En Revisión')+'</span></div><div><strong>v1+</strong><span>'+tr('Version Controlled','Control de Versiones')+'</span></div></div><div class="report-category-grid report-category-nine">'+cats.map(x=>'<button class="report-category '+x.cls+'" data-category="'+x.key+'"><span class="report-category-icon">'+x.icon+'</span><div><h2>'+esc(x.title)+'</h2><p>'+esc(x.desc)+'</p></div><strong>'+x.count+'</strong><small>'+tr('OPEN CATEGORY','ABRIR CATEGORÍA')+' →</small></button>').join('')+'</div><section class="report-library card"><div class="report-library-head"><div><small>'+tr('REPORT LIBRARY','BIBLIOTECA DE REPORTES')+'</small><h2 id="report-library-title"></h2></div></div><div class="report-filter-bar"><input id="report-search" type="search" placeholder="'+tr('Search report, area, employee, category…','Buscar reporte, área, empleado, categoría…')+'"><select id="report-date-filter"><option value="all">'+tr('All dates','Todas las fechas')+'</option><option value="today">'+tr('Today','Hoy')+'</option><option value="week">'+tr('Last 7 days','Últimos 7 días')+'</option><option value="month">'+tr('Last 30 days','Últimos 30 días')+'</option></select></div><div id="report-library-list"></div></section></section>');
+ if(nativeReportArchiveAvailable()){
+  const localRecords=listLocalReports({userId:state.profile.id,projectId:state.project});
+  const localSection=document.createElement('section');
+  localSection.className='card';localSection.setAttribute('aria-label',tr('My local reports','Mis reportes locales'));
+  const heading=document.createElement('h2');heading.textContent=tr('My Local Reports — iPad Files','Mis reportes locales — Archivos del iPad');
+  const note=document.createElement('p');note.textContent=tr('PDF originals are stored on this iPad. G&E ONE displays shortcuts only.','Los PDF originales están guardados en este iPad. G&E ONE solo muestra accesos.');
+  localSection.append(heading,note);
+  if(!localRecords.length){
+    const empty=document.createElement('p');empty.textContent=tr('No PDF files saved on this iPad for the selected project yet.','Todavía no hay PDFs guardados en este iPad para el proyecto seleccionado.');
+    localSection.append(empty);
+  }
+  for(const record of localRecords){
+    const button=document.createElement('button');button.type='button';button.className='secondary';
+    button.style.cssText='display:block;width:100%;text-align:left;margin:7px 0;min-height:46px;overflow-wrap:anywhere';
+    button.textContent='▤ '+record.filename+' · '+record.path.split('/').slice(-3,-1).join(' / ');
+    button.onclick=async()=>{
+      button.disabled=true;
+      try{await openLocalReport(record)}
+      catch(err){error(new Error(tr('Cannot open this local PDF. It may have been moved, deleted or its file-sharing plugin is missing.','No se puede abrir el PDF local. Quizás fue movido, eliminado o falta el complemento para compartir archivos.')))}
+      finally{button.disabled=false}
+    };
+    localSection.append(button);
+  }
+  document.querySelector('.report-library').before(localSection);
+ }
  if(['admin','safety_director','safety','supervisor'].includes(state.profile.role)){
   const insightsCard=document.createElement('section');insightsCard.className='card ai-safety-trends';insightsCard.innerHTML='<div class="section-heading"><div><h2>'+tr('AI safety trends','Tendencias de seguridad con IA')+'</h2><p>'+tr('Optional analysis of aggregate counts from the last 30 days. No report text or employee details are sent.','Análisis opcional de conteos agregados de los últimos 30 días. No se envía texto de reportes ni datos de empleados.')+'</p></div><button type="button" id="analyze-safety-trends">'+tr('Analyze trends','Analizar tendencias')+'</button></div><div id="safety-trend-results" aria-live="polite"></div>';
   document.querySelector('.report-library').before(insightsCard);
