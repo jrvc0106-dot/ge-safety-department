@@ -33,9 +33,7 @@ export function simplifyDisciplineForm(form,tr){
   copy.append(heading,hint);summary.append(badge,copy);
   const content=doc.createElement('div');content.className='discipline-step-body';
   const fields=doc.createElement('div');fields.className='discipline-step-fields';
-  for(const key of item.main){const node=findNode(key);if(node)fields.append(node);
-   if(key==='evidence'&&node?.nextElementSibling?.tagName==='SMALL')fields.append(node.nextElementSibling);
-  }
+  for(const key of item.main){const node=findNode(key);const hint=key==='evidence'&&node?.nextElementSibling?.tagName==='SMALL'?node.nextElementSibling:null;if(node)fields.append(node);if(hint)fields.append(hint)}
   content.append(fields);
   if(item.extra.length){
    const additional=doc.createElement('details');additional.className='discipline-extra';
