@@ -27,13 +27,13 @@ export function reportCenterPermanentMessage(title,tr){
 export async function changeReportCenterTrash(db,{projectId,kind,id,title,action}){
  if(!REPORT_CENTER_KINDS.has(kind)||!projectId||!String(id||'').trim())
   throw new Error('Invalid report center record');
- if(!['trash','restore','permanent'].includes(action))throw new Error('Invalid report center operation');
+ if(!['trash','restore'].includes(action))throw new Error('Permanent deletion must use the verified Supabase purge service');
  const table=db.from('report_center_trash'),match={project_id:projectId,report_kind:kind,report_id:String(id)};
  let result;
  if(action==='trash'){
   result=await table.upsert({...match,report_title:String(title||'Report').slice(0,240),state:'trashed'},{onConflict:'project_id,report_kind,report_id'}).select('project_id,report_kind,report_id,report_title,state,deleted_at,deleted_by').single();
  }else{
-  result=await table.update({state:action==='restore'?'active':'permanent'})
+  result=await table.update({state:'active'})
    .eq('project_id',projectId).eq('report_kind',kind).eq('report_id',String(id)).eq('state','trashed')
    .select('project_id,report_kind,report_id,report_title,state,deleted_at,deleted_by').single();
  }
