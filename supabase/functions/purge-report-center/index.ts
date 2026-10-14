@@ -159,9 +159,11 @@ Deno.serve(async(req:Request)=>{
   let docsQuery=admin.from("report_documents").select("id,pdf_path,report_type,source_id,created_at")
     .eq("project_id",project).in("report_type",types);
   if(kind==="daily"||kind==="inventory"){
-   const day=id.slice(kind.length+1);
-   const end=new Date(Date.parse(day+"T00:00:00Z")+86400000).toISOString();
-   docsQuery=docsQuery.is("source_id",null).gte("created_at",day+"T00:00:00Z").lt("created_at",end);
+   const day=id.slice(kind.length+1).replaceAll("-","");
+   // Report numbers use the jobsite's local report date, not UTC creation time.
+   // Avoid leaving a midnight-offset PDF copy in Supabase.
+   const prefix=kind==="daily"?"DSR-":"IV-";
+   docsQuery=docsQuery.is("source_id",null).like("report_number",prefix+day+"-%");
   }else docsQuery=docsQuery.eq("source_id",id);
   const {data:docs,error:docsError}=await docsQuery.limit(500);
   check({error:docsError},"Archived PDF lookup");
