@@ -50,3 +50,44 @@ export function quickSafetyOrientationReport(record,{tr,esc,fmt,project,photos,s
  const photoMarkup=photos?.length?`<div class="quick-report-photos">${photos.slice(0,4).map((photo,index)=>`<figure><img src="${esc(photo.url)}" alt="${esc(tr('Orientation photo','Foto de orientación'))} ${index+1}"><figcaption>${tr('Photo','Foto')} ${index+1}</figcaption></figure>`).join('')}</div>`:`<div class="quick-report-no-photos">${tr('No photos were added.','No se agregaron fotos.')}</div>`;
  return `<article class="report print-report professional-report quick-safety-orientation-report"><div class="print-report-watermark"><img src="/ge-logo.png" alt=""></div><header class="quick-report-header"><img src="/ge-logo.png" alt="G&E Florida Contractors"><div><small>G&E FLORIDA CONTRACTORS · TEAM FIELD</small><h1>${tr('Safety Orientation Report','Reporte de Safety Orientation')}</h1><p>${esc(reportNumber)}</p></div><span class="quick-report-complete">✓ ${tr('Completed','Completado')}</span></header><section class="quick-report-employee"><div><span>${tr('Employee Name','Nombre del Empleado')}</span><b>${esc(record.employee_name)}</b>${record.employee_phone?`<span class="quick-report-phone-label">${tr('Employee Phone','Teléfono del Empleado')}</span><b>${esc(record.employee_phone)}</b>`:''}</div><div><span>${tr('Sticker #','Sticker #')}</span><b>${esc(record.sticker_number)}</b></div><div><span>${tr('Trade / Position','Oficio / Posición')}</span><b>${esc(record.employee_trade)}</b></div><div><span>${tr('Company','Compañía')}</span><b>${esc(record.employee_company)}</b></div><div><span>${tr('Project / Jobsite','Proyecto / Jobsite')}</span><b>${esc(project?.name||'—')}</b></div><div><span>${tr('Orientation Date','Fecha de Orientación')}</span><b>${esc(date)}</b></div>${record.emergency_contact?`<div class="quick-report-emergency-contact"><span>${tr('Contact in case of emergency','Contacto en caso de emergencia')}</span><b>${esc(record.emergency_contact)}</b></div>`:''}</section><section class="quick-report-hazards"><header><div><h2>${tr('Jobsite Hazards & Safety Controls','Riesgos del Jobsite y Controles de Seguridad')}</h2><p>${tr('Applicable hazards selected for this work and site.','Riesgos aplicables seleccionados para este trabajo y sitio.')}</p></div><strong>${hazards.length} ${tr('selected','seleccionados')}</strong></header><div class="quick-report-hazard-columns">${hazardRows}</div><small class="quick-report-site-note">${tr('Review the site-specific safety plan and task JHA. Use controls required for the actual work and conditions.','Revise el plan de seguridad del sitio y el JHA de la tarea. Use los controles requeridos para el trabajo y las condiciones reales.')}</small></section><section class="quick-report-photo-section"><h2>${tr('Orientation Photos','Fotos de Orientación')}</h2>${photoMarkup}</section><section class="quick-report-acknowledgment"><h2>${tr('Employee Acknowledgment','Reconocimiento del Empleado')}</h2><p>${esc(tr(QUICK_ORIENTATION_ACK.en,QUICK_ORIENTATION_ACK.es))}</p></section><section class="quick-report-signatures"><h2>${tr('Signatures','Firmas')}</h2>${signatureMarkup}</section><footer class="quick-report-footer"><span>G&E SAFETY DEPARTMENT</span><b>${tr('Safety Today · A Safer Tomorrow','Seguridad hoy · Un mañana más seguro')}</b><span>${esc(reportNumber)}</span></footer><div class="no-print report-print-actions"><button type="button" class="secondary" id="quick-report-back">← ${tr('Back to Quick Safety Orientation','Volver a Rápida Safety Orientación')}</button></div></article>`;
 }
+
+
+// Distinct verified view for a Quick Orientation sticker. A quick record does not
+// carry the four mandatory evidence categories of Register Safety Orientation.
+export function quickStickerVerificationMarkup(record,{tr,esc,fmt,projectName='',photos=[],signatures=''}) {
+ const selected=new Set((Array.isArray(record.hazards)?record.hazards:[]).map(x=>x?.key));
+ const hazardList=QUICK_ORIENTATION_HAZARDS.filter(x=>selected.has(x.key));
+ const detail=(title,value)=>`<div><small>${title}</small><strong>${esc(value||'—')}</strong></div>`;
+ const employeeName=String(record.employee_name||'').trim();
+ return `<article class="card orientation-record quick-sticker-record">
+ <div class="orientation-valid">✓ ${tr('QUICK SAFETY ORIENTATION VERIFIED','ORIENTACIÓN RÁPIDA VERIFICADA')}</div>
+ <div class="orientation-person"><div class="orientation-photo-empty">👤</div><div class="orientation-person-summary"><div class="orientation-person-heading"><div><small>${tr('STICKER NO.','N.º DE STICKER')}</small><h2>${esc(record.sticker_number)}</h2><h3>${esc(employeeName)}</h3></div></div><p>${esc([record.employee_trade,record.employee_company].filter(Boolean).join(' · ')||'—')}</p></div></div>
+ <section class="orientation-record-section"><div class="orientation-record-heading"><div><small>QUICK SAFETY ORIENTATION</small><h3>${tr('Employee Information','Información del Empleado')}</h3></div></div><div class="orientation-detail-grid">
+ ${detail(tr('FULL NAME','NOMBRE COMPLETO'),employeeName)}
+ ${detail(tr('STICKER NUMBER','NÚMERO DE STICKER'),record.sticker_number)}
+ ${detail(tr('COMPANY','COMPAÑÍA'),record.employee_company)}
+ ${detail(tr('POSITION / TRADE','POSICIÓN / OFICIO'),record.employee_trade)}
+ ${detail(tr('PROJECT / JOBSITE','PROYECTO / JOBSITE'),projectName)}
+ ${detail(tr('ORIENTATION DATE','FECHA DE ORIENTACIÓN'),record.orientation_at?fmt(record.orientation_at):'—')}
+ ${detail(tr('EMPLOYEE PHONE','TELÉFONO DEL EMPLEADO'),record.employee_phone)}
+ ${detail(tr('CONTACT IN CASE OF EMERGENCY','CONTACTO EN CASO DE EMERGENCIA'),record.emergency_contact)}
+ </div></section>
+ <section class="orientation-record-section"><div class="orientation-record-heading"><div><small>JOBSITE SAFETY</small><h3>${tr('Hazards & Safety Controls Reviewed','Riesgos y controles de seguridad revisados')}</h3></div></div>
+ ${hazardList.length?`<div class="warning-list">${hazardList.map(h=>`<article><strong>✓ ${esc(tr(h.en,h.es))}</strong><p>${esc(tr(h.controlEn,h.controlEs))}</p></article>`).join('')}</div>`:`<p>${tr('No hazard selections were recorded.','No se registraron riesgos seleccionados.')}</p>`}
+ </section>
+ <section class="orientation-record-section"><div class="orientation-record-heading"><div><small>QUICK ORIENTATION EVIDENCE</small><h3>${tr('Jobsite Photos','Fotos del Jobsite')}</h3></div><span class="orientation-evidence-count">${photos.filter(Boolean).length} ${tr('photos','fotos')}</span></div>
+ ${photos.some(Boolean)?`<div class="orientation-evidence-grid">${photos.map((url,i)=>url?`<figure><b>${tr('PHOTO','FOTO')} ${i+1}</b><img src="${esc(url)}" alt="${esc(tr('Quick orientation photo','Foto de orientación rápida'))} ${i+1}"></figure>`:'').join('')}</div>`:`<p>${tr('No jobsite photos were attached to this quick orientation.','No se adjuntaron fotos del jobsite a esta orientación rápida.')}</p>`}
+ <small>${tr('Quick Orientation photos are jobsite evidence, not verified face ID, sticker image, orientation document, or training certificates.','Las fotos de orientación rápida son evidencia del jobsite, no identificación facial, foto del sticker, documento de orientación ni certificados verificados.')}</small>
+ </section>
+ <section class="orientation-record-section">${signatures}</section>
+ <button type="button" class="secondary quick-sticker-open-report" data-quick-verify-report="${esc(record.id)}">${tr('View Final Quick Orientation Report','Ver reporte final de orientación rápida')}</button>
+ </article>`;
+}
+
+export function quickStickerDuplicateMarkup(records,{tr,esc,fmt}) {
+ return `<section class="card orientation-record quick-sticker-conflict" role="alert">
+ <strong>${tr('More than one Quick Orientation uses this sticker number.','Más de una orientación rápida usa este número de sticker.')}</strong>
+ <p>${tr('The records cannot be verified as a single employee. Review the individual reports before taking action.','No se pueden verificar estos registros como un único empleado. Revise los reportes individuales antes de tomar medidas.')}</p>
+ ${records.map(r=>`<div class="discipline-record"><strong>${esc(r.employee_name)}</strong><small>${esc(r.orientation_at?fmt(r.orientation_at):'—')}</small><button type="button" class="secondary quick-sticker-open-report" data-quick-verify-report="${esc(r.id)}">${tr('View Quick Orientation Report','Ver reporte de orientación rápida')}</button></div>`).join('')}
+ </section>`;
+}
