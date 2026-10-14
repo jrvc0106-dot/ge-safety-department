@@ -22,7 +22,7 @@ export function reportCenterDeleteMessage(title,project,tr){
 export function reportCenterPermanentMessage(title,tr){
  return tr('Permanently remove this report from Report Center?','¿Eliminar definitivamente este reporte del Centro de Reportes?')+
   '\n\n'+title+'\n\n'+
-  tr('This action cannot be undone in the Report Center. Original safety records and PDF evidence remain retained for audits.','Esta acción no se puede deshacer desde el Centro de Reportes. Los registros originales y la evidencia PDF se conservan para auditorías.');
+  tr('This cannot be undone. Supabase PDF files, report records and their own evidence will be deleted. Linked medical or safety records may block deletion. Admin audit logs and separate backups may remain.','Esta acción es irreversible. Se eliminarán de Supabase los PDFs, los registros del reporte y sus evidencias propias. Las vinculaciones médicas o de seguridad pueden bloquear la eliminación. La auditoría administrativa y respaldos separados pueden permanecer.');
 }
 export async function changeReportCenterTrash(db,{projectId,kind,id,title,action}){
  if(!REPORT_CENTER_KINDS.has(kind)||!projectId||!String(id||'').trim())
