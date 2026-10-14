@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
 import {parseAst} from 'rollup/parseAst';
-import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage} from '../src/report-center-trash.js';
+import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion} from '../src/report-center-trash.js';
 import {groupFinalWalkReportsByCreator} from '../src/report-groups.js';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const node=parseAst(source).body.find(x=>x.type==='FunctionDeclaration'&&x.id.name==='reportCenter');
@@ -79,7 +79,7 @@ async function setup(role='admin'){
   tr:en=>en,esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
   fmt:()=> 'Oct 14',localDateKey:()=> '2026-10-14',captureView:()=>()=>true,
   toolsHomeMarkup:()=>'',safetyTools:{bindHome(){}},nativeReportArchiveAvailable:()=>false,
-  reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,
+  reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,
   groupFinalWalkReportsByCreator,effectiveWalkStatus:()=> 'safe',disciplinaryActionLabel:()=> 'Coaching',
   confirmAction:msg=>messages.push(msg),error:e=>{throw e},
   navigate:(...args)=>navigation.push(args),Date,console
@@ -138,7 +138,7 @@ test('walk cards keep own admin delete button outside record button',async()=>{
  t.doc.querySelector('[data-category="walks"]').click();
  assert.equal(t.doc.querySelectorAll('details.report-person-group').length,1);
  const outer=t.doc.querySelector('.report-center-admin-entry');
- assert.ok(outer);assert.equal(outer.querySelectorAll('button').length,2);
+ assert.ok(outer);assert.equal(outer.querySelectorAll('button').length,3);
  assert.equal(outer.querySelector('button.report-record').contains(outer.querySelector('.report-center-admin-delete')),false);
  t.dom.window.close();
 });
@@ -173,6 +173,60 @@ test('irreversible deletion calls the secure Supabase Edge Function and rejects 
  await assert.rejects(permanentlyPurgeReportFromSupabase({functions:{invoke:async()=>({data:{ok:false}})}},{projectId:proj,kind:'incident',id:incident}),/did not confirm/);
  await assert.rejects(permanentlyPurgeReportFromSupabase(db,{projectId:proj,kind:'incorrect',id:incident}),/Invalid/);
 });
+
+test('Admin sees a direct Delete permanently button on an active report',async()=>{
+ const t=await setup();
+ t.doc.querySelector('[data-category="discipline"]').click();
+ const buttons=[...t.doc.querySelectorAll('.report-center-admin-entry button')];
+ assert.equal(buttons.length,3);
+ assert.match(buttons[2].textContent,/Delete permanently/);
+ buttons[2].click();await tick();await tick();
+ assert.equal(t.rows.safety_discipline.length,0);
+ assert.equal(t.rows.report_center_trash[0].state,'permanent');
+ assert.equal(t.doc.querySelectorAll('.report-record').length,0);
+ assert.ok(t.messages.some(m=>m.includes('permanently deleted')));
+ t.dom.window.close();
+});
+test('canceling direct permanent deletion does not touch Supabase',async()=>{
+ const t=await setup();
+ t.doc.querySelector('[data-category="discipline"]').click();
+ t.dom.window.confirm=()=>false;
+ const perm=t.doc.querySelector('[data-report-action="permanent"]');
+ perm.click();await tick();
+ assert.equal(t.rows.report_center_trash.length,0);
+ assert.equal(t.rows.safety_discipline.length,1);
+ t.dom.window.close();
+});
+test('incorrect confirmation word does not delete a report',async()=>{
+ const t=await setup();
+ t.doc.querySelector('[data-category="discipline"]').click();
+ t.dom.window.prompt=()=> 'NOT DELETE';
+ const perm=t.doc.querySelector('[data-report-action="permanent"]');
+ perm.click();await tick();
+ assert.equal(t.rows.report_center_trash.length,0);
+ assert.equal(t.rows.safety_discipline.length,1);
+ t.dom.window.close();
+});
+test('direct permanent operation failure keeps report in Admin Trash and does not claim it is deleted',async()=>{
+ const t=await setup();
+ t.doc.querySelector('[data-category="discipline"]').click();
+ t.db.functions.invoke=async()=>({data:{error:'Linked medical record prevents deletion'}});
+ t.doc.querySelector('[data-report-action="permanent"]').click();await tick();await tick();
+ assert.equal(t.rows.safety_discipline.length,1);
+ assert.equal(t.rows.report_center_trash[0].state,'trashed');
+ assert.equal(t.doc.querySelector('.report-center-admin-trash').hidden,false);
+ assert.equal(t.doc.querySelectorAll('.report-center-trash-item').length,1);
+ assert.ok(!t.messages.some(m=>m.includes('permanently deleted')));
+ t.dom.window.close();
+});
+test('double confirmation uses ELIMINAR for Spanish and DELETE for English',()=>{
+ const calls=[];
+ const win={confirm:()=>true,prompt:message=>{calls.push(message);return 'ELIMINAR'}};
+ assert.equal(confirmPermanentReportDeletion(win,{title:'Prueba',tr:(_,es)=>es,language:'es'}),true);
+ assert.equal(confirmPermanentReportDeletion(win,{title:'Test',tr:en=>en,language:'en'}),false);
+ assert.equal(calls.length,2);
+});
+
 test('Supabase purge endpoint validates administrator, source, physical Storage and audit',()=>{
  const code=readFileSync(new URL('../supabase/functions/purge-report-center/index.ts',import.meta.url),'utf8');
  assert.match(code,/admin\.auth\.getUser\(bearer\.slice\(7\)\)/);
