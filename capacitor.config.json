@@ -1,0 +1,8 @@
+{
+  "appId": "com.geone.safety",
+  "appName": "G&E ONE",
+  "webDir": "dist",
+  "server": {
+    "iosScheme": "capacitor"
+  }
+}
