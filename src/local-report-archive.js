@@ -72,10 +72,13 @@ export async function saveLocalReport({blob,filename,projectId,projectName,repor
  const scopeKey=[projectId,reportType,sourceId||reportNumber||filename].join('|');
  const key=fingerprintKey(scopeKey),fileName=safePart(String(filename||'GE-Report.pdf').replace(/\.pdf$/i,''),'GE-Report')+'-'+key+'.pdf';
  const storage=storageFor(env),index=getIndex(storage,userId);
+ // Persist a short hash only. Never save report HTML or employee data in the
+ // shortcut index: those belong exclusively inside the actual PDF.
+ const reportFingerprint=fingerprintKey(fingerprint||blob.size);
  const previous=index.find(x=>x.key===key&&x.projectId===projectId&&x.reportType===reportType);
  const folder=previous?.path?.includes('/')?previous.path.slice(0,previous.path.lastIndexOf('/')):ROOT+'/'+projectDir+'/'+category+'/'+month;
  const path=folder+'/'+(previous?.filename||fileName);
- if(previous&&previous.fingerprint===fingerprint){
+ if(previous&&previous.fingerprint===reportFingerprint){
   try{
    const stat=await fs.stat({path,directory:DIRECTORY});
    if(Number(stat.size)>0)return {...previous,alreadySaved:true}
@@ -89,7 +92,7 @@ export async function saveLocalReport({blob,filename,projectId,projectName,repor
  if(!Number(stat.size))throw new Error('PDF was not verified on the iPad');
  const record={key,projectId,reportType,reportNumber:String(reportNumber||'').slice(0,90),
   sourceId:String(sourceId||'').slice(0,90),filename:previous?.filename||fileName,
-  path,fingerprint:String(fingerprint||''),size:Number(stat.size),savedAt:new Date().toISOString()};
+  path,fingerprint:reportFingerprint,size:Number(stat.size),savedAt:new Date().toISOString()};
  const next=index.filter(x=>!(x.key===key&&x.projectId===projectId&&x.reportType===reportType));
  next.unshift(record);
  try{storage?.setItem(INDEX_PREFIX+userId,JSON.stringify(next))}catch{
