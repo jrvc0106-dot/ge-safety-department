@@ -75,7 +75,10 @@ export async function saveLocalReport({blob,filename,projectId,projectName,repor
  // Persist a short hash only. Never save report HTML or employee data in the
  // shortcut index: those belong exclusively inside the actual PDF.
  const reportFingerprint=fingerprintKey(fingerprint||blob.size);
- const previous=index.find(x=>x.key===key&&x.projectId===projectId&&x.reportType===reportType);
+ const recordFromIndex=index.find(x=>x.key===key&&x.projectId===projectId&&x.reportType===reportType);
+ const previous=recordFromIndex&&recordFromIndex.path.startsWith(ROOT+'/')&&
+  !recordFromIndex.path.split('/').includes('..')&&
+  recordFromIndex.filename===recordFromIndex.path.split('/').at(-1)?recordFromIndex:null;
  const folder=previous?.path?.includes('/')?previous.path.slice(0,previous.path.lastIndexOf('/')):ROOT+'/'+projectDir+'/'+category+'/'+month;
  const path=folder+'/'+(previous?.filename||fileName);
  if(previous&&previous.fingerprint===reportFingerprint){
@@ -104,7 +107,7 @@ export async function saveLocalReport({blob,filename,projectId,projectName,repor
 }
 export async function openLocalReport(record,{env=globalThis}={}){
  const fs=nativePlugin(env);
- if(!fs||!record?.path?.startsWith(ROOT+'/'))throw new Error('Local report unavailable');
+ if(!fs||!record?.path?.startsWith(ROOT+'/')||record.path.split('/').some(part=>part==='..'||part==='.'))throw new Error('Local report unavailable');
  let stat;
  try{stat=await fs.stat({path:record.path,directory:DIRECTORY})}
  catch{throw new Error('The report was moved or deleted from Files')}
@@ -113,6 +116,10 @@ export async function openLocalReport(record,{env=globalThis}={}){
  if(!share||typeof share.share!=='function')throw new Error('Install @capacitor/share to open saved reports');
  const result=await fs.getUri({path:record.path,directory:DIRECTORY});
  if(!result?.uri)throw new Error('PDF link unavailable');
- await share.share({title:record.filename,url:result.uri,dialogTitle:'Open or share G&E report'});
+ try{await share.share({title:record.filename,files:[result.uri],dialogTitle:'Open or share G&E report'})}
+ catch(err){
+  if(/cancell?ed|user cancelled|user canceled/i.test(String(err?.message||'')))return false;
+  throw err;
+ }
  return true;
 }
