@@ -1,0 +1,43 @@
+/**
+ * Report Center removal is a document-index operation, not source-data deletion.
+ * Report source rows, photographs and PDF originals are never modified here.
+ */
+export const REPORT_CENTER_KINDS=new Set(['daily','walk','discipline','correction','observation','incident','equipment','inventory','document']);
+export const reportCenterKey=(kind,id)=>String(kind)+'|'+String(id);
+export function reportCenterHidden(rows,kind,id){
+ const record=rows.find(x=>x.report_kind===kind&&x.report_id===String(id));
+ return Boolean(record&&record.state!=='active');
+}
+export function reportCenterVisible(rows,kind,records,idOf=x=>x.id){
+ return records.filter(x=>!reportCenterHidden(rows,kind,idOf(x)));
+}
+export function reportCenterTrashRows(rows){
+ return rows.filter(x=>x.state==='trashed').sort((a,b)=>String(b.deleted_at||'').localeCompare(String(a.deleted_at||'')));
+}
+export function reportCenterDeleteMessage(title,project,tr){
+ return tr('Move the report to the Admin Trash?\n','¿Mover el reporte a la papelera administrativa?\n')+
+  '\n'+title+'\n'+project+'\n\n'+
+  tr('This removes it from Report Center but preserves the original safety record, evidence and PDFs. Only Admin may restore it.','Esto lo retira del Centro de Reportes, pero conserva el registro original, evidencias y PDFs. Solo Admin podrá restaurarlo.');
+}
+export function reportCenterPermanentMessage(title,tr){
+ return tr('Permanently remove this report from Report Center?','¿Eliminar definitivamente este reporte del Centro de Reportes?')+
+  '\n\n'+title+'\n\n'+
+  tr('This action cannot be undone in the Report Center. Original safety records and PDF evidence remain retained for audits.','Esta acción no se puede deshacer desde el Centro de Reportes. Los registros originales y la evidencia PDF se conservan para auditorías.');
+}
+export async function changeReportCenterTrash(db,{projectId,kind,id,title,action}){
+ if(!REPORT_CENTER_KINDS.has(kind)||!projectId||!String(id||'').trim())
+  throw new Error('Invalid report center record');
+ if(!['trash','restore','permanent'].includes(action))throw new Error('Invalid report center operation');
+ const table=db.from('report_center_trash'),match={project_id:projectId,report_kind:kind,report_id:String(id)};
+ let result;
+ if(action==='trash'){
+  result=await table.upsert({...match,report_title:String(title||'Report').slice(0,240),state:'trashed'},{onConflict:'project_id,report_kind,report_id'}).select('project_id,report_kind,report_id,report_title,state,deleted_at,deleted_by').single();
+ }else{
+  result=await table.update({state:action==='restore'?'active':'permanent'})
+   .eq('project_id',projectId).eq('report_kind',kind).eq('report_id',String(id)).eq('state','trashed')
+   .select('project_id,report_kind,report_id,report_title,state,deleted_at,deleted_by').single();
+ }
+ if(result.error)throw result.error;
+ if(!result.data)throw new Error('Report center operation was not confirmed');
+ return result.data;
+}
