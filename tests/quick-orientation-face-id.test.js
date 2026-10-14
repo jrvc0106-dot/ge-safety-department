@@ -11,17 +11,18 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=parseAst(source);
 const fn=name=>{const node=ast.body.find(x=>x.type==='FunctionDeclaration'&&x.id.name===name);assert.ok(node,name);return source.slice(node.start,node.end)};
 
-test('Quick Employee Face ID has a separate front camera and gallery, preserving four jobsite photos',()=>{
+test('Quick Employee Face ID retains front camera and gallery without Jobsite Photos controls',()=>{
  const markup=quickSafetyOrientationForm({tr,esc,project:{name:'Jobsite'},profile:{}});
  assert.ok(markup.includes('Employee Face ID'));
  assert.ok(markup.includes('id="quick-face-camera"'));
  assert.ok(markup.includes('capture="user"'));
  assert.ok(markup.includes('id="quick-face-gallery"'));
  assert.ok(markup.includes('id="quick-face-preview"'));
- assert.ok(markup.includes('id="quick-photo-camera"'));
- assert.ok(markup.includes('id="quick-photo-gallery"'));
- assert.ok(markup.includes('id="quick-photo-preview"'));
- assert.ok(markup.includes('/ 4'));
+ assert.ok(!markup.includes('id="quick-photo-camera"'));
+ assert.ok(!markup.includes('id="quick-photo-gallery"'));
+ assert.ok(!markup.includes('id="quick-photo-preview"'));
+ assert.ok(!markup.includes('Jobsite Photos'));
+ assert.ok(markup.includes('Employee Acknowledgment'));
 });
 
 test('verified Quick sticker renders the saved Face ID photo without deforming, and legacy records get a placeholder',()=>{
@@ -36,7 +37,7 @@ test('verified Quick sticker renders the saved Face ID photo without deforming, 
  assert.ok(!legacy.includes('class="quick-sticker-face"'));
 });
 
-test('new Quick Orientation saves a required employee face photo separately from jobsite photos',async()=>{
+test('new Quick Orientation saves required Face ID without Jobsite Photos',async()=>{
  const dom=new JSDOM('<main id="app"></main>'),doc=dom.window.document,uploads=[],writes=[],errors=[],urls=[];
  let serial=0;
  dom.window.URL.createObjectURL=()=> 'blob:face-'+(++serial);
@@ -74,22 +75,18 @@ test('new Quick Orientation saves a required employee face photo separately from
  Object.defineProperty(faceInput,'files',{configurable:true,value:[faceFile]});
  faceInput.onchange({target:faceInput});
  assert.ok(doc.querySelector('.quick-face-photo img'));
- const jobsiteInput=doc.querySelector('#quick-photo-gallery');
- Object.defineProperty(jobsiteInput,'files',{configurable:true,value:[new dom.window.File(['photo'],'site.jpg',{type:'image/jpeg'})]});
- jobsiteInput.onchange({target:jobsiteInput});
- assert.equal(doc.querySelectorAll('.quick-photo-preview img').length,1);
  await form.onsubmit({preventDefault(){}});
  assert.equal(errors.length,1);
- assert.equal(uploads.length,2);
+ assert.equal(uploads.length,1);
  const faceUpload=uploads.find(x=>x.path.includes('/face-'));
  assert.ok(faceUpload);
  assert.ok(faceUpload.path.startsWith('project-1/person-1/quick-123/'));
  const final=writes.find(x=>x.kind==='update').payload;
  assert.equal(final.face_photo_path,faceUpload.path);
- assert.equal(final.photo_paths.length,1);
+ assert.equal(final.photo_paths.length,0);
  assert.ok(!final.photo_paths.includes(faceUpload.path));
  assert.equal(final.status,'final');
  assert.equal(nav.at(-1)[0],'quickOrientationReport');
- assert.ok(urls.length>=2);
+ assert.ok(urls.length>=1);
  dom.window.close();
 });
