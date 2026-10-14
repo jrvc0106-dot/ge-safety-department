@@ -1875,3 +1875,50 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .quick-report-employee>.quick-report-emergency-contact{grid-column:1/-1;display:flex;align-items:baseline;gap:10px;padding:5px 9px;border-top:1px solid #d9e2ec;border-right:0}
 .quick-report-employee>.quick-report-emergency-contact span{flex:0 0 auto;margin:0}
 .quick-report-employee>.quick-report-emergency-contact b{flex:1;min-width:0;margin:0}
+
+
+/* Employee Safety Discipline: organized four-step tablet form, no field removal */
+.discipline-shell #discipline-form{display:grid;gap:14px;max-width:1120px;margin:0 auto}
+.discipline-step-progress{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:2px}
+.discipline-progress-label{padding:11px 9px;border:1px solid #64717d;border-radius:10px;background:#2c363e;color:#dbe2e7;font-size:11px;font-weight:750;line-height:1.3;text-align:center}
+.discipline-progress-label.active{background:#53616d;color:#fff;border-color:#cbd4db;box-shadow:inset 0 -3px 0 #cbd4db}
+.discipline-step{min-width:0;border:1px solid #687783;border-radius:13px;background:#2a343c;color:#f5f7f9;overflow:visible}
+.discipline-step>summary{cursor:pointer;display:flex;align-items:center;gap:13px;padding:17px 18px;background:#384650;border-radius:12px;list-style:none;min-height:72px;user-select:none}
+.discipline-step>summary::-webkit-details-marker{display:none}
+.discipline-step>summary:after{content:'⌄';font-size:22px;font-weight:900;margin-left:auto;color:#fff}
+.discipline-step[open]>summary:after{content:'⌃'}
+.discipline-step-number{height:39px;width:39px;flex:none;border-radius:10px;display:grid;place-items:center;background:#596975;color:#fff;font-weight:900;letter-spacing:.03em}
+.discipline-step-heading{display:flex;flex-direction:column;gap:4px;min-width:0}
+.discipline-step-heading strong{font-size:16px;line-height:1.2;color:#fff}
+.discipline-step-heading small{font-size:12px;line-height:1.4;color:#d2dce3}
+.discipline-step[open]>.discipline-step-body{display:grid;gap:15px;padding:18px}
+.discipline-step-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.discipline-step-fields>label{display:grid;gap:6px;min-width:0;color:#f3f6f8;font-size:13px;font-weight:750}
+.discipline-step-fields>label:has(textarea),.discipline-step-fields>.discipline-sticker-lookup,.discipline-step-fields>.employee-discipline-summary,.discipline-step-fields>.jha-approval-fields,.discipline-step-fields>small{grid-column:1/-1}
+.discipline-step-fields>label.check-line{display:flex;align-items:center;gap:10px;min-height:43px}
+.discipline-step-fields>label.check-line input{flex:none}
+.discipline-step-fields input,.discipline-step-fields select,.discipline-step-fields textarea{width:100%;min-width:0;min-height:44px}
+.discipline-step-fields input[type='checkbox'],.discipline-step-fields input[type='file']{min-height:0}
+.discipline-step-fields textarea{min-height:98px}
+.discipline-extra{border:1px solid #65737e;border-radius:10px;background:#343f48}
+.discipline-extra>summary{cursor:pointer;padding:14px 16px;font-size:13px;font-weight:850;color:#eef3f7}
+.discipline-extra[open]>.discipline-step-fields{padding:0 15px 15px}
+.discipline-step-nav{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.discipline-step-nav button{width:auto;min-width:155px;min-height:46px;margin:0}
+.discipline-step-nav button[type='submit']{background:#e6ebef!important;color:#18232c!important;border:1px solid #e6ebef;font-weight:900;min-width:230px}
+.discipline-final-note{margin:0;padding:12px 14px;border-left:3px solid #aab7c0;color:#e9eff3;background:#36434c;border-radius:6px;font-size:13px;line-height:1.5}
+.discipline-step-fields .employee-discipline-summary{background:#f3f6f9;color:#102a43}
+.discipline-step-fields .discipline-sticker-lookup{background:#f5f8fb;padding:12px;border-radius:9px;color:#15232e}
+@media(max-width:760px){.discipline-step-progress{grid-template-columns:repeat(2,minmax(0,1fr))}.discipline-step-fields{grid-template-columns:1fr}.discipline-step[open]>.discipline-step-body{padding:13px}.discipline-step>summary{padding:13px}.discipline-step-nav button{flex:1 1 160px}.discipline-step-nav button[type='submit']{flex:1 1 100%;min-width:0}}
+@media print{
+ .discipline-report-pro .dr-section-title{break-after:avoid}
+ .discipline-report-pro .dr-grid>div,.discipline-report-pro .dr-two>div,.discipline-report-pro .dr-narrative,.discipline-report-pro .dr-callout,.discipline-report-pro .dr-photo-grid figure,.discipline-report-pro .dr-ack,.discipline-report-pro .report-signatures{break-inside:avoid;page-break-inside:avoid}
+ .discipline-report-pro .dr-header,.discipline-report-pro .dr-status{break-inside:avoid}
+}
+.discipline-report-pro{position:relative;isolation:isolate;background:#fff;color:#1f2933}
+.discipline-report-pro .dr-watermark{position:absolute;top:22%;left:20%;width:60%;height:50%;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:.035;z-index:0}
+.discipline-report-pro .dr-watermark img{width:100%;height:100%;object-fit:contain}
+.discipline-report-pro>:not(.dr-watermark){position:relative;z-index:1}
+.discipline-report-pro .dr-section-title h2{color:#1d2a35;letter-spacing:.01em}
+.discipline-report-pro .dr-narrative p{overflow-wrap:anywhere}
+.discipline-report-pro .dr-grid strong{overflow-wrap:anywhere}
