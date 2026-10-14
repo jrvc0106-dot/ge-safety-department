@@ -1745,6 +1745,118 @@ async function reportCenter(){
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}
  function row(kind,id,name,meta,status='',type='',timestamp=new Date().toISOString()){return '<button class="report-record" data-time="'+new Date(timestamp).getTime()+'" data-kind="'+esc(kind)+'" data-id="'+esc(id)+'"><div class="report-record-main"><strong>'+esc(name)+'</strong>'+docMeta(type,id)+'<span>'+esc(meta)+'</span></div>'+(status?'<span class="report-record-status">'+esc(status)+'</span>':'')+'<span class="report-open-pdf">PDF / '+tr('VIEW','VER')+' ›</span></button>'}
  function bind(){list.querySelectorAll('.report-record').forEach(el=>el.onclick=()=>{const k=el.dataset.kind,id=el.dataset.id;if(k==='daily')navigate('report');else if(k==='walk')navigate('safetyWalkReport',id);else if(k==='discipline')navigate('disciplineReport',id);else if(k==='incident')navigate('incidentReport',id);else if(k==='equipment')navigate('equipmentInspectionReport',id);else if(k==='inventory')navigate('inventoryReport');else if(k==='correction'){const c=corrections.data.find(x=>x.id===id);if(c)navigate('observationReport',c.observation_id)}else navigate('observationReport',id)})}
+ let trashOpen=false,trashToggle=null,trashPanel=null;
+ function updateCenterCounts(){
+  const values={
+   daily:todayObs.length&&!hidden('daily',todayReportId)?1:0,
+   walks:visible('walk',walks.data).length,
+   observations:visible('observation',obs).length,
+   corrections:visible('correction',corrections.data).length,
+   discipline:visible('discipline',disc.data).length,
+   incidents:visible('incident',incidentReports).length,
+   'near-misses':visible('incident',nearMissReports).length,
+   equipment:visible('equipment',equipmentRows).length,
+   inventory:inventoryRows.length&&!hidden('inventory',inventoryReportId)?inventoryRows.length:0
+  };
+  document.querySelectorAll('.report-category').forEach(button=>{
+   const counter=button.querySelector('strong');
+   if(counter&&Object.hasOwn(values,button.dataset.category))counter.textContent=values[button.dataset.category]
+  });
+  if(trashToggle)trashToggle.textContent=tr('Admin Trash','Papelera Admin')+' ('+reportCenterTrashRows(trashEntries).length+')';
+ }
+ function setTrashRow(row){
+  const index=trashEntries.findIndex(x=>x.report_kind===row.report_kind&&x.report_id===row.report_id);
+  if(index>=0)trashEntries[index]={...trashEntries[index],...row};
+  else trashEntries.push(row);
+  updateCenterCounts();
+ }
+ function decorateDeleteButtons(){
+  if(!isAdmin)return;
+  for(const record of list.querySelectorAll('.report-record')){
+   if(record.closest('.report-center-admin-entry'))continue;
+   const kind=record.dataset.kind,id=record.dataset.id;
+   if(!kind||!id)continue;
+   const title=record.querySelector('strong')?.textContent?.trim()||tr('Safety report','Reporte de Safety');
+   const wrapper=document.createElement('div');wrapper.className='report-center-admin-entry';
+   record.parentNode.insertBefore(wrapper,record);wrapper.append(record);
+   const button=document.createElement('button');button.type='button';
+   button.className='report-center-admin-delete';
+   button.textContent='⌫ '+tr('Delete','Eliminar');
+   button.setAttribute('aria-label',tr('Delete from Report Center: ','Eliminar del Centro de Reportes: ')+title);
+   button.onclick=async()=>{
+    if(!window.confirm(reportCenterDeleteMessage(title,project.name||'',tr)))return;
+    button.disabled=true;
+    try{
+     const updated=await changeReportCenterTrash(db,{projectId:state.project,kind,id,title,action:'trash'});
+     if(!viewCurrent())return;
+     setTrashRow(updated);
+     confirmAction(tr('Moved to Admin Trash. Original evidence and report data are preserved.','Movido a la Papelera Admin. Los datos y evidencias originales se conservaron.'));
+     draw(currentCategory);
+    }catch(err){if(viewCurrent())error(err)}
+    finally{if(button.isConnected)button.disabled=false}
+   };
+   wrapper.append(button);
+  }
+ }
+ function renderAdminTrash(){
+  if(!trashPanel)return;
+  trashPanel.replaceChildren();
+  const headline=document.createElement('h3');headline.textContent=tr('Administrative Recycle Bin','Papelera de reportes administrativos');
+  const note=document.createElement('p');note.textContent=tr('Restoring brings a report back to Report Center. Permanent removal cannot be undone here. Original safety records, evidence and PDFs are retained for audit and compliance.','Restaurar devuelve el reporte al Centro. La eliminación definitiva no se puede deshacer desde aquí. Los registros originales, evidencias y PDFs se conservan para auditoría y cumplimiento.');
+  trashPanel.append(headline,note);
+  const active=reportCenterTrashRows(trashEntries);
+  if(!active.length){const emptyMessage=document.createElement('p');emptyMessage.textContent=tr('The administrative trash is empty.','La papelera administrativa está vacía.');trashPanel.append(emptyMessage)}
+  for(const entry of active){
+   const box=document.createElement('div');box.className='report-center-trash-item';
+   const detail=document.createElement('div'),caption=document.createElement('strong'),info=document.createElement('small');
+   caption.textContent=entry.report_title||tr('Safety report','Reporte de Safety');
+   info.textContent=entry.report_kind+' · '+(entry.deleted_at?fmt(entry.deleted_at):'')+' · '+tr('Removed by administrator','Retirado por administrador');
+   detail.append(caption,info);box.append(detail);
+   const controls=document.createElement('div');controls.className='report-center-trash-controls';
+   const restore=document.createElement('button');restore.type='button';restore.className='secondary';restore.textContent=tr('Restore','Restaurar');
+   restore.onclick=async()=>{
+    restore.disabled=true;permanent.disabled=true;
+    try{
+     const updated=await changeReportCenterTrash(db,{projectId:state.project,kind:entry.report_kind,id:entry.report_id,title:entry.report_title,action:'restore'});
+     if(!viewCurrent())return;
+     setTrashRow(updated);renderAdminTrash();
+     confirmAction(tr('Report restored to Report Center.','Reporte restaurado al Centro de Reportes.'));
+    }catch(err){if(viewCurrent())error(err)}
+    finally{if(restore.isConnected)restore.disabled=false;if(permanent.isConnected)permanent.disabled=false}
+   };
+   const permanent=document.createElement('button');permanent.type='button';permanent.className='report-center-admin-delete';
+   permanent.textContent=tr('Remove permanently','Eliminar definitivamente');
+   permanent.onclick=async()=>{
+    if(!window.confirm(reportCenterPermanentMessage(entry.report_title,tr)))return;
+    const expected=state.lang==='es'?'ELIMINAR':'DELETE';
+    const response=window.prompt(tr('Type DELETE to confirm permanent removal from Report Center:','Escriba ELIMINAR para confirmar la eliminación definitiva del Centro de Reportes:'), '');
+    if(String(response||'').trim()!==expected)return;
+    permanent.disabled=true;restore.disabled=true;
+    try{
+     const updated=await changeReportCenterTrash(db,{projectId:state.project,kind:entry.report_kind,id:entry.report_id,title:entry.report_title,action:'permanent'});
+     if(!viewCurrent())return;
+     setTrashRow(updated);renderAdminTrash();
+     confirmAction(tr('Report removed permanently from Report Center. Original evidence and records remain preserved.','Reporte eliminado definitivamente del Centro de Reportes. Los registros y evidencias originales permanecen conservados.'));
+    }catch(err){if(viewCurrent())error(err)}
+    finally{if(permanent.isConnected)permanent.disabled=false;if(restore.isConnected)restore.disabled=false}
+   };
+   controls.append(restore,permanent);box.append(controls);trashPanel.append(box);
+  }
+  const permanentCount=trashEntries.filter(x=>x.state==='permanent').length;
+  if(permanentCount){
+   const foot=document.createElement('small');
+   foot.textContent=permanentCount+' '+tr('report(s) previously removed permanently from the Center; audit history retained.','reporte(s) eliminados definitivamente del Centro; historial de auditoría conservado.');
+   trashPanel.append(foot);
+  }
+ }
+ function toggleAdminTrash(open){
+  if(!isAdmin||!trashPanel)return;
+  trashOpen=Boolean(open);
+  trashPanel.hidden=!trashOpen;list.hidden=trashOpen;filterBar.hidden=trashOpen;
+  trashToggle.setAttribute('aria-pressed',String(trashOpen));
+  if(trashOpen){title.textContent=tr('Admin Trash','Papelera Admin');renderAdminTrash()}
+  else draw(currentCategory);
+ }
  function applyFilters(){
   const q=(search.value||'').toLowerCase(),range=dateFilter.value,now=Date.now();
   const groups=[...list.querySelectorAll('.report-person-group')];
@@ -1771,7 +1883,9 @@ async function reportCenter(){
   });
  }
  function walkRecordStatus(x){const d=registered.find(item=>item.report_type==='daily_safety_walk'&&item.source_id===x.id);if(d?.document_status!=='final')return tr('NOT FINALIZED','NO FINALIZADO');const status=effectiveWalkStatus(x.overall_status,x.items);return status==='unsafe'?tr('Unsafe','No seguro'):status==='needs_attention'?tr('Needs Attention','Necesita atención'):tr('Safe','Seguro')}
- function draw(key){currentCategory=key;document.querySelectorAll('.report-category').forEach(x=>x.classList.toggle('selected',x.dataset.category===key));const cat=cats.find(x=>x.key===key);title.textContent=cat?.title||'';if(key==='walks'){library.classList.add('report-creator-mode');libraryHead.append(filterBar)}else{library.classList.remove('report-creator-mode');library.insertBefore(filterBar,list)}
+ function draw(key){
+  if(trashOpen&&trashPanel){trashOpen=false;trashPanel.hidden=true;list.hidden=false;filterBar.hidden=false;if(trashToggle)trashToggle.setAttribute('aria-pressed','false')}
+  currentCategory=key;document.querySelectorAll('.report-category').forEach(x=>x.classList.toggle('selected',x.dataset.category===key));const cat=cats.find(x=>x.key===key);title.textContent=cat?.title||'';if(key==='walks'){library.classList.add('report-creator-mode');libraryHead.append(filterBar)}else{library.classList.remove('report-creator-mode');library.insertBefore(filterBar,list)}
   if(key==='daily')list.innerHTML=todayObs.length&&!hidden('daily',todayReportId)?row('daily',todayReportId,tr("Today's Daily Safety Report",'Daily Safety Report de Hoy'),tr('Generated from today’s project activity','Generado desde la actividad del proyecto de hoy'),tr('PDF READY','LISTO PARA PDF')):empty();
   else if(key==='walks'){
    const groups=groupFinalWalkReportsByCreator(visible('walk',walks.data),registered,tr('Unknown creator','Creador desconocido'));
@@ -1800,7 +1914,14 @@ async function reportCenter(){
   else if(key==='near-misses')list.innerHTML=visible('incident',nearMissReports).length?visible('incident',nearMissReports).map(x=>row('incident',x.id,x.report_number||tr('Near Miss Report','Reporte Near Miss'),fmt(x.incident_at||x.created_at)+' · '+(x.employee_name||x.incident_type||'—')+' · '+(x.exact_location||'—'),(x.severity||x.status||'').replaceAll('_',' '),'incident',x.incident_at||x.created_at)).join(''):empty();
   else if(key==='equipment')list.innerHTML=visible('equipment',equipmentRows).length?visible('equipment',equipmentRows).map(x=>row('equipment',x.id,x.report_number||x.equipment_name||x.equipment_type||tr('Equipment Inspection','Inspección de Equipo'),fmt(x.inspection_at||x.created_at)+' · '+(x.equipment_name||x.equipment_type||'—')+' · '+(x.inspector_name||'—'),(x.overall_status||tr('Pending','Pendiente')).replaceAll('_',' '),'equipment_inspection',x.inspection_at||x.created_at)).join(''):empty();
   else if(key==='inventory'){const total=inventoryRows.reduce((n,x)=>n+(Number(x.quantity)||0),0);list.innerHTML=inventoryRows.length&&!hidden('inventory',inventoryReportId)?row('inventory',inventoryReportId,tr('Project Inventory Summary','Resumen de Inventario del Proyecto'),tr(inventoryRows.length+' inventory items · '+total+' units',inventoryRows.length+' artículos de inventario · '+total+' unidades'),tr('VIEW REPORT','VER REPORTE'),''):empty()}
-  bind();applyFilters()
+  bind();decorateDeleteButtons();applyFilters();updateCenterCounts()
+ }
+ if(isAdmin){
+  trashToggle=document.createElement('button');trashToggle.type='button';trashToggle.className='secondary report-center-trash-toggle';
+  trashToggle.setAttribute('aria-pressed','false');trashToggle.onclick=()=>toggleAdminTrash(!trashOpen);
+  libraryHead.append(trashToggle);
+  trashPanel=document.createElement('section');trashPanel.className='report-center-admin-trash';trashPanel.hidden=true;
+  library.insertBefore(trashPanel,list);
  }
  search.oninput=applyFilters;dateFilter.onchange=applyFilters;document.querySelectorAll('.report-category').forEach(x=>x.onclick=()=>draw(x.dataset.category));draw('daily');const tools=document.createElement('section');tools.innerHTML=toolsHomeMarkup(state.profile.role,tr);document.querySelector('.report-center').append(tools);safetyTools.bindHome()
 }
