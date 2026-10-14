@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
 import {parseAst} from 'rollup/parseAst';
-import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,reportCenterDeleteMessage,reportCenterPermanentMessage} from '../src/report-center-trash.js';
+import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage} from '../src/report-center-trash.js';
 import {groupFinalWalkReportsByCreator} from '../src/report-groups.js';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const node=parseAst(source).body.find(x=>x.type==='FunctionDeclaration'&&x.id.name==='reportCenter');
@@ -61,7 +61,15 @@ async function setup(role='admin'){
     }
    };
    return q;
-  },functions:{invoke:async()=>({data:{insights:[]}})}
+  },functions:{invoke:async(name,{body}={})=>{
+   if(name!=='purge-report-center')return {data:{insights:[]}};
+   const record=rows.report_center_trash.find(x=>x.project_id===body.project_id&&x.report_kind===body.report_kind&&x.report_id===body.report_id&&x.state==='trashed');
+   if(role!=='admin'||!record)return {data:{error:'Admin trash record required'}};
+   const table={discipline:'safety_discipline',correction:'corrective_actions',walk:'daily_safety_walks',incident:'incident_reports',equipment:'equipment_inspections'}[body.report_kind];
+   if(table)rows[table]=rows[table].filter(x=>x.id!==body.report_id);
+   record.state='permanent';audit.push('physical_purge');
+   return {data:{ok:true,entry:{...record},removed_storage_files:1,deleted_source_records:1}};
+  }}
  };
  const prompts=[],window=dom.window;
  window.confirm=msg=>{prompts.push(msg);return true};window.prompt=(msg)=>{prompts.push(msg);return 'DELETE'};
@@ -71,7 +79,7 @@ async function setup(role='admin'){
   tr:en=>en,esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
   fmt:()=> 'Oct 14',localDateKey:()=> '2026-10-14',captureView:()=>()=>true,
   toolsHomeMarkup:()=>'',safetyTools:{bindHome(){}},nativeReportArchiveAvailable:()=>false,
-  reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,reportCenterDeleteMessage,reportCenterPermanentMessage,
+  reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,
   groupFinalWalkReportsByCreator,effectiveWalkStatus:()=> 'safe',disciplinaryActionLabel:()=> 'Coaching',
   confirmAction:msg=>messages.push(msg),error:e=>{throw e},
   navigate:(...args)=>navigation.push(args),Date,console
@@ -89,7 +97,7 @@ test('report center trash helpers hide only the exact category and id',()=>{
  assert.deepEqual(reportCenterVisible(entries,'correction',[{id:'same'},{id:'other'}]).map(x=>x.id),['other']);
  assert.equal(reportCenterTrashRows(entries).length,1);
 });
-test('admin can trash, restore and permanently remove a discipline report from center; its original record is untouched',async()=>{
+test('admin trash and restore preserve data but confirmed permanent removal deletes Supabase source',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="discipline"]').click();
  const row=t.doc.querySelector('.report-record');
@@ -109,7 +117,7 @@ test('admin can trash, restore and permanently remove a discipline report from c
  t.doc.querySelector('.report-center-trash-toggle').click();
  t.doc.querySelector('.report-center-trash-controls .report-center-admin-delete').click();await tick();
  assert.equal(t.rows.report_center_trash[0].state,'permanent');
- assert.equal(t.rows.safety_discipline.length,1);
+ assert.equal(t.rows.safety_discipline.length,0);
  assert.deepEqual(t.prompts.filter(x=>/DELETE/.test(x)).length,1);
  t.dom.window.close();
 });
@@ -148,9 +156,32 @@ test('trash and permanent center operations do not call delete on source tables'
  const db={from(table){calls.push(table);const q={upsert:d=>{calls.push(d.state);return q},update:d=>{calls.push(d.state);return q},eq(){return q},select(){return q},single:async()=>({data:{state:'trashed'}})};return q}};
  await changeReportCenterTrash(db,{projectId:proj,kind:'incident',id:incident,title:'INC-1',action:'trash'});
  await changeReportCenterTrash(db,{projectId:proj,kind:'incident',id:incident,action:'restore'});
- await changeReportCenterTrash(db,{projectId:proj,kind:'incident',id:incident,action:'permanent'});
- assert.deepEqual(calls,['report_center_trash','trashed','report_center_trash','active','report_center_trash','permanent']);
+ await assert.rejects(changeReportCenterTrash(db,{projectId:proj,kind:'incident',id:incident,action:'permanent'}),/verified Supabase purge/);
+ assert.deepEqual(calls,['report_center_trash','trashed','report_center_trash','active']);
  await assert.rejects(changeReportCenterTrash(db,{projectId:proj,kind:'unknown',id:incident,action:'trash'}),/Invalid/);
+});
+
+test('irreversible deletion calls the secure Supabase Edge Function and rejects unconfirmed results',async()=>{
+ const calls=[];
+ const db={functions:{invoke:async(name,{body})=>{
+  calls.push({name,body});
+  return {data:{ok:true,entry:{state:'permanent',report_kind:body.report_kind,report_id:body.report_id}}};
+ }}};
+ const result=await permanentlyPurgeReportFromSupabase(db,{projectId:proj,kind:'discipline',id:discipline});
+ assert.equal(result.ok,true);
+ assert.deepEqual(calls,[{name:'purge-report-center',body:{project_id:proj,report_kind:'discipline',report_id:discipline}}]);
+ await assert.rejects(permanentlyPurgeReportFromSupabase({functions:{invoke:async()=>({data:{ok:false}})}},{projectId:proj,kind:'incident',id:incident}),/did not confirm/);
+ await assert.rejects(permanentlyPurgeReportFromSupabase(db,{projectId:proj,kind:'incorrect',id:incident}),/Invalid/);
+});
+test('Supabase purge endpoint validates administrator, source, physical Storage and audit',()=>{
+ const code=readFileSync(new URL('../supabase/functions/purge-report-center/index.ts',import.meta.url),'utf8');
+ assert.match(code,/admin\.auth\.getUser\(bearer\.slice\(7\)\)/);
+ assert.match(code,/actor\?\.role!=="admin"/);
+ assert.match(code,/trash\?\.state!=="trashed"/);
+ assert.match(code,/admin\.storage\.from\(bucket\)\.remove/);
+ assert.match(code,/from\("report_documents"\)\.delete/);
+ assert.match(code,/from\(source\.table\)\.delete/);
+ assert.match(code,/employee_medical_followups/);
 });
 test('database migration enforces row security, server role checks and immutable audit',()=>{
  const sql=readFileSync(new URL('../supabase/migrations/20261014170000_admin_report_center_trash.sql',import.meta.url),'utf8');
