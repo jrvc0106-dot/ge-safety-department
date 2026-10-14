@@ -17,7 +17,9 @@ test('team field quick sticker verification includes saved employee information 
 });
 test('quick sticker view does not invent absent evidence or unrelated hazards',()=>{
  const html=quickStickerVerificationMarkup({...record,emergency_contact:null,hazards:[],photo_paths:[]},{tr,esc,fmt,photos:[]});
- assert.ok(html.includes('No jobsite photos'));
+ assert.ok(!html.includes('Jobsite Photos'));
+ assert.ok(!html.includes('QUICK ORIENTATION EVIDENCE'));
+ assert.ok(!html.includes('orientation-evidence-grid'));
  assert.ok(html.includes('No hazard selections'));
  assert.ok(!html.includes('Scaffolds / swing stages'));
 });
