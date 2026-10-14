@@ -24,6 +24,20 @@ export function reportCenterPermanentMessage(title,tr){
   '\n\n'+title+'\n\n'+
   tr('This cannot be undone. Supabase PDF files, report records and their own evidence will be deleted. Linked medical or safety records may block deletion. Admin audit logs and separate backups may remain.','Esta acción es irreversible. Se eliminarán de Supabase los PDFs, los registros del reporte y sus evidencias propias. Las vinculaciones médicas o de seguridad pueden bloquear la eliminación. La auditoría administrativa y respaldos separados pueden permanecer.');
 }
+/**
+ * Confirm twice before an irreversible removal. Run synchronously from the
+ * user's button click; cancel/mismatched confirmation never touches Supabase.
+ */
+export function confirmPermanentReportDeletion(win,{title,tr,language='en'}){
+ if(!win?.confirm?.(reportCenterPermanentMessage(title,tr)))return false;
+ const expected=language==='es'?'ELIMINAR':'DELETE';
+ const typed=win.prompt?.(tr(
+  'Type DELETE to permanently delete this report from Supabase:',
+  'Escriba ELIMINAR para borrar definitivamente este reporte de Supabase:'
+ ),'');
+ return String(typed||'').trim()===expected;
+}
+
 export async function changeReportCenterTrash(db,{projectId,kind,id,title,action}){
  if(!REPORT_CENTER_KINDS.has(kind)||!projectId||!String(id||'').trim())
   throw new Error('Invalid report center record');
