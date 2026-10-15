@@ -22,7 +22,7 @@ export function inspectConfinedSpace(form,definition,translate=(en)=>en){
  for(const role of ['entry_supervisor','attendant','safety']){
   const name='jha_'+role+'_name',sig='jha_'+role+'_signature';
   let strokes=[];try{strokes=JSON.parse(data.get(sig)||'[]')}catch{}
-  if(missing(name)||!Array.isArray(strokes)||!strokes.length)issues.push({name,problem:translate('Required name or signature missing','Falta nombre o firma obligatoria')+': '+role.replaceAll('_',' ')});
+  if(missing(name)||!Array.isArray(strokes)||!strokes.length)issues.push({name:missing(name)?name:sig,problem:translate('Required name or signature missing','Falta nombre o firma obligatoria')+': '+role.replaceAll('_',' ')});
  }
  return issues;
 }
@@ -31,7 +31,7 @@ export function mountConfinedSpaceAssistant(form,definition,translate=(en)=>en){
  panel.className='st-cs-assistant';
  const trigger=document.createElement('button');trigger.type='button';trigger.className='secondary';
  trigger.textContent=translate('✨ Quick AI-style permit review','✨ Asistente inteligente: revisar mi permiso');
- const status=document.createElement('p');status.setAttribute('role','status');
+ const status=document.createElement('p');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
  const results=document.createElement('div');
  panel.append(trigger,status,results);form.prepend(panel);
  let currentIssues=[];
@@ -49,6 +49,7 @@ export function mountConfinedSpaceAssistant(form,definition,translate=(en)=>en){
  function review(){
   const problems=inspectConfinedSpace(form,definition,translate);
   results.replaceChildren();
+  panel.classList.toggle('st-cs-assistant-alert',problems.length>0);
   currentIssues=problems;currentIndex=0;next.hidden=!problems.length;
   form.querySelectorAll('.st-cs-needs-attention').forEach(el=>{el.classList.remove('st-cs-needs-attention');el.removeAttribute('data-cs-missing')});
   problems.forEach(item=>{const target=Array.from(form.elements).find(el=>el.name===item.name);if(target){const section=target.closest('.st-cs-check-row, label, .jha-signature-block, .report-signature-field')||target;section.classList.add('st-cs-needs-attention');section.setAttribute('data-cs-missing','true')}});
@@ -62,6 +63,8 @@ export function mountConfinedSpaceAssistant(form,definition,translate=(en)=>en){
  trigger.onclick=()=>{review();if(currentIssues.length)gotoIssue(currentIssues[0]);};
  form.addEventListener('invalid',event=>{if(event.target?.name)review();},true);
  form.addEventListener('submit',()=>review(),true);
- form.addEventListener('change',()=>{if(results.childElementCount)review();});
+ form.addEventListener('change',review);
+ form.addEventListener('input',()=>{if(currentIssues.length)review();});
+ review();
  return {review};
 }
