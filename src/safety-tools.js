@@ -153,7 +153,7 @@ export function createSafetyTools(ctx){
       const required=['space_id','location','purpose','classification','hazards','isolation','acceptable_conditions','atmospheric_tests','entrants','attendants','entry_supervisor','rescue_service','rescue_procedure','entry_conditions_verified','authorization'];
       const incomplete=required.filter(name=>!String(data.get(name)||'').trim());
       if(incomplete.length)throw Error(tr('Required confined-space permit fields are incomplete. Save the auto-draft and complete all permit details before recording.','Faltan campos obligatorios del permiso de espacio confinado. Guarde el borrador automático y complete los detalles antes de registrar.'));
-      for(let i=0;i<11;i++){if(!String(data.get('check_'+i)||'').trim())throw Error(tr('Review every confined-space safety checklist item before saving.','Revise cada punto del checklist antes de guardar.'));}
+      for(let i=0;i<TOOL_DEFINITIONS.confined_space.checklist.length;i++){if(!String(data.get('check_'+i)||'').trim())throw Error(tr('Review every confined-space safety checklist item before saving.','Revise cada punto del checklist antes de guardar.'));}
      }
     if(kind==='confined_space'){
       const permits=new FormData(f);
@@ -164,7 +164,7 @@ export function createSafetyTools(ctx){
        if(!name||!Array.isArray(strokes)||!strokes.length)throw Error(tr('Entry supervisor, attendant and safety names and signatures are required. A saved record without these is not an authorized entry permit.','Se requieren nombres y firmas del supervisor de entrada, vigía y safety. Un registro sin ellos no autoriza la entrada.'));
       }
       if(String(permits.get('entry_date')||'').trim()===''||!String(permits.get('entry_start')||'').trim()||!String(permits.get('entry_end')||'').trim())throw Error(tr('Entry date and the permit validity window are required.','Se requieren fecha y período de vigencia del permiso.'));
-      for(let i=0;i<11;i++){if(permits.get('check_'+i)!=='reviewed'&&permits.get('check_'+i)!=='na')throw Error(tr('Resolve all confined-space checklist follow-ups before authorizing entry.','Resuelva los hallazgos del checklist antes de autorizar la entrada.'));}
+      for(let i=0;i<TOOL_DEFINITIONS.confined_space.checklist.length;i++){if(permits.get('check_'+i)!=='reviewed'&&permits.get('check_'+i)!=='na')throw Error(tr('Resolve all confined-space checklist follow-ups before authorizing entry.','Resuelva los hallazgos del checklist antes de autorizar la entrada.'));}
      }
     if(kind==='confined_space'){
       const fdata=new FormData(f);
