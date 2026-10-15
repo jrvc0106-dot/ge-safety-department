@@ -34,21 +34,32 @@ export function mountConfinedSpaceAssistant(form,definition,translate=(en)=>en){
  const status=document.createElement('p');status.setAttribute('role','status');
  const results=document.createElement('div');
  panel.append(trigger,status,results);form.prepend(panel);
+ let currentIssues=[];
+ let currentIndex=0;
+ const gotoIssue=(item)=>{
+  const target=Array.from(form.elements).find(el=>el.name===item.name);
+  if(!target)return;
+  target.scrollIntoView({behavior:'smooth',block:'center'});
+  target.focus({preventScroll:true});
+ };
+ const next=document.createElement('button');next.type='button';next.className='secondary';
+ next.textContent=translate('Next missing item →','Siguiente pendiente →');next.hidden=true;
+ panel.append(next);
+ next.onclick=()=>{if(!currentIssues.length)return;gotoIssue(currentIssues[currentIndex%currentIssues.length]);currentIndex++};
  function review(){
   const problems=inspectConfinedSpace(form,definition,translate);
   results.replaceChildren();
+  currentIssues=problems;currentIndex=0;next.hidden=!problems.length;
+  form.querySelectorAll('.st-cs-needs-attention').forEach(el=>{el.classList.remove('st-cs-needs-attention');el.removeAttribute('data-cs-missing')});
+  problems.forEach(item=>{const target=Array.from(form.elements).find(el=>el.name===item.name);if(target){const section=target.closest('.st-cs-check-row, label, .jha-signature-block, .report-signature-field')||target;section.classList.add('st-cs-needs-attention');section.setAttribute('data-cs-missing','true')}});
   status.textContent=problems.length?translate('Items to review: ','Puntos por revisar: ')+problems.length:translate('All required entries appear complete. Supervisor must independently verify safe conditions before authorizing entry.','Los datos requeridos parecen completos. El supervisor debe verificar personalmente las condiciones antes de autorizar la entrada.');
   problems.forEach(item=>{
    const b=document.createElement('button');b.type='button';b.className='st-cs-assistant-item';b.textContent=item.problem;
-   b.onclick=()=>{
-    const target=Array.from(form.elements).find(el=>el.name===item.name);
-    if(!target)return;
-    target.scrollIntoView({behavior:'smooth',block:'center'});target.focus({preventScroll:true});
-   };
+   b.onclick=()=>gotoIssue(item);
    results.append(b);
   });
  }
- trigger.onclick=review;
+ trigger.onclick=()=>{review();if(currentIssues.length)gotoIssue(currentIssues[0]);};
  form.addEventListener('invalid',event=>{if(event.target?.name)review();},true);
  form.addEventListener('submit',()=>review(),true);
  form.addEventListener('change',()=>{if(results.childElementCount)review();});
