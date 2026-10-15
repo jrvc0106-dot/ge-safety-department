@@ -19,3 +19,5 @@
 .st-shell .st-notepad-text{display:block;width:100%;min-height:310px;resize:vertical;box-sizing:border-box;border:0;outline:0;background:transparent;color:#24313a;font-size:17px;line-height:1.65;padding:10px;font-family:inherit}
 .st-shell .st-notepad-text:focus{box-shadow:inset 0 -2px #8b9ca7}
 @media(max-width:760px){.st-shell .st-notepad-text{min-height:42vh;font-size:16px}}
+
+.st-cs-assistant{padding:16px;margin:12px 0 22px;border:1px solid #b9cbdc;border-radius:12px;background:#f6f9fc}.st-cs-assistant>button{min-height:48px;font-weight:700}.st-cs-assistant-item{display:block;width:100%;text-align:left;margin:7px 0;padding:12px;background:#fff;color:#253c53;border:1px solid #ccd7e3;border-radius:8px;min-height:44px}.st-cs-assistant-item:hover{border-color:#2b65a0}.st-cs-assistant p{font-weight:650}
