@@ -23,3 +23,9 @@
 .st-cs-assistant{padding:16px;margin:12px 0 22px;border:1px solid #b9cbdc;border-radius:12px;background:#f6f9fc}.st-cs-assistant>button{min-height:48px;font-weight:700}.st-cs-assistant-item{display:block;width:100%;text-align:left;margin:7px 0;padding:12px;background:#fff;color:#253c53;border:1px solid #ccd7e3;border-radius:8px;min-height:44px}.st-cs-assistant-item:hover{border-color:#2b65a0}.st-cs-assistant p{font-weight:650}
 
 .st-shell .st-cs-needs-attention{outline:2px solid #c42d2d!important;outline-offset:3px;border-radius:8px;background:#fff8f1!important}.st-shell .st-cs-needs-attention:focus-within{outline:3px solid #bd351e!important}.st-cs-assistant button{touch-action:manipulation}
+
+/* Immediate red attention list for confined-space permit */
+.st-cs-assistant-alert{border:2px solid #b42318;background:#fff5f4}
+.st-cs-assistant-alert>p{color:#9f2017;font-weight:800}
+.st-cs-assistant-alert .st-cs-assistant-item{border:1px solid #d33c32;border-left:5px solid #b42318;color:#9b2019;background:#fffafa;font-weight:650}
+.st-cs-assistant-alert .st-cs-assistant-item:focus-visible{outline:3px solid #af2419;outline-offset:2px}
