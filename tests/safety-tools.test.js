@@ -50,7 +50,7 @@ test('new home links expose authorized tools without an administration link for 
  const admin=toolsHomeMarkup('admin',x=>x),worker=toolsHomeMarkup('worker',x=>x);
  assert.equal((admin.match(/data-safety-tool=/g)||[]).length,9);assert.ok(admin.includes('data-safety-tool="training"'));assert.ok(admin.includes('data-safety-tool="medical_followup"'));assert.ok(!worker.includes('data-safety-tool="medical_followup"'));assert.ok(worker.includes('data-safety-tool="director"'));assert.match(worker,/admin-only-lock/);assert.ok(worker.includes('data-safety-tool="hazard"'));
  const order=[...admin.matchAll(/data-safety-tool="([^"]+)"/g)].map(x=>x[1]);
- assert.deepEqual(order,['safety_notes','toolbox','training','safety_net','emergency','director','qr','medical_followup','hazard']);
+ assert.deepEqual(order,['safety_notes','toolbox','training','safety_net','emergency','director','confined_space','medical_followup','hazard']);
  assert.equal((admin.match(/class="module-icon-svg"/g)||[]).length,12);
  assert.match(admin,/id="home-manage-projects"/);
  assert.match(worker,/id="home-manage-projects"/);
