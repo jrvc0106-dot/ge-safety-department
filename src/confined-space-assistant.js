@@ -49,4 +49,8 @@ export function mountConfinedSpaceAssistant(form,definition,translate=(en)=>en){
   });
  }
  trigger.onclick=review;
+ form.addEventListener('invalid',event=>{if(event.target?.name)review();},true);
+ form.addEventListener('submit',()=>review(),true);
+ form.addEventListener('change',()=>{if(results.childElementCount)review();});
+ return {review};
 }
