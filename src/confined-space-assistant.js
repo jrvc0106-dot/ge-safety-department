@@ -67,7 +67,8 @@ export function mountConfinedSpaceAssistant(form,definition,translate=(en)=>en){
  form.addEventListener('invalid',event=>{if(event.target?.name)review();},true);
  form.addEventListener('submit',()=>review(),true);
  form.addEventListener('change',review);
- form.addEventListener('input',()=>{if(currentIssues.length)review();});
+ let queued=false;
+ form.addEventListener('input',()=>{if(!currentIssues.length||queued)return;queued=true;requestAnimationFrame(()=>{queued=false;if(form.isConnected)review();});});
  review();
  return {review,goFirst:()=>{const pending=review();if(pending.length)gotoIssue(pending[0]);}};
 }
