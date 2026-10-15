@@ -8,6 +8,8 @@ export function inspectConfinedSpace(form,definition,translate=(en)=>en){
   const item=definition.fields.find(f=>f[0]===name);
   issues.push({name,problem:translate('Missing','Falta')+': '+(item?translate(item[1],item[2]):name)});
  }
+ const operational=['monitoring','ventilation','equipment','coordination'];
+ for(const name of operational)if(missing(name)){const item=definition.fields.find(f=>f[0]===name);issues.push({name,problem:translate('Missing selection','Falta seleccionar')+': '+(item?translate(item[1],item[2]):name)});}
  const unsafe=['notready','pending','nonpermit'];
  for(const name of ['classification','isolation','acceptable_conditions','monitoring','ventilation','equipment','coordination','entry_conditions_verified','authorization']){
   if(unsafe.includes(String(data.get(name)||''))){
