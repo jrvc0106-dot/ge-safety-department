@@ -61,6 +61,7 @@ export function mountConfinedSpaceAssistant(form,definition,translate=(en)=>en){
    b.onclick=()=>gotoIssue(item);
    results.append(b);
   });
+  return problems;
  }
  trigger.onclick=()=>{review();if(currentIssues.length)gotoIssue(currentIssues[0]);};
  form.addEventListener('invalid',event=>{if(event.target?.name)review();},true);
@@ -68,5 +69,5 @@ export function mountConfinedSpaceAssistant(form,definition,translate=(en)=>en){
  form.addEventListener('change',review);
  form.addEventListener('input',()=>{if(currentIssues.length)review();});
  review();
- return {review};
+ return {review,goFirst:()=>{const pending=review();if(pending.length)gotoIssue(pending[0]);}};
 }
