@@ -166,6 +166,14 @@ export function createSafetyTools(ctx){
       if(String(permits.get('entry_date')||'').trim()===''||!String(permits.get('entry_start')||'').trim()||!String(permits.get('entry_end')||'').trim())throw Error(tr('Entry date and the permit validity window are required.','Se requieren fecha y período de vigencia del permiso.'));
       for(let i=0;i<11;i++){if(permits.get('check_'+i)!=='reviewed'&&permits.get('check_'+i)!=='na')throw Error(tr('Resolve all confined-space checklist follow-ups before authorizing entry.','Resuelva los hallazgos del checklist antes de autorizar la entrada.'));}
      }
+    if(kind==='confined_space'){
+      const fdata=new FormData(f);
+      const unsafe=['notready','pending','nonpermit'];
+      for(const key of ['classification','isolation','acceptable_conditions','monitoring','ventilation','equipment','coordination','entry_conditions_verified','authorization']){
+       const value=String(fdata.get(key)||'').trim();
+       if(!value||unsafe.includes(value))throw Error(tr('Resolve pending confined-space selections before recording an authorized permit.','Resuelva las selecciones pendientes antes de registrar un permiso autorizado.'));
+      }
+     }
     if(kind==='qr'&&!lookup)throw Error(tr('Look up an employee or equipment before saving.','Consulte un empleado o equipo antes de guardar.'));
     const submitted=new FormData(f),values=Object.fromEntries(submitted);delete values.photos;delete values.lookup;delete values.lookup_type;delete values.lookup_evidence;
      if(kind==='medical_followup'){
