@@ -172,7 +172,7 @@ export function createSafetyTools(ctx){
       const unsafe=['notready','pending','nonpermit'];
       for(const key of ['classification','isolation','acceptable_conditions','monitoring','ventilation','equipment','coordination','entry_conditions_verified','authorization']){
        const value=String(fdata.get(key)||'').trim();
-       if(!value||unsafe.includes(value))throw Error(tr('Resolve pending confined-space selections before recording an authorized permit.','Resuelva las selecciones pendientes antes de registrar un permiso autorizado.'));
+       if(!value||unsafe.includes(value)){const item=d.fields.find(field=>field[0]===key);throw Error(tr('Review the highlighted selection before authorizing entry: ','Revise la selección marcada en rojo antes de autorizar la entrada: ')+(item?tr(item[1],item[2]):key));}
       }
      }
     if(kind==='qr'&&!lookup)throw Error(tr('Look up an employee or equipment before saving.','Consulte un empleado o equipo antes de guardar.'));
