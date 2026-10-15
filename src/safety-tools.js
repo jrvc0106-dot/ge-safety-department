@@ -137,6 +137,17 @@ export function createSafetyTools(ctx){
       if(incomplete.length)throw Error(tr('Required confined-space permit fields are incomplete. Save the auto-draft and complete all permit details before recording.','Faltan campos obligatorios del permiso de espacio confinado. Guarde el borrador automático y complete los detalles antes de registrar.'));
       for(let i=0;i<11;i++){if(!String(data.get('check_'+i)||'').trim())throw Error(tr('Review every confined-space safety checklist item before saving.','Revise cada punto del checklist antes de guardar.'));}
      }
+    if(kind==='confined_space'){
+      const permits=new FormData(f);
+      const roles=['entry_supervisor','attendant','safety'];
+      for(const role of roles){
+       const name=String(permits.get('jha_'+role+'_name')||'').trim();
+       let strokes=[];try{strokes=JSON.parse(permits.get('jha_'+role+'_signature')||'[]')}catch{}
+       if(!name||!Array.isArray(strokes)||!strokes.length)throw Error(tr('Entry supervisor, attendant and safety names and signatures are required. A saved record without these is not an authorized entry permit.','Se requieren nombres y firmas del supervisor de entrada, vigía y safety. Un registro sin ellos no autoriza la entrada.'));
+      }
+      if(String(permits.get('entry_date')||'').trim()===''||!String(permits.get('entry_start')||'').trim()||!String(permits.get('entry_end')||'').trim())throw Error(tr('Entry date and the permit validity window are required.','Se requieren fecha y período de vigencia del permiso.'));
+      for(let i=0;i<11;i++){if(permits.get('check_'+i)!=='reviewed'&&permits.get('check_'+i)!=='na')throw Error(tr('Resolve all confined-space checklist follow-ups before authorizing entry.','Resuelva los hallazgos del checklist antes de autorizar la entrada.'));}
+     }
     if(kind==='qr'&&!lookup)throw Error(tr('Look up an employee or equipment before saving.','Consulte un empleado o equipo antes de guardar.'));
     const submitted=new FormData(f),values=Object.fromEntries(submitted);delete values.photos;delete values.lookup;delete values.lookup_type;delete values.lookup_evidence;
      if(kind==='medical_followup'){
