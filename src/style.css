@@ -2194,3 +2194,12 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .obs-quick-action.secondary{background:#f5f7fa;color:#344054;border-color:#e4e7ec}
 .obs-quick-action.secondary:hover,.obs-quick-action.secondary:focus-visible{background:#e8edf4}
 .command-center>.home-open-observations{margin:4px 12px 12px}
+
+/* Visible, deliberate closeout control for Admin and Safety Director. */
+.observation-closure-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0;padding:12px;border:1px solid #bfd8cf;background:#f5faf8;border-radius:12px}
+.observation-closure-bar small{color:#475467;flex:1;min-width:180px;line-height:1.45}
+.close-observation-action{background:#236653!important;color:#fff!important;border:1px solid #236653!important;border-radius:9px!important;font-weight:800!important;padding:11px 15px!important;min-height:44px}
+.close-observation-action:hover,.close-observation-action:focus-visible{background:#1c5344!important}
+.observation-closure-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.observation-closure-controls>button{min-height:44px;flex:1 1 190px}
+@media(max-width:650px){.observation-closure-bar{align-items:stretch;flex-direction:column}.observation-closure-controls{flex-direction:column;align-items:stretch}.observation-closure-controls>button{flex:initial;width:100%}}
