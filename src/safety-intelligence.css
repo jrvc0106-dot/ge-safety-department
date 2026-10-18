@@ -1,0 +1,27 @@
+.safety-intelligence{display:grid;gap:12px;max-width:100%;overflow-wrap:anywhere}
+.si-heading{display:flex;gap:12px;justify-content:space-between;align-items:flex-start}
+.si-heading h2{margin:0 0 6px;font-size:1.1rem;font-weight:800}
+.si-heading p{margin:0;color:var(--muted,#65707a);font-size:.88rem;line-height:1.4}
+.si-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.si-label{display:flex;flex-direction:column;gap:5px;font-size:.8rem;font-weight:650;color:inherit}
+.si-select{width:100%;max-width:100%;border-radius:9px;border:1px solid #a8b1bc;padding:10px 11px;min-height:43px;font:inherit;background:#fff;color:#1e293b}
+.si-select:disabled{opacity:.68}
+.si-status{margin:0;font-size:.85rem;font-weight:650;color:var(--muted,#46525d)}
+.si-warning{color:#b42318!important;font-weight:600}
+.si-body{display:grid;gap:13px}
+.si-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.si-metric{display:flex;flex-direction:column;gap:5px;border:1px solid #d4dbe3;border-radius:10px;padding:11px;background:rgba(130,143,159,.07);min-width:0}
+.si-metric-label{font-size:.77rem;font-weight:650;line-height:1.2}
+.si-metric-value{font-size:1.65rem;font-weight:850;line-height:1.1;font-variant-numeric:tabular-nums}
+.si-metric-note{font-size:.72rem;color:var(--muted,#64748b);line-height:1.35}
+.si-facts{border-bottom:1px solid #d8dfe6;padding-bottom:8px}
+.si-facts p{font-size:.85rem;line-height:1.4;margin:0 0 7px}
+.si-insights{display:grid;gap:8px}
+.si-insights h3{margin:0;font-size:1rem}
+.si-insight{border:1px solid #d5dce4;border-left:3px solid #526578;border-radius:8px;padding:10px;background:rgba(150,160,170,.05)}
+.si-insight strong{display:block;font-size:.9rem}
+.si-insight p{margin:6px 0;font-size:.85rem;line-height:1.42}
+.si-insight small{display:block;line-height:1.4;color:var(--muted,#64748b)}
+.si-footnote,.si-empty{font-size:.79rem;line-height:1.4;color:var(--muted,#64748b);margin:0}
+@media(max-width:800px){.si-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.si-controls{grid-template-columns:minmax(0,1fr)}.si-metric-value{font-size:1.4rem}}
