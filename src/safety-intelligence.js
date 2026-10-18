@@ -1,3 +1,4 @@
+import {createSafetyIntelligencePdf,safetyPdfFilename} from './safety-intelligence-report.js';
 /** Read-only Safety Intelligence dashboard; only director/admin may change cadence. */
 export const safetyTrendTotal = entries => Object.values(entries||{}).reduce((n,v)=>n+Number(v?.count||0),0);
 export const safetyTrendDelta = (current,previous) => Number(current||0)-Number(previous||0);
@@ -74,6 +75,79 @@ export function mountSafetyIntelligence({db,profile,projectId,tr}){
   if(m.limited)body.append(el('p','si-warning',t('Some category breakdowns are limited to the first 1,000 records per source.','Algunas categorías se resumen a partir de un máximo de 1,000 registros por fuente.')));
   body.append(el('p','si-footnote',t('Latest analysis: ','Último análisis: ')+date(run.computed_at)+' · '+t('Next eligible run: ','Próxima ejecución prevista: ')+date(setting?.next_run_at)));
   body.append(el('p','si-footnote',t('Record counts are not a safety score or proof of OSHA compliance.','Los conteos no constituyen una puntuación de seguridad ni prueban cumplimiento OSHA.')));
+  const actions=el('div','si-pdf-actions');
+  const exportMessage=el('p','si-export-message');
+  exportMessage.setAttribute('role','status');
+  exportMessage.setAttribute('aria-live','polite');
+  const projectName=projects.find(p=>p.id===selectedProject)?.name||selectedProject;
+  const filename=safetyPdfFilename(projectName,run);
+  const buttons=[];
+  const addAction=(label,action)=>{
+   const btn=el('button','si-pdf-button'+(action==='view'?' si-pdf-primary':''),label);
+   btn.type='button';
+   btn.onclick=()=>exportPdf(action,btn);
+   buttons.push(btn);actions.append(btn);
+  };
+  let cachedPdf=null,exportBusy=false;
+  const saveBlob=(blob)=>{
+   const link=document.createElement('a'),href=URL.createObjectURL(blob);
+   link.href=href;link.download=filename;document.body.append(link);link.click();link.remove();
+   setTimeout(()=>URL.revokeObjectURL(href),120000);
+  };
+  async function exportPdf(action,btn){
+   if(exportBusy)return;
+   // Reserve an actual tab while Safari still has user-click activation.
+   let preview=null;
+   if(action==='view'){
+    try{preview=window.open('about:blank','_blank');if(preview)preview.opener=null}catch{}
+   }
+   exportBusy=true;
+   for(const button of buttons)button.disabled=true;
+   exportMessage.textContent=t('Preparing professional PDF…','Preparando PDF profesional…');
+   try{
+    const blob=cachedPdf||await createSafetyIntelligencePdf(run,projectName);
+    cachedPdf=blob;
+    if(action==='view'){
+     if(preview){
+      const href=URL.createObjectURL(blob);
+      preview.location.href=href;
+      setTimeout(()=>URL.revokeObjectURL(href),600000);
+      exportMessage.textContent=t('Report opened in another tab.','Reporte abierto en otra pestaña.');
+     }else{
+      saveBlob(blob);
+      exportMessage.textContent=t('Preview blocked; the PDF was downloaded instead.','La vista fue bloqueada; se descargó el PDF.');
+     }
+    }else if(action==='download'){
+     saveBlob(blob);
+     exportMessage.textContent=t('PDF download started.','Descarga del PDF iniciada.');
+    }else if(action==='share'){
+     const file=new File([blob],filename,{type:'application/pdf'});
+     if(navigator.share&&navigator.canShare?.({files:[file]})){
+      try{
+       await navigator.share({title:'G&E Safety Intelligence - '+projectName,files:[file]});
+       exportMessage.textContent=t('PDF shared.','PDF compartido.');
+      }catch(error){
+       if(error?.name==='AbortError')exportMessage.textContent=t('Sharing canceled.','Se canceló la opción de compartir.');
+       else{saveBlob(blob);exportMessage.textContent=t('Sharing was unavailable; the PDF was downloaded.','No se pudo compartir; se descargó el PDF.')}
+      }
+     }else{
+      saveBlob(blob);
+      exportMessage.textContent=t('File sharing is unavailable here; the PDF was downloaded.','Este navegador no permite compartir archivos; se descargó el PDF.');
+     }
+    }
+   }catch(error){
+    if(preview&&!preview.closed)preview.close();
+    exportMessage.textContent=t('Could not prepare the PDF. Please try again.','No se pudo preparar el PDF. Intenta nuevamente.');
+    console.error('[Safety Intelligence PDF]',error?.message||error);
+   }finally{
+    exportBusy=false;
+    for(const button of buttons)button.disabled=false;
+   }
+  }
+  addAction(t('View report','Ver reporte'),'view');
+  addAction(t('Download PDF','Descargar PDF'),'download');
+  addAction(t('Share PDF','Compartir PDF'),'share');
+  body.append(actions,exportMessage);
  }
  async function load(){
   const serial=++renderSerial;showEmpty(t('Loading project analysis…','Cargando análisis del proyecto…'));
