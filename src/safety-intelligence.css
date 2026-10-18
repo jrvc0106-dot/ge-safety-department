@@ -25,3 +25,11 @@
 .si-footnote,.si-empty{font-size:.79rem;line-height:1.4;color:var(--muted,#64748b);margin:0}
 @media(max-width:800px){.si-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:540px){.si-controls{grid-template-columns:minmax(0,1fr)}.si-metric-value{font-size:1.4rem}}
+
+.si-pdf-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;padding-top:12px;border-top:1px solid #d8dfe6}
+.si-pdf-button{border:1px solid #6f7881;background:#fff;color:#29323b;min-height:40px;padding:9px 13px;border-radius:8px;font:inherit;font-size:.83rem;font-weight:700;letter-spacing:.01em;cursor:pointer;flex:0 1 auto}
+.si-pdf-primary{background:#3e4853;color:#fff;border-color:#3e4853}
+.si-pdf-button:focus-visible{outline:3px solid #7f8e9a;outline-offset:2px}
+.si-pdf-button:disabled{opacity:.55;cursor:wait}
+.si-export-message{min-height:1em;font-size:.78rem;color:var(--muted,#64748b);margin:0}
+@media(max-width:540px){.si-pdf-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.si-pdf-button{padding:10px 7px}.si-pdf-primary{grid-column:span 2}}
