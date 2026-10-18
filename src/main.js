@@ -1,3 +1,5 @@
+import {mountSafetyIntelligence} from './safety-intelligence.js';
+import './safety-intelligence.css';
 import {helpCenterPage} from './help-center.js';
 import {simplifyOrientationForm} from './orientation-ui.js';
 import {missingRequiredSignatures} from './report-finalization-guard.js';
@@ -1725,24 +1727,10 @@ async function reportCenter(){
   }
   document.querySelector('.report-library').before(localSection);
  }
- if(['admin','safety_director','safety','supervisor'].includes(state.profile.role)){
-  const insightsCard=document.createElement('section');insightsCard.className='card ai-safety-trends';insightsCard.innerHTML='<div class="section-heading"><div><h2>'+tr('AI safety trends','Tendencias de seguridad con IA')+'</h2><p>'+tr('Optional analysis of aggregate counts from the last 30 days. No report text or employee details are sent.','Análisis opcional de conteos agregados de los últimos 30 días. No se envía texto de reportes ni datos de empleados.')+'</p></div><button type="button" id="analyze-safety-trends">'+tr('Analyze trends','Analizar tendencias')+'</button></div><div id="safety-trend-results" aria-live="polite"></div>';
-  document.querySelector('.report-library').before(insightsCard);
-  insightsCard.querySelector('#analyze-safety-trends').onclick=async event=>{
-   const button=event.currentTarget,output=insightsCard.querySelector('#safety-trend-results');button.disabled=true;output.textContent=tr('Reviewing aggregate safety counts…','Revisando conteos agregados de seguridad…');
-   try{
-    const since=new Date(Date.now()-30*86400000).toISOString();
-    const q=await db.from('observations').select('category,priority,status,created_at').eq('project_id',state.project).gte('created_at',since).limit(1000);
-    if(q.error)throw q.error;
-    const summarize=key=>{const counts=new Map();for(const row of q.data||[]){const label=String(row[key]||'Unknown').slice(0,80);counts.set(label,(counts.get(label)||0)+1)}return [...counts].map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count).slice(0,20)};
-    const result=await db.functions.invoke('improve-writing',{body:{action:'analyze_safety_trends',project_id:state.project,period_days:30,aggregate:{categories:summarize('category'),priorities:summarize('priority'),statuses:summarize('status')}}});
-    if(result.error)throw result.error;
-    const insights=result.data?.insights||[];
-    output.innerHTML=insights.length?'<ul>'+insights.map(x=>'<li><strong>'+esc(x.title)+'</strong><p>'+esc(x.summary)+'</p><small>'+tr('Review question','Pregunta para revisar')+': '+esc(x.question)+'</small></li>').join('')+'</ul>':'<p>'+tr('More data is needed to identify a useful pattern.','Se necesitan más datos para identificar un patrón útil.')+'</p>';
-   }catch(err){output.textContent=tr('The trend review could not be completed. Try again when connected.','No se pudo completar el análisis. Inténtelo de nuevo cuando haya conexión.');}
-   finally{button.disabled=false}
-  };
+ if(['admin','safety_director','safety','superintendent','supervisor'].includes(state.profile.role)) {
+  mountSafetyIntelligence({db,profile:state.profile,projectId:state.project,tr});
  }
+
   const title=document.querySelector('#report-library-title'),list=document.querySelector('#report-library-list'),search=document.querySelector('#report-search'),dateFilter=document.querySelector('#report-date-filter'),library=title.closest('.report-library'),libraryHead=title.closest('.report-library-head'),filterBar=search.closest('.report-filter-bar');let currentCategory='daily';
  function empty(){return '<div class="report-empty">'+tr('No reports in this category yet.','Aún no hay reportes en esta categoría.')+'</div>'}
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}

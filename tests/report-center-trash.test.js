@@ -75,7 +75,7 @@ async function setup(role='admin'){
  window.confirm=msg=>{prompts.push(msg);return true};window.prompt=(msg)=>{prompts.push(msg);return 'DELETE'};
  const context=vm.createContext({document:doc,window,db,
   state:{project:proj,profile:{id:employee,role},projects:[{id:proj,name:'Jobsite A'}],observations:[{id:observation,project_id:proj,area:'Level 5',category:'Fall protection',status:'open',priority:'high',description:'Open edge',created_at:'2026-10-14T11:00:00Z'}]},
-  frame:html=>{doc.querySelector('#app').innerHTML=html},
+  frame:html=>{doc.querySelector('#app').innerHTML=html},mountSafetyIntelligence:()=>{},
   tr:en=>en,esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
   fmt:()=> 'Oct 14',localDateKey:()=> '2026-10-14',captureView:()=>()=>true,
   toolsHomeMarkup:()=>'',safetyTools:{bindHome(){}},nativeReportArchiveAvailable:()=>false,
