@@ -54,7 +54,7 @@ async function generateInsights(payload){
     generationConfig:{candidateCount:1,maxOutputTokens:1100,responseFormat:{text:{mimeType:"application/json",schema}}}
    })
   });
-  if(!response.ok)throw new Error("Provider status "+response.status);
+  if(!response.ok){const detail=await response.text();console.warn("safety_trend_provider_rejected",{status:response.status,detail:detail.slice(0,550)});throw new Error("Provider status "+response.status)}
   const json=await response.json();
   const candidate=json.candidates?.[0];
   if(candidate?.finishReason!=="STOP")throw new Error("Incomplete AI response");
