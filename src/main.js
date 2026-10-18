@@ -28,7 +28,7 @@ import {optimizePhoto} from './photo-optimizer.js';
 import {rasterizePdfSignatures} from './pdf-signatures.js';
 import {createImageCache,createTaskQueue} from './image-cache.js';
 import {prepareLocalBackup} from './local-backup.js';
-import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion} from './report-center-trash.js';
+import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,confirmAdminTrashPermanentDeletion} from './report-center-trash.js';
 import {nativeReportArchiveAvailable,saveLocalReport,listLocalReports,openLocalReport} from './local-report-archive.js';
 import {putOfflineDraftFile,getOfflineDraftFile,deleteOfflineDraftFiles} from './offline-draft-store.js';
 import {installConnectivityStatus} from './connectivity-status.js';
@@ -1829,7 +1829,7 @@ async function reportCenter(){
   if(!trashPanel)return;
   trashPanel.replaceChildren();
   const headline=document.createElement('h3');headline.textContent=tr('Administrative Recycle Bin','Papelera de reportes administrativos');
-  const note=document.createElement('p');note.textContent=tr('Restoring brings a report back to Report Center. Permanent removal deletes its stored PDFs and associated Supabase report records/evidence. Reports with protected links cannot be deleted. Administrative audit and independent backups may remain.','Restaurar devuelve el reporte al Centro. Eliminar definitivamente borra los PDFs guardados y los registros/evidencias del reporte en Supabase. Los reportes con vínculos protegidos no pueden eliminarse. La auditoría administrativa y respaldos independientes pueden permanecer.');
+  const note=document.createElement('p');note.textContent=tr('Restore a report, or permanently delete it from Supabase with one confirmation. Deletion cannot be undone; protected linked records and independent backups may remain.','Restaura el reporte o elimínalo de Supabase con una sola confirmación. No se puede deshacer; los registros vinculados protegidos y respaldos independientes pueden permanecer.');
   trashPanel.append(headline,note);
   const active=reportCenterTrashRows(trashEntries);
   if(!active.length){const emptyMessage=document.createElement('p');emptyMessage.textContent=tr('The administrative trash is empty.','La papelera administrativa está vacía.');trashPanel.append(emptyMessage)}
@@ -1854,7 +1854,7 @@ async function reportCenter(){
    const permanent=document.createElement('button');permanent.type='button';permanent.className='report-center-admin-delete';
    permanent.textContent=tr('Remove permanently','Eliminar definitivamente');
    permanent.onclick=async()=>{
-    if(!confirmPermanentReportDeletion(window,{title:entry.report_title,tr,language:state.lang}))return;
+    if(!confirmAdminTrashPermanentDeletion(window,{title:entry.report_title,tr}))return;
     permanent.disabled=true;restore.disabled=true;
     try{
      const response=await permanentlyPurgeReportFromSupabase(db,{projectId:state.project,kind:entry.report_kind,id:entry.report_id});
