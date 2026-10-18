@@ -2184,3 +2184,13 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
  .report-center .report-center-trash-controls{justify-content:stretch}
  .report-center .report-center-trash-controls button{flex:1 1 145px}
 }
+
+/* Observation quick actions: compact, touch-friendly, and scoped to this module. */
+.obs-entry{display:grid;gap:0;min-width:0}
+.obs-entry[hidden]{display:none!important}
+.obs-entry:has(.obs-quick-action) .obs-card{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:0}
+.obs-quick-action{width:100%;min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;background:#eff5f4;color:#174b43;border:1px solid #cbdad6;border-radius:0 0 14px 14px;padding:10px 16px;font-size:13px;font-weight:800;cursor:pointer}
+.obs-quick-action:hover,.obs-quick-action:focus-visible{background:#e0efea;outline-offset:2px}
+.obs-quick-action.secondary{background:#f5f7fa;color:#344054;border-color:#e4e7ec}
+.obs-quick-action.secondary:hover,.obs-quick-action.secondary:focus-visible{background:#e8edf4}
+.command-center>.home-open-observations{margin:4px 12px 12px}
