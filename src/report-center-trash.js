@@ -38,6 +38,19 @@ export function confirmPermanentReportDeletion(win,{title,tr,language='en'}){
  return String(typed||'').trim()===expected;
 }
 
+/**
+ * Admin Trash is already a deliberate second-stage destination. Confirm once,
+ * with the report title and an unmistakable irreversible action; no typed code.
+ * The Supabase purge service still independently verifies admin permissions.
+ */
+export function confirmAdminTrashPermanentDeletion(win,{title,tr}){
+ const label=String(title||'Report').trim().slice(0,180);
+ return Boolean(win?.confirm?.(tr(
+  'Permanently delete this report from Supabase? This cannot be undone.',
+  '¿Eliminar definitivamente este reporte de Supabase? No se puede deshacer.'
+ )+'\n\n'+label));
+}
+
 export async function changeReportCenterTrash(db,{projectId,kind,id,title,action}){
  if(!REPORT_CENTER_KINDS.has(kind)||!projectId||!String(id||'').trim())
   throw new Error('Invalid report center record');
