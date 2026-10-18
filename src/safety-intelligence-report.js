@@ -1,4 +1,5 @@
-import {safetyTrendTotal,safetyTrendDelta} from './safety-intelligence.js';
+const safetyTrendTotal=entries=>Object.values(entries||{}).reduce((total,x)=>total+(Number(x?.count)||0),0);
+const safetyTrendDelta=(current,previous)=>current-previous;
 
 // Standalone, vector-based letter PDF: small memory footprint on iPad and sharp text.
 // The PDF uses ONLY a saved analysis snapshot. Generating it does not invoke AI,
