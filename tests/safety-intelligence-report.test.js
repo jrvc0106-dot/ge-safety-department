@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {safetyPdfFilename,safetyReportSnapshot,createSafetyIntelligencePdf,periodicReportTitles,PERIODIC_REPORT_AUTHOR,PERIODIC_REPORT_ROLE} from '../src/safety-intelligence-report.js';
+import {safetyPdfFilename,safetyReportSnapshot,createSafetyIntelligencePdf,periodicReportTitles,PERIODIC_REPORT_AUTHOR,PERIODIC_REPORT_ROLE,fullPageGeWatermarkLayout} from '../src/safety-intelligence-report.js';
 
 const run={
  cadence:'weekly',period_start:'2026-10-11T00:00:00.000Z',period_end:'2026-10-18T00:00:00.000Z',computed_at:'2026-10-18T02:00:00.000Z',
@@ -69,4 +69,22 @@ test('monthly PDF embeds the monthly report name and Jairo Valdivia as author, n
  assert.match(data,/Jairo Valdivia/);
  assert.match(data,/REPORTE MENSUAL/);
  assert.doesNotMatch(data,/Safety Intelligence/i);
+});
+
+test('G&E full-page watermark is centered, proportional and 6% opaque on portrait Letter pages',()=>{
+ const sizes=[[900,300],[300,900],[700,700]];
+ for(const [width,height] of sizes){
+  const placement=fullPageGeWatermarkLayout(width,height,612,792);
+  assert.equal(placement.opacity,.06);
+  assert.ok(placement.width>=0&&placement.height>=0);
+  assert.ok(placement.x>=19.99&&placement.y>=19.99);
+  assert.ok(placement.x+placement.width<=592.01);
+  assert.ok(placement.y+placement.height<=772.01);
+  assert.ok(Math.abs(placement.width/placement.height-width/height)<1e-10,'original logo ratio must not change');
+  assert.ok(Math.abs((placement.x+placement.width/2)-306)<.01);
+  assert.ok(Math.abs((placement.y+placement.height/2)-396)<.01);
+  assert.ok(Math.abs(placement.width-572)<.01||Math.abs(placement.height-752)<.01,'watermark should fill almost all page width or height');
+ }
+ const landscape=fullPageGeWatermarkLayout(900,300,612,792);
+ assert.ok(landscape.width>550,'landscape GE watermark must be almost double the old 290pt width');
 });

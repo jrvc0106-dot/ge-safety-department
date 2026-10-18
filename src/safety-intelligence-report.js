@@ -11,6 +11,18 @@ const getDate=x=>{const d=new Date(x);return Number.isNaN(d.getTime())?'—':new
 export const PERIODIC_REPORT_AUTHOR='Jairo Valdivia';
 export const PERIODIC_REPORT_ROLE='Safety Director';
 export const periodicReportTitles=cadence=>cadence==='monthly'?{es:'REPORTE MENSUAL',en:'MONTHLY REPORT'}:{es:'REPORTE SEMANAL',en:'WEEKLY REPORT'};
+// Scale the original G&E logo to the maximum possible printable page footprint.
+// Never distort or crop the mark: landscape logos nearly fill the page width,
+// portrait logos nearly fill the height. Always keep it centered.
+export function fullPageGeWatermarkLayout(imageWidth,imageHeight,pageWidth=612,pageHeight=792){
+ const iw=Number(imageWidth),ih=Number(imageHeight),pw=Number(pageWidth),ph=Number(pageHeight);
+ if(![iw,ih,pw,ph].every(v=>Number.isFinite(v)&&v>0))throw new RangeError('Invalid logo or page dimensions');
+ const margin=20; // Minimal edge clearance; watermark is under the content.
+ const scale=Math.min((pw-2*margin)/iw,(ph-2*margin)/ih);
+ const width=iw*scale,height=ih*scale;
+ return {x:(pw-width)/2,y:(ph-height)/2,width,height,opacity:.06};
+}
+
 export const safetyPdfFilename=(project,run)=>{
  const slug=clean(project,100).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').slice(0,48)||'Project';
  const date=/^\d{4}-\d{2}-\d{2}/.exec(String(run?.period_end||''))?.[0]||'Report';
@@ -90,8 +102,8 @@ export async function createSafetyIntelligencePdf(run,projectName){
   try{
    const gs=new doc.GState({opacity:.06});
    doc.saveGraphicsState();doc.setGState(gs);
-   const w=290,h=w*logo.h/logo.w;
-   doc.addImage(logo.uri,'PNG',(W-w)/2,(H-h)/2,w,h);
+   const placement=fullPageGeWatermarkLayout(logo.w,logo.h,W,H);
+   doc.addImage(logo.uri,'PNG',placement.x,placement.y,placement.width,placement.height);
    doc.restoreGraphicsState();
   }catch{/* Never block a professional report if the device lacks watermark support. */}
  };
