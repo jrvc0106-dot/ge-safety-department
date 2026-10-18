@@ -1041,6 +1041,7 @@ function observationsList(){const rows=state.observations,{open,pending,closed}=
   entries.forEach(({observation:o,searchText},index)=>{
    const show=(status==='all'||o.status===status||status==='overdue'&&isOverdueDate(o.due_date,o.status,localDateKey()))&&(priority==='all'||o.priority===priority)&&(!query||searchText.includes(query));
    if(cards[index].hidden===show)cards[index].hidden=!show;
+   const card=cards[index].querySelector('.obs-card');if(card&&card.hidden===show)card.hidden=!show;
    if(show)visible++;
   });
   emptyState.hidden=visible>0;
