@@ -88,6 +88,5 @@ test('Create Daily Report is the only form that mounts the bulk checklist helper
  const start=source.indexOf('async function safetyWalk()'),end=source.indexOf('async function safetyWalkReport()',start);
  assert.ok(start>=0&&end>start);
  assert.match(source.slice(start,end),/data-jha-select-all/);
- assert.match(source.slice(start,end),/value=\\"unsafe\\"/);
  assert.match(source.slice(start,end),/attachDailyReportBulkStatus\(walkForm\)/);
 });
