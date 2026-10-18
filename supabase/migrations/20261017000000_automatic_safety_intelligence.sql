@@ -25,13 +25,13 @@ create index if not exists idx_safety_trend_settings_due on public.safety_trend_
 alter table public.safety_trend_settings enable row level security;
 alter table public.safety_trend_results enable row level security;
 create policy "authorized safety team reads trend settings" on public.safety_trend_settings for select to authenticated using (
- exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.role='admin' or (p.role in ('safety_director','safety','superintendent','supervisor') and exists(select 1 from public.project_members m where m.user_id=p.id and m.project_id=project_id))))
+ exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.role='admin' or (p.role in ('safety_director','safety','superintendent','supervisor') and exists(select 1 from public.project_members m where m.user_id=p.id and m.project_id=public.safety_trend_settings.project_id))))
 );
 create policy "admin and director update trend cadence" on public.safety_trend_settings for update to authenticated
- using (exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.role='admin' or (p.role='safety_director' and exists(select 1 from public.project_members m where m.user_id=p.id and m.project_id=project_id)))))
- with check (exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.role='admin' or (p.role='safety_director' and exists(select 1 from public.project_members m where m.user_id=p.id and m.project_id=project_id)))));
+ using (exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.role='admin' or (p.role='safety_director' and exists(select 1 from public.project_members m where m.user_id=p.id and m.project_id=public.safety_trend_settings.project_id)))))
+ with check (exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.role='admin' or (p.role='safety_director' and exists(select 1 from public.project_members m where m.user_id=p.id and m.project_id=public.safety_trend_settings.project_id)))));
 create policy "authorized safety team reads trend results" on public.safety_trend_results for select to authenticated using (
- exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.role='admin' or (p.role in ('safety_director','safety','superintendent','supervisor') and exists(select 1 from public.project_members m where m.user_id=p.id and m.project_id=project_id))))
+ exists(select 1 from public.profiles p where p.id=(select auth.uid()) and (p.role='admin' or (p.role in ('safety_director','safety','superintendent','supervisor') and exists(select 1 from public.project_members m where m.user_id=p.id and m.project_id=public.safety_trend_results.project_id))))
 );
 -- No browser insert/delete on trend settings/results. Only the service role generates results.
 revoke all on public.safety_trend_settings from anon,authenticated;
