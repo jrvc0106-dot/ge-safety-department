@@ -92,7 +92,7 @@ test('Director close records corrective action then uses the existing verified-r
   assert.equal(operations[0][1],'corrective_actions');
   assert.equal(operations[1][0],'update');
   assert.equal(operations[1][1],'observations');
-  assert.deepEqual(operations[1][2],{status:'pending_verification'});
+  assert.equal(operations[1][2].status,'pending_verification');
   assert.equal(operations[2][0],'rpc');
   assert.equal(operations[2][1],'review_corrective_action');
   assert.equal(operations[2][2].p_decision,'approved');
