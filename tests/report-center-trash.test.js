@@ -37,6 +37,7 @@ async function setup(role='admin'){
     order(){return q},limit(){return q},
     upsert(row){mode='upsert';payload=row;return q},
     update(row){mode='update';payload=row;return q},
+    maybeSingle:async()=>({data:rows[table].find(row=>conditions.every(([key,value])=>!(key in row)||row[key]===value))||null,error:null}),
     single:async()=>{
      assert.equal(table,'report_center_trash');
      dbCalls.push({mode,table,payload,conditions});
@@ -153,11 +154,11 @@ test('non-admin has no delete buttons or trash even if report is visible',async(
 });
 test('trash and permanent center operations do not call delete on source tables',async()=>{
  const calls=[];
- const db={from(table){calls.push(table);const q={upsert:d=>{calls.push(d.state);return q},update:d=>{calls.push(d.state);return q},eq(){return q},select(){return q},single:async()=>({data:{state:'trashed'}})};return q}};
+ const db={from(table){calls.push(table);const q={upsert:d=>{calls.push(d.state);return q},update:d=>{calls.push(d.state);return q},eq(){return q},select(){return q},maybeSingle:async()=>({data:null,error:null}),single:async()=>({data:{state:'trashed'}})};return q}};
  await changeReportCenterTrash(db,{projectId:proj,kind:'incident',id:incident,title:'INC-1',action:'trash'});
  await changeReportCenterTrash(db,{projectId:proj,kind:'incident',id:incident,action:'restore'});
  await assert.rejects(changeReportCenterTrash(db,{projectId:proj,kind:'incident',id:incident,action:'permanent'}),/verified Supabase purge/);
- assert.deepEqual(calls,['report_center_trash','trashed','report_center_trash','active']);
+ assert.deepEqual(calls,['report_center_trash','report_center_trash','trashed','report_center_trash','active']);
  await assert.rejects(changeReportCenterTrash(db,{projectId:proj,kind:'unknown',id:incident,action:'trash'}),/Invalid/);
 });
 
