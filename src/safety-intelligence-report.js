@@ -8,10 +8,13 @@ const PALETTE={ink:[35,42,49],muted:[93,105,116],rule:[208,214,221],paper:[246,2
 const number=x=>Number.isFinite(Number(x))?Math.max(0,Number(x)):0;
 const clean=(x,limit=1000)=>String(x??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,limit);
 const getDate=x=>{const d=new Date(x);return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('en-US',{year:'numeric',month:'short',day:'numeric',timeZone:'UTC'}).format(d)};
+export const PERIODIC_REPORT_AUTHOR='Jairo Valdivia';
+export const PERIODIC_REPORT_ROLE='Safety Director';
+export const periodicReportTitles=cadence=>cadence==='monthly'?{es:'REPORTE MENSUAL',en:'MONTHLY REPORT'}:{es:'REPORTE SEMANAL',en:'WEEKLY REPORT'};
 export const safetyPdfFilename=(project,run)=>{
  const slug=clean(project,100).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').slice(0,48)||'Project';
  const date=/^\d{4}-\d{2}-\d{2}/.exec(String(run?.period_end||''))?.[0]||'Report';
- return 'GE-Safety-Intelligence-'+slug+'-'+(run?.cadence==='monthly'?'Monthly':'Weekly')+'-'+date+'.pdf';
+ return 'GE-Reporte-'+(run?.cadence==='monthly'?'Mensual':'Semanal')+'-'+slug+'-'+date+'.pdf';
 };
 export function safetyReportSnapshot(run,project){
  const m=run?.metrics||{},current=m.current||{},previous=m.previous||{};
@@ -73,9 +76,14 @@ export async function createSafetyIntelligencePdf(run,projectName){
   text('G&E FLORIDA CONTRACTORS',155,38,11,true);
   text('SAFETY DEPARTMENT  |  By G&E',155,54,8,false,PALETTE.muted);
   rule(84);
-  text(continued?'SAFETY INTELLIGENCE - CONTINUED / CONTINUACIÓN':'SAFETY INTELLIGENCE  /  INTELIGENCIA DE SEGURIDAD',M,105,12,true);
-  text(continued?model.project:'PERIODIC PROJECT ANALYSIS  /  INFORME PERIÓDICO POR PROYECTO',M,123,8,false,PALETTE.muted);
-  y=continued?148:143;
+  const reportTitle=periodicReportTitles(model.cadence);
+  text(reportTitle.es,M,108,16,true);
+  text(reportTitle.en,M,124,9,false,PALETTE.muted);
+  text('ELABORADO POR / PREPARED BY',M,143,7.5,true,PALETTE.muted);
+  text(PERIODIC_REPORT_AUTHOR,M,160,11,true);
+  text(PERIODIC_REPORT_ROLE,M,174,9,false,PALETTE.muted);
+  if(continued){text('CONTINUACIÓN / CONTINUED  ·  '+model.project.slice(0,72),M,193,8,false,PALETTE.muted)}
+  y=continued?210:192;
  };
  const watermark=()=>{
   if(!logo)return;
@@ -200,6 +208,6 @@ export async function createSafetyIntelligencePdf(run,projectName){
   text('G&E ONE  ·  SAFETY DEPARTMENT  ·  By G&E',M,H-31,7.8,true,PALETTE.muted);
   text('INFORMATIONAL / INFORMATIVO  ·  '+p+' / '+pages,W-M,H-31,7.3,false,PALETTE.muted);
  }
- doc.setProperties({title:'G&E Safety Intelligence - '+model.project,subject:'Project safety analysis - aggregated records',author:'G&E Florida Contractors',creator:'G&E ONE Safety Department'});
+ doc.setProperties({title:periodicReportTitles(model.cadence).es+' - '+model.project,subject:'Project safety report - aggregated records',author:PERIODIC_REPORT_AUTHOR+' - '+PERIODIC_REPORT_ROLE,creator:'G&E ONE Safety Department'});
  return doc.output('blob');
 }
