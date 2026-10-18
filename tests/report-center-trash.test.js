@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
 import {parseAst} from 'rollup/parseAst';
-import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion} from '../src/report-center-trash.js';
+import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,confirmAdminTrashPermanentDeletion} from '../src/report-center-trash.js';
 import {groupFinalWalkReportsByCreator} from '../src/report-groups.js';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const node=parseAst(source).body.find(x=>x.type==='FunctionDeclaration'&&x.id.name==='reportCenter');
@@ -79,7 +79,7 @@ async function setup(role='admin'){
   tr:en=>en,esc:v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),
   fmt:()=> 'Oct 14',localDateKey:()=> '2026-10-14',captureView:()=>()=>true,
   toolsHomeMarkup:()=>'',safetyTools:{bindHome(){}},nativeReportArchiveAvailable:()=>false,
-  reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,
+  reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,confirmAdminTrashPermanentDeletion,
   groupFinalWalkReportsByCreator,effectiveWalkStatus:()=> 'safe',disciplinaryActionLabel:()=> 'Coaching',
   confirmAction:msg=>messages.push(msg),error:e=>messages.push('ERROR: '+e.message),
   navigate:(...args)=>navigation.push(args),Date,console
@@ -118,7 +118,7 @@ test('admin trash and restore preserve data but confirmed permanent removal dele
  t.doc.querySelector('.report-center-trash-controls .report-center-admin-delete').click();await tick();
  assert.equal(t.rows.report_center_trash[0].state,'permanent');
  assert.equal(t.rows.safety_discipline.length,0);
- assert.deepEqual(t.prompts.filter(x=>/DELETE/.test(x)).length,1);
+ assert.equal(t.prompts.filter(x=>/Type DELETE|Escriba ELIMINAR/.test(x)).length,0,'Admin Trash must not ask for a typed deletion code');
  t.dom.window.close();
 });
 test('correction deletion hides only the corrective report, not its underlying observation',async()=>{
@@ -244,4 +244,30 @@ test('database migration enforces row security, server role checks and immutable
  assert.match(sql,/before insert or update/);
  assert.match(sql,/create table if not exists public\.report_center_trash_audit/);
  assert.match(sql,/revoke all on public\.report_center_trash from public,anon,authenticated/);
+});
+
+test('Admin Trash permanent deletion requires just one confirmation and never a typed code',()=>{
+ let confirmationCount=0,promptCount=0;
+ const win={confirm:message=>{confirmationCount++;assert.match(message,/irreversible|cannot be undone|no se puede deshacer/i);return true},prompt:()=>{promptCount++;return 'DELETE'}};
+ const accept=confirmAdminTrashPermanentDeletion(win,{title:'INC-104',tr:(en)=>en});
+ assert.equal(accept,true);
+ assert.equal(confirmationCount,1);
+ assert.equal(promptCount,0);
+});
+test('cancelled Admin Trash confirmation performs no removal',async()=>{
+ const t=await setup();
+ t.doc.querySelector('[data-category="discipline"]').click();
+ t.doc.querySelector('.report-center-admin-delete:not(.report-center-direct-permanent)').click();
+ await tick();
+ t.doc.querySelector('.report-center-trash-toggle').click();
+ let confirmations=0;
+ t.dom.window.confirm=()=>{confirmations++;return false};
+ t.dom.window.prompt=()=>{throw new Error('No typed DELETE is allowed in Admin Trash')};
+ const permanent=t.doc.querySelector('.report-center-trash-controls .report-center-admin-delete');
+ permanent.click();
+ await tick();
+ assert.equal(confirmations,1);
+ assert.equal(t.rows.report_center_trash[0].state,'trashed');
+ assert.equal(t.rows.safety_discipline.length,1);
+ t.dom.window.close();
 });
