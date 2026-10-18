@@ -1,0 +1,34 @@
+
+/* Incident AI assistant: compact iPad-friendly, no changes to report/PDF styling. */
+.incident-ai-pro{border:1px solid #bac7d2;background:#fbfcfe}
+.incident-ai-head{display:flex;align-items:flex-start;gap:12px}
+.incident-ai-head>span{font-size:28px;line-height:1.2}
+.incident-ai-head h2{margin:0 0 6px}
+.incident-ai-head p{margin:0 0 12px;color:#526374}
+.incident-ai-language{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-weight:650;margin:10px 0 14px}
+.incident-ai-language select{width:auto;min-width:145px;margin:0}
+.incident-ai-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.incident-ai-options button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:7px;min-height:94px;padding:13px 14px;background:white;color:#20354c;border:1px solid #bac7d2;border-radius:11px;font-weight:700;line-height:1.3;cursor:pointer}
+.incident-ai-options button small{font-size:12px;color:#586b7c;font-weight:400;line-height:1.35}
+.incident-ai-options button:hover,.incident-ai-options button:focus-visible{border-color:#39618b;outline:2px solid #aacbea;outline-offset:0}
+.incident-ai-options button:disabled{opacity:.55;cursor:wait}
+.incident-ai-privacy{margin:12px 0;font-size:12px;line-height:1.5;color:#586b7c}
+.incident-ai-status{min-height:1.4em;color:#263f55;font-size:14px;font-weight:600}
+.incident-ai-status small{display:block;font-weight:400}
+.incident-ai-issues{display:grid;gap:8px;margin:8px 0}
+.incident-ai-issues p{margin:0}
+.incident-ai-issue{display:block;width:100%;padding:10px 12px;text-align:left;background:#fff7f6!important;color:#8c2820!important;border:1px solid #bd463a!important;border-radius:8px;white-space:normal}
+#incident-form .incident-ai-missing{border:2px solid #bf2f26!important;outline:2px solid #f8c1ba;outline-offset:0;background:#fff8f7}
+.incident-ai-dialog{width:min(760px,calc(100vw - 28px));max-height:calc(100dvh - 36px);overflow:auto;border:1px solid #a9b8c5;border-radius:14px;padding:22px;background:#fff;color:#1e3448}
+.incident-ai-dialog::backdrop{background:rgba(10,25,40,.65)}
+.incident-ai-dialog h2{margin:0 0 6px}
+.incident-ai-dialog>p{line-height:1.5}
+.incident-ai-proposals{display:grid;gap:12px}
+.incident-ai-proposal{border:1px solid #cbd5df;border-radius:9px;padding:12px}
+.incident-ai-proposal>label{display:flex;align-items:center;gap:7px;font-weight:700}
+.incident-ai-proposal input[type="checkbox"]{width:18px;height:18px}
+.incident-ai-proposal details{margin:8px 0}
+.incident-ai-proposal details p{white-space:pre-wrap;line-height:1.45;border-left:3px solid #b5c2d0;padding:8px;background:#f4f6f8}
+.incident-ai-proposal textarea{width:100%;min-height:90px;resize:vertical}
+.incident-ai-review-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin-top:18px}
+@media(max-width:620px){.incident-ai-options{grid-template-columns:1fr}.incident-ai-options button{min-height:70px}.incident-ai-dialog{padding:14px}.incident-ai-review-actions button{width:100%}}
