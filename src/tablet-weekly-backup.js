@@ -79,14 +79,14 @@ export async function saveTabletBackup({userId,projectId,backupId,name,blob,sour
   return metadata;
  }finally{db.close()}
 }
-export async function createVerifiedTabletBackup({db,userId,projectId,source='automatic',progress=()=>{}}){
+export async function createVerifiedTabletBackup({db,userId,projectId,source='automatic',progress=()=>{},prepare=prepareLocalBackup,save=saveTabletBackup}){
  if(!userId||!projectId)throw Error('Missing backup owner or project');
  const created=await db.functions.invoke('create-cloud-backup',{body:{project_id:projectId}});
  if(created.error||!created.data?.ok||!created.data?.id)throw Error(created.data?.error||created.error?.message||'Project backup creation failed');
  const payload=await db.functions.invoke('backup-cloud',{body:{action:'local_download',project_id:projectId,backup_id:created.data.id}});
  if(payload.error||payload.data?.error||!Array.isArray(payload.data?.files))throw Error(payload.data?.error||payload.error?.message||'Verified backup download could not begin');
- const zip=await prepareLocalBackup(payload.data,progress); // SHA-256 every source file.
+ const zip=await prepare(payload.data,progress); // SHA-256 every source file.
  if(!zip.blob.size)throw Error('Empty verified backup ZIP');
- const metadata=await saveTabletBackup({userId,projectId,backupId:created.data.id,name:zip.name,blob:zip.blob,source});
+ const metadata=await save({userId,projectId,backupId:created.data.id,name:zip.name,blob:zip.blob,source});
  return metadata; // A successful server snapshot alone is NOT local success.
 }
