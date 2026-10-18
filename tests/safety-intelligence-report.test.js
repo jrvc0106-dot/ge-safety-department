@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {safetyPdfFilename,safetyReportSnapshot,createSafetyIntelligencePdf} from '../src/safety-intelligence-report.js';
+import {safetyPdfFilename,safetyReportSnapshot,createSafetyIntelligencePdf,periodicReportTitles,PERIODIC_REPORT_AUTHOR,PERIODIC_REPORT_ROLE} from '../src/safety-intelligence-report.js';
 
 const run={
  cadence:'weekly',period_start:'2026-10-11T00:00:00.000Z',period_end:'2026-10-18T00:00:00.000Z',computed_at:'2026-10-18T02:00:00.000Z',
@@ -27,8 +27,17 @@ test('PDF summary uses only the selected saved project snapshot and correctly co
  assert.equal(p.highPriority,2);
 });
 test('filename is stable, human-readable, period-qualified and sanitized',()=>{
- assert.equal(safetyPdfFilename('Miramar Cove',run),'GE-Safety-Intelligence-Miramar-Cove-Weekly-2026-10-18.pdf');
+ assert.equal(safetyPdfFilename('Miramar Cove',run),'GE-Reporte-Semanal-Miramar-Cove-2026-10-18.pdf');
+ assert.equal(safetyPdfFilename('Miramar Cove',{...run,cadence:'monthly'}),'GE-Reporte-Mensual-Miramar-Cove-2026-10-18.pdf');
  assert.ok(!safetyPdfFilename('../@Danger 🤖', {...run,cadence:'monthly'}).includes('..'));
+});
+test('PDF headings follow the saved weekly or monthly cadence and show the requested author',()=>{
+ assert.deepEqual(periodicReportTitles('weekly'),{es:'REPORTE SEMANAL',en:'WEEKLY REPORT'});
+ assert.deepEqual(periodicReportTitles('monthly'),{es:'REPORTE MENSUAL',en:'MONTHLY REPORT'});
+ assert.equal(PERIODIC_REPORT_AUTHOR,'Jairo Valdivia');
+ assert.equal(PERIODIC_REPORT_ROLE,'Safety Director');
+ assert.equal(periodicReportTitles('weekly').es.includes('INTELLIGENCE'),false);
+ assert.equal(periodicReportTitles('monthly').es.includes('INTELLIGENCE'),false);
 });
 test('AI missing: preserve aggregate facts, explicitly no fabricated AI findings',()=>{
  const p=safetyReportSnapshot({...run,ai_status:'insufficient',insights:[{title:'invalid'}]},'Domus II');
@@ -52,4 +61,12 @@ test('high-quality vector PDF exports with dynamic pagination, no screenshot dep
  assert.equal(data.subarray(0,5).toString(),'%PDF-');
  const pages=(data.toString('latin1').match(/\/Type \/Page\b/g)||[]).length;
  assert.ok(pages>=2,'long insights should automatically paginate, got '+pages);
+});
+
+test('monthly PDF embeds the monthly report name and Jairo Valdivia as author, not Safety Intelligence',async()=>{
+ const blob=await createSafetyIntelligencePdf({...run,cadence:'monthly'},'Miramar Cove');
+ const data=Buffer.from(await blob.arrayBuffer()).toString('latin1');
+ assert.match(data,/Jairo Valdivia/);
+ assert.match(data,/REPORTE MENSUAL/);
+ assert.doesNotMatch(data,/Safety Intelligence/i);
 });
