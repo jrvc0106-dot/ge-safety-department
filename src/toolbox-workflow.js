@@ -50,7 +50,7 @@ export const TOOLBOX_TOPIC_GROUPS=[
  ['spill','Fuel storage, spills and environmental care','Combustibles, derrames y cuidado ambiental',['Control ignition and storage hazards','Report spills and follow containment plans'],['Controlar ignición y almacenamiento','Reportar derrames y seguir contención']]
  ]},
  {en:'Worksite expectations and leadership',es:'Expectativas y liderazgo en la obra',topics:[
- ['jha','JHA, pre-task planning and daily briefings','JHA, planificación y charlas diarias',['Review today's changing jobsite hazards','Stop and revise the plan when conditions change'],['Revisar riesgos cambiantes del día','Detener y actualizar el plan si cambia la condición']],
+ ['jha','JHA, pre-task planning and daily briefings','JHA, planificación y charlas diarias',["Review today's changing jobsite hazards","Stop and revise the plan when conditions change"],['Revisar riesgos cambiantes del día','Detener y actualizar el plan si cambia la condición']],
  ['incident','Near misses, incident reporting and learning','Casi accidentes, reportes y aprendizaje',['Report hazards and near misses promptly','Explain corrective actions to the crew'],['Reportar riesgos y casi accidentes rápidamente','Explicar acciones correctivas al equipo']],
  ['stopwork','Stop-work authority and speaking up','Autoridad de detener trabajos y comunicar',['Stop unsafe tasks and notify supervision','Resume only when controls are confirmed'],['Detener tareas inseguras e informar','Reanudar al confirmar controles']],
  ['respect','Respectful workplace and harassment prevention','Respeto laboral y prevención de acoso',['Treat all coworkers respectfully','Report harassment through company procedures'],['Tratar a todos con respeto','Reportar acoso según procedimientos']],
