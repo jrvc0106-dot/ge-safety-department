@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 import vm from 'node:vm';
 import {parseAst} from 'rollup/parseAst';
-import {QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickSafetyOrientationForm,quickSafetyAccountName,attachQuickHazardSelection,quickStickerVerificationMarkup} from '../src/quick-safety-orientation.js';
+import {QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickSafetyOrientationForm,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,quickStickerVerificationMarkup} from '../src/quick-safety-orientation.js';
 
 const tr=en=>en;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -58,7 +58,7 @@ test('new Quick Orientation saves required Face ID without Jobsite Photos',async
  const context=vm.createContext({
   state,db,document:doc,FormData:dom.window.FormData,URL:dom.window.URL,crypto:{randomUUID:()=>String(++serial)},
   frame:html=>doc.querySelector('main').innerHTML=html,captureView:()=>()=>true,tr,esc,fmt:()=> 'today',
-  quickSafetyOrientationForm,quickSafetyAccountName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,
+  quickSafetyOrientationForm,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,
   mountReportSignatures(){},reportApprovals:()=>({safety:{name:'Safety',strokes:[[1,2]]},employee:{name:'Worker',strokes:[[1,2]]}}),
   normalizeReportImage:async file=>file,clearDraft:async()=>{},savedAction(){},navigate:(...args)=>nav.push(args),error:e=>errors.push(e),console
  });

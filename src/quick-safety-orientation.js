@@ -22,6 +22,29 @@ export const QUICK_ORIENTATION_ACK = {
   es:'Al firmar, reconozco que revisaron conmigo los riesgos, controles de seguridad, PPE requerido y procedimientos de emergencia aplicables a mi trabajo. Estoy de acuerdo en seguir los requisitos de seguridad del sitio, hacer preguntas si una tarea o riesgo no está claro y reportar condiciones inseguras.'
 };
 
+// Quick Orientation has one employee identity: the signature name follows Employee Name.
+// Keep the signature name read-only (not disabled) so FormData and signed PDFs retain it.
+export function attachQuickEmployeeSignatureName(form){
+ const employee=form?.elements?.namedItem('employee_name');
+ const signer=form?.elements?.namedItem('jha_employee_name');
+ if(!employee||!signer)return ()=>{};
+ signer.readOnly=true;
+ const sync=()=>{
+  const next=String(employee.value||'').trim();
+  if(signer.value!==next){
+   // If the employee identity changes after signing, require that worker to sign again.
+   const strokes=form.elements.namedItem('jha_employee_signature');
+   if(strokes?.value&&strokes.value!=='[]')form.querySelector('[data-jha-clear="employee"]')?.click();
+   signer.value=next;
+  }
+ };
+ employee.addEventListener('input',sync);
+ employee.addEventListener('change',sync);
+ form.addEventListener('reset',()=>form.ownerDocument.defaultView.queueMicrotask(sync));
+ sync();
+ return sync;
+}
+
 export function quickSafetyAccountName(profile, accountEmail=''){
  const name=String(profile?.name||profile?.email||accountEmail||'').trim(),position=String(profile?.position||'').trim();
  return [name,position].filter(Boolean).join(' — ');
