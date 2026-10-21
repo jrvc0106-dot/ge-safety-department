@@ -17,11 +17,15 @@ async function setup(project='job-a'){
  const photo=(name,filename='image.jpg')=>{const input=form.querySelector('[data-evidence-input="'+name+'"][data-source="gallery"]');Object.defineProperty(input,'files',{configurable:true,value:[new dom.window.File(['image'],filename,{type:'image/jpeg'})]});input.onchange()};
  return {dom,doc,form,photo,writes,uploads,errors,revoked};
 }
-test('orientation keeps every original field and action while revealing invalid collapsed controls',async()=>{
+test('orientation keeps employee fields and only two required photo choices',async()=>{
  const t=await setup(),f=t.form;
- for(const name of ['sticker_number','employee_name','employee_profile_id','employee_company','employee_position','orientation_date','notes','jha_safety_name','jha_employee_name','jha_safety_signature','jha_employee_signature'])assert.ok(f.elements.namedItem(name),name);
- assert.equal(f.querySelectorAll('[data-evidence-source]').length,8);
- assert.equal(f.querySelectorAll('[data-evidence-clear]').length,4);
+ for(const name of ['sticker_number','employee_name','employee_company','employee_position','orientation_date','notes','jha_safety_name','jha_employee_name','jha_safety_signature','jha_employee_signature'])assert.ok(f.elements.namedItem(name),name);
+ assert.equal(f.querySelectorAll('[data-evidence-source]').length,4);
+ assert.equal(f.querySelectorAll('[data-evidence-clear]').length,2);
+ assert.equal(f.elements.namedItem('employee_profile_id'),null);
+ assert.equal(f.querySelector('[data-evidence-count="orientation_document_photo"]'),null);
+ assert.equal(f.querySelector('[data-evidence-count="certificate_photos"]'),null);
+ assert.doesNotMatch(f.textContent,/Link to a TEAM member|Safety Orientation Document Photo|Certificate Photos/i);
  assert.ok(t.doc.querySelector('#sticker-camera'));assert.ok(t.doc.querySelector('#sticker-find'));
  const details=f.querySelectorAll('details');assert.deepEqual([...details].map(x=>x.open),[true,true]);
  assert.equal(f.querySelector('.orientation-legacy-fields').hidden,true);
@@ -32,20 +36,20 @@ test('orientation keeps every original field and action while revealing invalid 
  await f.onsubmit({preventDefault(){}});assert.equal(t.writes.length,0);assert.equal(t.errors.length,1);assert.equal(t.doc.activeElement.dataset.evidenceName,'orientation_photo');
  t.dom.window.close();
 });
-test('evidence replacement, multiple certificates, removal and navigation release image previews',async()=>{
+test('Face ID and sticker photo replacements, removal and navigation clean up previews',async()=>{
  const t=await setup();t.photo('orientation_photo','first.jpg');t.photo('orientation_photo','second.jpg');assert.equal(t.revoked.length,1);
- t.photo('certificate_photos','osha.jpg');t.photo('certificate_photos','mewp.jpg');
- assert.equal(t.form.querySelectorAll('.orientation-photo-previews img').length,3);
- t.form.querySelector('[data-evidence-clear="certificate_photos"]').click();assert.equal(t.form.querySelectorAll('.orientation-photo-previews img').length,1);
- t.form.remove();await new Promise(r=>setTimeout(r,0));assert.equal(t.revoked.length,5);t.dom.window.close();
+ t.photo('sticker_photo','first-sticker.jpg');t.photo('sticker_photo','second-sticker.jpg');
+ assert.equal(t.form.querySelectorAll('.orientation-photo-previews img').length,2);
+ t.form.querySelector('[data-evidence-clear="sticker_photo"]').click();assert.equal(t.form.querySelectorAll('.orientation-photo-previews img').length,1);
+ t.form.remove();await new Promise(r=>setTimeout(r,0));assert.equal(t.revoked.length,4);t.dom.window.close();
 });
-for(const project of ['job-a','job-b'])test('complete orientation saves all evidence, signatures and original values for '+project,async()=>{
+for(const project of ['job-a','job-b'])test('orientation saves Face ID, sticker photo and original employee values for '+project,async()=>{
  const t=await setup(project),f=t.form;
  Object.entries({sticker_number:'ge-0248',employee_name:'Juan Pérez',employee_company:'G&E',employee_position:'Carpenter',notes:'Original notes'}).forEach(([name,value])=>f.elements[name].value=value);
- for(const name of ['orientation_photo','sticker_photo','orientation_document_photo','certificate_photos'])t.photo(name);
+ for(const name of ['orientation_photo','sticker_photo'])t.photo(name);
  f.elements.jha_employee_signature.value='[[[0.1,0.2]]]';
  await f.onsubmit({preventDefault(){}});await new Promise(r=>setTimeout(r,0));
- assert.deepEqual(t.errors,[]);assert.equal(t.uploads.length,4);const saved=t.writes.find(x=>x.table==='safety_orientations').payload;
- assert.equal(saved.project_id,project);assert.equal(saved.sticker_number,'GE-0248');assert.equal(saved.employee_name,'Juan Pérez');assert.equal(saved.notes,'Original notes');assert.equal(saved.certificate_photo_paths.length,1);assert.equal(saved.approvals.employee.name,'Worker');
+ assert.deepEqual(t.errors,[]);assert.equal(t.uploads.length,2);const saved=t.writes.find(x=>x.table==='safety_orientations').payload;
+ assert.equal(saved.project_id,project);assert.equal(saved.sticker_number,'GE-0248');assert.equal(saved.employee_name,'Juan Pérez');assert.equal(saved.notes,'Original notes');assert.equal(Object.hasOwn(saved,'certificate_photo_paths'),false);assert.equal(Object.hasOwn(saved,'orientation_document_photo_path'),false);assert.equal(Object.hasOwn(saved,'employee_profile_id'),false);assert.equal(saved.approvals.employee.name,'Worker');
  assert.equal(f.querySelectorAll('.orientation-photo-previews img').length,0);assert.equal(f.elements.jha_employee_signature.value,'[]');assert.equal(f.elements.employee_name.value,'');t.dom.window.close();
 });

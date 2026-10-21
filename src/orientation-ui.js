@@ -28,7 +28,7 @@ export function simplifyOrientationForm(form, tr) {
   form.classList.add('orientation-compact');
   const data = section(1, tr('Employee details', 'Datos del empleado'), true);
   data.body.classList.add('orientation-data-grid');
-  const order = ['employee_name', 'sticker_number', 'orientation_date', 'employee_company', 'employee_position', 'employee_profile_id'];
+  const order = ['employee_name', 'sticker_number', 'orientation_date', 'employee_company', 'employee_position'];
   fields.sort((a,b) => order.indexOf(a.querySelector('[name]').name) - order.indexOf(b.querySelector('[name]').name));
   fields.forEach(field => data.body.append(field));
   const photos = section(2, tr('Orientation evidence', 'Evidencia de orientación'), true);
