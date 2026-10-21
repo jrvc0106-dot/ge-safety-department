@@ -50,7 +50,7 @@ installTabletViewport();
 const url=import.meta.env.VITE_SUPABASE_URL,key=import.meta.env.VITE_SUPABASE_ANON_KEY;
 const db=url&&key?createClient(url,key):null;
 const app=document.querySelector('#app');
-const acceptingInvitation=isTeamInviteActivation(window.location.search,window.location.hash);const state={session:null,profile:null,projects:[],project:null,observations:[],lang:localStorage.getItem('ge_lang')||'en',page:acceptingInvitation?'setPassword':'home',acceptingInvitation,inviteLink:null,detail:null,history:[]};
+const acceptingInvitation=isTeamInviteActivation(window.location.search,window.location.hash);const state={session:null,profile:null,projects:[],project:null,projectUserId:null,observations:[],lang:localStorage.getItem('ge_lang')||'en',page:acceptingInvitation?'setPassword':'home',acceptingInvitation,inviteLink:null,detail:null,history:[]};
 const tr=(en,es)=>state.lang==='es'?es:en;
 // Capture finalization before form-specific submit handlers without changing draft saving.
 const FINALIZATION_FORM_KINDS={'walk-form':'daily','inventory-form':'inventory','equipment-form':'equipment','incident-form':'incident','discipline-form':'discipline','observation':'observation','correction':'correction'};
@@ -739,8 +739,8 @@ function flushActiveDrafts(){
 window.addEventListener('online',()=>{void syncPendingDraftEvidence();flushActiveDrafts()});
 function renderTrackedPage(){render()}
 function navigate(page,detail=null,{replace=false,projectId=state.project}={}){safetyTools.stop();flushActiveDrafts();const projectChanged=projectId!==state.project;state.project=projectId;state.page=page;state.detail=detail;const entry={geSafety:true,page,detail,projectId};if(!restoringHistory){if(replace)history.replaceState(entry,'',location.href);else history.pushState(entry,'',location.href)}if(projectChanged)activateProjectObservations(projectId);if(typeof renderTrackedPage==='function')renderTrackedPage();else render()}
-function switchProject(projectId){if(projectId===state.project||!state.projects.some(p=>p.id===projectId))return;navigate('home',null,{replace:true,projectId});scheduleWeeklyTabletBackup()}
-function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&state.projects.some(p=>p.id===h.projectId)){restoringHistory=true;try{const projectChanged=h.projectId!==state.project;state.project=h.projectId;state.page=h.page||'home';state.detail=h.detail||null;if(projectChanged)activateProjectObservations(h.projectId);if(typeof renderTrackedPage==='function')renderTrackedPage();else render()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
+function switchProject(projectId){if(projectId===state.project||!state.projects.some(p=>p.id===projectId))return;persistSelectedProject(state.session?.user?.id,projectId);navigate('home',null,{replace:true,projectId});scheduleWeeklyTabletBackup()}
+function restoreProjectHistory(h){safetyTools.stop();if(!state.session)return;flushActiveDrafts();if(h?.geSafety&&h.projectId===state.project&&state.projects.some(p=>p.id===state.project)){restoringHistory=true;try{state.page=h.page||'home';state.detail=h.detail||null;if(typeof renderTrackedPage==='function')renderTrackedPage();else render()}finally{restoringHistory=false}}else navigate('home',null,{replace:true})}
 function back(){if(history.state?.geSafety&&state.page!=='home')history.back();else navigate('home',null,{replace:true})}
 const aiWritingEnabled=()=>localStorage.getItem('ge_ai_writing')!=='off';
 function aiWritingError(code,fallback){
@@ -914,6 +914,17 @@ function setPassword(){frame(`<section class="card narrow"><h1>${state.accepting
 function renderRecovery(errorValue){console.error('[G&E Safety] app recovery boundary',errorValue);const message=esc(errorValue?.message||tr('A temporary connection error interrupted loading.','Un error temporal de conexión interrumpió la carga.'));frame(`<section class="card app-recovery"><h1>${tr('Dashboard temporarily unavailable','Panel temporalmente no disponible')}</h1><p>${message}</p><button id="app-retry" class="primary">${tr('Retry','Intentar de nuevo')}</button></section>`);const retry=document.querySelector('#app-retry');if(retry)retry.onclick=()=>refresh()}
 async function refresh(){try{const auth=await db.auth.getSession();state.session=auth?.data?.session||null;await load();render();scheduleWeeklyTabletBackup()}catch(e){renderRecovery(e)}}
 const projectObservationsCache=new Map();let observationsRequest=0,observationsCacheUser=null;
+// The selected jobsite is a per-account device preference, not a profile jobsite or permission.
+const PROJECT_PREFERENCE_PREFIX='ge_selected_project_v1:';
+function projectPreferenceKey(userId){return userId?PROJECT_PREFERENCE_PREFIX+encodeURIComponent(userId):null}
+function readSelectedProject(userId){const storageKey=projectPreferenceKey(userId);if(!storageKey)return null;try{return localStorage.getItem(storageKey)||null}catch{return null}}
+function persistSelectedProject(userId,projectId){const storageKey=projectPreferenceKey(userId);if(!storageKey||!projectId)return;try{localStorage.setItem(storageKey,projectId)}catch{}}
+function resolveSelectedProject(userId,projects,currentProject,projectUserId){
+ const allowed=new Set(projects.map(project=>project.id)),stored=readSelectedProject(userId);
+ if(stored&&allowed.has(stored))return stored;
+ if(projectUserId===userId&&allowed.has(currentProject))return currentProject;
+ return projects[0]?.id||null;
+}
 async function loadProjectObservations(projectId,{force=false}={}){
  const userId=state.session?.user?.id,request=++observationsRequest;
  if(!projectId||!userId){state.observations=[];return}
@@ -926,7 +937,7 @@ async function loadProjectObservations(projectId,{force=false}={}){
 }
 function activateProjectObservations(projectId){const userId=state.session?.user?.id;if(observationsCacheUser!==userId){projectObservationsCache.clear();observationsCacheUser=userId}state.observations=projectObservationsCache.get(projectId)||[];loadProjectObservations(projectId,{force:true}).then(()=>{if(state.project===projectId)render()}).catch(error)}
 async function load(){
- if(!state.session){observationsRequest++;projectObservationsCache.clear();observationsCacheUser=null;state.profile=null;state.projects=[];state.observations=[];return}
+ if(!state.session){observationsRequest++;projectObservationsCache.clear();observationsCacheUser=null;state.profile=null;state.projects=[];state.project=null;state.projectUserId=null;state.observations=[];return}
  const userId=state.session.user.id;
  const [p,projects]=await Promise.all([
   db.from('profiles').select('*').eq('id',userId).maybeSingle(),
@@ -937,7 +948,10 @@ async function load(){
  state.profile=p.data;if(!p.data)return;
  if(projects.error)throw projects.error;
  state.projects=projects.data||[];
- if(!state.projects.some(x=>x.id===state.project))state.project=state.projects[0]?.id||null;
+ // Restore only this account's saved selection. Reassign if the project is no longer accessible.
+ const nextProject=resolveSelectedProject(userId,state.projects,state.project,state.projectUserId);
+ state.project=nextProject;state.projectUserId=userId;
+ if(nextProject&&readSelectedProject(userId)!==nextProject)persistSelectedProject(userId,nextProject);
  await loadProjectObservations(state.project,{force:true});
  if(typeof syncPendingDraftEvidence==='function')void syncPendingDraftEvidence();
 }
