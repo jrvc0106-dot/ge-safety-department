@@ -778,7 +778,7 @@ function aiWritingError(code,fallback){
 async function openAiWritingReview(field,{action='improve_writing',sourceField=field}={}){
  if(!aiWritingEnabled()||!field.isConnected)return;
  if(document.querySelector('.ai-writing-review'))return;
- const original=field.value,sourceText=sourceField.value,correctionProposal=action==='suggest_observation_correction',project=state.project,scope=field.form?.id==='member-profile-form'?'profile':'project',context=field.dataset.aiContext||field.closest('label')?.childNodes?.[0]?.textContent?.trim()||field.name,aiLanguage=field.form?.id==='st-toolbox-form'?(field.form.elements.namedItem('language')?.value==='es'?'es':'en'):state.lang;
+ const original=field.value,sourceText=sourceField.value,correctionProposal=action==='suggest_observation_correction',project=state.project,scope=field.form?.id==='member-profile-form'?'profile':'project',context=field.dataset.aiContext||field.closest('label')?.childNodes?.[0]?.textContent?.trim()||field.name,aiLanguage=field.form?.id==='st-toolbox-form'?(field.form.elements.namedItem('language')?.value==='es'?'es':'en'):state.lang,aiAction=field.form?.id==='st-toolbox-form'?'improve_toolbox':action;
  if(!sourceText.trim()){sourceField.focus();return error(tr('Write your note first, then choose Improve writing.','Primero escribe tu nota y después elige Mejorar redacción.'))}
  const maxLength=field.maxLength>0?Math.min(field.maxLength,3000):3000;
  if(sourceText.length>3000)return error(tr('Improve writing supports notes up to 3,000 characters. Shorten this note first; your text is unchanged.','Mejorar redacción admite notas de hasta 3,000 caracteres. Acorta la nota primero; tu texto sigue intacto.'));
@@ -802,7 +802,7 @@ async function openAiWritingReview(field,{action='improve_writing',sourceField=f
  try{
   const session=await db.auth.getSession();const token=session.data?.session?.access_token;
   if(!token)throw Error(aiWritingError('AUTH_REQUIRED'));
-  const response=await fetch(url+'/functions/v1/improve-writing',{method:'POST',headers:{Authorization:'Bearer '+token,apikey:key,'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({action,text:sourceText,project_id:project,scope,max_length:maxLength,context,language:aiLanguage})});
+  const response=await fetch(url+'/functions/v1/improve-writing',{method:'POST',headers:{Authorization:'Bearer '+token,apikey:key,'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({action:aiAction,text:sourceText,project_id:project,scope,max_length:maxLength,context,language:aiLanguage})});
   const result=await response.json().catch(()=>{throw Error(aiWritingError('REQUEST_FAILED'))});
   if(!response.ok)throw Error(aiWritingError(result.code,result.error));
   if(!dialog.isConnected)return;
