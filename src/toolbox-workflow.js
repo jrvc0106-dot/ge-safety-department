@@ -218,20 +218,27 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  observer.observe(doc.body,{childList:true,subtree:true});
  const collect=()=>{syncInstructor();syncTopics();return {topic_ids:selectedIds(),discussion_points:selectedPoints()}};
  const start=async()=>{
-  // Restore the draft's chosen topics, instructor and discussion checks first.
+  // Preserve any free text restored from an existing draft, including legacy drafts.
+  if(!selectedIds().length&&originalTopic.value&&!topicOther.value)topicOther.value=originalTopic.value.slice(0,250);
+  if(discussed.value.trim())manualTopics=true;
   syncTopics();
   const roster=await Promise.resolve().then(loadInstructors).catch(()=>[]);
   if(!form.isConnected)return;
-  const existing=instructorChoice.value;
+  const existing=instructorChoice.value,previousInstructor=originalInstructor.value;
   const unique=new Map();
   for(const person of roster||[])if(person?.id&&person?.name)unique.set(person.id,person);
   for(const person of unique.values()){const option=make('option','',person.name+(person.position?' — '+person.position:''));option.value=person.id;instructorChoice.append(option)}
   if(existing)instructorChoice.value=existing;
+  if(!instructorChoice.value&&previousInstructor&&!instructorCustom.value){
+   const matched=[...instructorChoice.options].find(o=>o.textContent===previousInstructor);
+   if(matched)instructorChoice.value=matched.value;
+   else instructorCustom.value=previousInstructor.slice(0,160);
+  }
   syncInstructor();
   void refreshPhotos();
-  // Only auto-request permission when a previous permission grant exists.
-  // Otherwise the explicit button triggers the browser location permission prompt.
-  try{if(win.navigator?.permissions?.query){const permission=await win.navigator.permissions.query({name:'geolocation'});if(permission.state==='granted'&&!weatherField.value)void requestWeather()}}catch{}
+  // Try automatic location upon opening the form; the browser can request permission.
+  // A separate button lets the user retry without changing any typed weather.
+  if(!weatherField.value)void requestWeather();
  };
  return {start,collect,refreshPhotos,requestWeather};
 }
