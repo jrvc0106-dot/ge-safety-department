@@ -41,7 +41,7 @@ import './report-groups.css';
 import {groupFinalWalkReportsByCreator} from './report-groups.js';
 import {installTabletViewport} from './tablet-viewport.js';
 import {normalizeMemberEmail,matchOrientationWarnings,summarizeOrientationWarnings,isFormalOrientationWarning} from './team-identity.js';
-import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from './quick-safety-orientation.js';
+import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from './quick-safety-orientation.js';
 import {isTeamInviteActivation} from './team-invitation.js';
 import {canAccessAdminOnlyPage,adminOnlyAccessMessage} from './admin-only-access.js';
 import {isAdminOnlyTool} from './safety-tools-model.js';
@@ -2033,6 +2033,7 @@ async function quickSafetyOrientation(){
  document.querySelector('#quick-orientation-back').onclick=()=>navigate('team');
  const form=document.querySelector('#quick-orientation-form'),facePreview=document.querySelector('#quick-face-preview');let facePhoto=null;
  mountReportSignatures(form,'orientation',tr);
+ const syncEmployeeSignatureName=attachQuickEmployeeSignatureName(form);
  const safetyName=quickSafetyAccountName(state.profile,state.session?.user?.email||''),safetyNameField=form.elements.namedItem('jha_safety_name'),safetyNameLabel=safetyNameField?.closest('label');
  if(safetyNameField&&safetyNameLabel){const identity=document.createElement('div'),caption=document.createElement('span'),name=document.createElement('strong'),hidden=document.createElement('input');identity.className='quick-safety-signer';caption.textContent=tr('Safety signing as','Safety firma como');name.textContent=safetyName||tr('Account name unavailable','Nombre de cuenta no disponible');hidden.type='hidden';hidden.name='jha_safety_name';hidden.value=safetyName;identity.append(caption,name,hidden);safetyNameLabel.replaceWith(identity)}
  const employeeNameField=form.elements.namedItem('jha_employee_name'),employeeNameLabel=employeeNameField?.closest('label');if(employeeNameLabel&&employeeNameLabel.firstChild?.nodeType===3)employeeNameLabel.firstChild.textContent=tr('Employee','Empleado')
@@ -2049,7 +2050,7 @@ async function quickSafetyOrientation(){
  recent.innerHTML=history.error?`<p>${tr('Recent reports could not be loaded.','No se pudieron cargar los reportes recientes.')}</p>`:(history.data||[]).length?(history.data||[]).map(row=>`<button type="button" class="quick-recent-record" data-quick-record="${esc(row.id)}"><b>${esc(row.employee_name)}</b><span>${esc(row.sticker_number)} · ${esc(row.employee_trade)}</span><small>${esc(fmt(row.created_at))}</small></button>`).join(''):`<p>${tr('No quick orientations have been saved for this project yet.','Todavía no hay orientaciones rápidas guardadas para este proyecto.')}</p>`;
  recent.querySelectorAll('[data-quick-record]').forEach(button=>button.onclick=()=>navigate('quickOrientationReport',button.dataset.quickRecord));
  form.onsubmit=async event=>{
-  event.preventDefault();if(form.dataset.submitting==='true')return;const button=form.querySelector('[type="submit"]'),data=new FormData(form),approvals=reportApprovals('orientation',data),selected=QUICK_ORIENTATION_HAZARDS.filter(h=>data.getAll('hazards').includes(h.key));
+  event.preventDefault();if(form.dataset.submitting==='true')return;syncEmployeeSignatureName();const button=form.querySelector('[type="submit"]'),data=new FormData(form),approvals=reportApprovals('orientation',data),selected=QUICK_ORIENTATION_HAZARDS.filter(h=>data.getAll('hazards').includes(h.key));
   if(!selected.length)return error(tr('Select at least one jobsite hazard discussed with the employee.','Seleccione al menos un riesgo del jobsite que revisó con el empleado.'));
   if(!data.get('acknowledged'))return error(tr('The employee acknowledgment is required before saving.','Se requiere el reconocimiento del empleado antes de guardar.'));
   if(!approvals.safety.name.trim()||!approvals.safety.strokes.length||!approvals.employee.name.trim()||!approvals.employee.strokes.length)return error(tr('Enter both names and collect both signatures before saving.','Ingrese ambos nombres y registre ambas firmas antes de guardar.'));
