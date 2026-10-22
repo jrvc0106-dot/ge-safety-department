@@ -1,9 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
 import {quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from '../src/quick-safety-orientation.js';
 import {canVerifyStickerAcrossJobsites,renderGlobalStickerMatches} from '../src/sticker-verification-access.js';
 
+const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const tr=(en)=>en;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=()=> 'Oct 13, 2026';
