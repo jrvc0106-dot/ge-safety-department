@@ -42,5 +42,5 @@ export function equipmentReportDate(instant,language='en'){
  }).format(date);
 }
 export function restoredEquipmentDate(saved,now=new Date()){
- return typeof saved==='string'&&saved.slice(0,10)!==equipmentDay(now)?equipmentDateTimeInput(now):saved;
+ return typeof saved!=='string'||!saved||saved.slice(0,10)!==equipmentDay(now)?equipmentDateTimeInput(now):saved;
 }
