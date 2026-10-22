@@ -2,14 +2,16 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {isValidPdfBlob,protectPdfReportLogos} from '../src/report-pdf-quality.js';
+const mockValidPdf=body=>new Blob(['%PDF-1.4\n',String(body||'test').padEnd(48,' '),'\n%%EOF\n'],{type:'application/pdf'});
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 function setup({archiveFails=false,canShare=false,userAgent='test-browser'}={}){
  const messages=[],downloads=[],shares=[],metrics=[],report={innerHTML:'JHA with photos',querySelector:()=>({textContent:'JHA'}),querySelectorAll:()=>[]};
  const button={innerHTML:'Share PDF',textContent:'Share PDF',disabled:false};
- const blob=new Blob(['%PDF-1.4 test'],{type:'application/pdf'});
+ const blob=mockValidPdf('JHA');
  const canvas={width:800,height:9000};
  const worker={set(){return this},from(){return this},toContainer(){return this},toCanvas(){return this},get(key){return Promise.resolve(key==='container'?{scrollWidth:800,scrollHeight:9000}:key==='overlay'?{remove(){}}:canvas)},outputPdf(){return Promise.resolve(blob)}};
- const context=vm.createContext({nativeReportArchiveAvailable:()=>false,Blob,File,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{userAgent,canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
+ const context=vm.createContext({nativeReportArchiveAvailable:()=>false,isValidPdfBlob,protectPdfReportLogos,Blob,File,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{userAgent,canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
  const helpers=source.slice(source.indexOf('const preparedReportPdfs='),source.indexOf('async function normalizeReportImage'));
  const actions=source.slice(source.indexOf('async function buildReportPdf('),source.indexOf('function installReportDocumentActions()')).replace("await import('./pdf-export.js')",'({renderPaginatedPdf:mockRenderPdf})');
  vm.runInContext(helpers+'\n'+actions,context);
@@ -44,7 +46,7 @@ test('cloud archive failure still downloads and repeated exports reuse the PDF',
 test('download rasterizes saved signatures in the PDF clone before page rendering',async()=>{
  const t=setup();let rasterized=false,rendered=false;
  t.context.rasterizePdfSignatures=async container=>{assert.ok(container);rasterized=true};
- t.context.renderPaginatedPdf=async()=>{assert.equal(rasterized,true);rendered=true;return new Blob(['%PDF-1.4 signed'],{type:'application/pdf'})};
+ t.context.renderPaginatedPdf=async()=>{assert.equal(rasterized,true);rendered=true;return mockValidPdf('signed')};
  const snapshot=t.report.innerHTML;await t.context.runPdfAction('download',t.button);assert.equal(rendered,true);assert.equal(t.downloads.length,1);assert.equal(t.report.innerHTML,snapshot);
 });
 test('a signature rendering failure stops download and restores its control for retry',async()=>{
