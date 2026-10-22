@@ -41,6 +41,9 @@ export async function renderQuickOrientationPdf(container,pageSize,options,rende
     .quick-report-header>img{width:120px!important;max-height:60px!important}
     .quick-report-complete{grid-column:auto!important}
     .quick-report-employee{grid-template-columns:1.05fr .8fr 1fr 1.3fr 1.2fr .95fr!important;margin-top:8px!important}
+    .quick-report-employee.has-face-photo{grid-template-columns:minmax(0,1.05fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.2fr) minmax(0,.95fr) 88px!important}
+    .quick-report-employee>.quick-report-employee-photo{padding:5px!important;min-height:94px!important}
+    .quick-report-employee-photo img{width:74px!important;height:76px!important;object-fit:contain!important;object-position:center!important}
     .quick-report-employee>div{padding:7px!important;border-top:0!important}
     .quick-report-hazards{margin-top:8px!important}
     .quick-report-hazards>header{padding:7px 9px!important}
@@ -58,7 +61,7 @@ export async function renderQuickOrientationPdf(container,pageSize,options,rende
   container.style.width='1008px';
   // Explicit intrinsic dimensions also preserve aspect ratio in canvas renderers
   // whose support for object-fit differs from the browser's image rendering.
-  for(const img of report.querySelectorAll('.quick-report-photos img,.quick-report-header>img')){
+  for(const img of report.querySelectorAll('.quick-report-photos img,.quick-report-header>img,.quick-report-employee-photo img')){
     if(img.decode)await img.decode();
     if(!img.naturalWidth||!img.naturalHeight)throw new Error('Report image could not be loaded');
     const box=img.getBoundingClientRect(),ratio=Math.min(box.width/img.naturalWidth,box.height/img.naturalHeight);
