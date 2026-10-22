@@ -81,3 +81,15 @@ test('Safety Director can request AI findings through the authorized RPC',async(
   assert.deepEqual(calls,[{name:'get_safety_ai_findings',args:{p_result_id:'r1'}}]);
  }finally{globalThis.document=original;dom.window.close()}
 });
+
+test('SQL protects AI Findings from unauthorized roles while retaining aggregated statistics',()=>{
+ const sql=readFileSync('supabase/migrations/20261022024926_restrict_safety_ai_findings_admin_director.sql','utf8');
+ assert.match(sql,/revoke select on public\.safety_trend_results from public, anon, authenticated/);
+ assert.match(sql,/grant select \(id, project_id, cadence, period_start, period_end, computed_at, metrics, ai_status\)/);
+ assert.match(sql,/security definer/);
+ assert.match(sql,/p\.role = 'admin'/);
+ assert.match(sql,/p\.role = 'safety_director'/);
+ assert.match(sql,/m\.project_id = r\.project_id/);
+ assert.match(sql,/security invoker/);
+ assert.match(sql,/revoke all on function public\.get_safety_ai_findings\(uuid\) from public, anon/);
+});
