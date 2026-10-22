@@ -1,4 +1,5 @@
 import {mountSafetyIntelligence} from './safety-intelligence.js';
+import {isValidPdfBlob,protectPdfReportLogos} from './report-pdf-quality.js';
 import './safety-intelligence.css';
 import {helpCenterPage} from './help-center.js';
 import {simplifyOrientationForm} from './orientation-ui.js';
@@ -468,6 +469,8 @@ function currentReportIdentity(report){
 }
 async function registerFinalReport(blob,report,meta=currentReportIdentity(report)){
  if(!meta)return null;
+ // Never register or upload an empty/truncated PDF as a finalized document.
+ if(!(await isValidPdfBlob(blob)))throw new Error('The PDF is incomplete; the cloud copy was not saved.');
  let nextVersion=1;
  if(meta.sourceId){
   const prior=await db.from('report_documents').select('version').eq('report_type',meta.reportType).eq('source_id',meta.sourceId).order('version',{ascending:false}).limit(1);
@@ -510,6 +513,8 @@ async function buildReportPdf(highQuality=false){
   if(report.jhaPdfProgress)options.onPageRendered=report.jhaPdfProgress;
   const worker=html2pdf().set(options).from(report).toContainer();
   const container=await worker.get('container');
+  // Preserve the approved layout while preventing logo distortion in the PDF clone.
+  protectPdfReportLogos(container);
   try{await rasterizePdfSignatures(container)}catch(err){(await worker.get('overlay'))?.remove();throw err}
   let blob;
   if(report.classList?.contains?.('quick-safety-orientation-report')){
@@ -533,7 +538,7 @@ async function buildReportPdf(highQuality=false){
       blob=await worker.outputPdf('blob');
     }finally{canvas.width=0;canvas.height=0}
   }
-  if(!blob?.size)throw new Error(tr('The PDF is empty. Please try again.','El PDF está vacío. Intente nuevamente.'));
+  if(!(await isValidPdfBlob(blob)))throw new Error(tr('The PDF failed its integrity check. No incomplete file was saved. Please try again.','El PDF no pasó la verificación de integridad. No se guardó ningún archivo incompleto. Intente nuevamente.'));
   if(document.querySelector('article.report')!==report||report.innerHTML!==snapshot)throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
   const prepared={blob,filename:options.filename,report,snapshot,highQuality};
   preparedReportPdfs.set(report,prepared);
