@@ -96,3 +96,15 @@ test('global lookup is role gated; existing project scoped lookups are preserved
  assert.match(source,/eq\('project_id',teamProjectId\)/);
  assert.match(source,/orientation-global-results/);
 });
+
+test('database RPC limits global lookups to active Safety, Safety Director and Admin roles',()=>{
+ const sql=readFileSync(new URL('../supabase/migrations/20261022032923_allow_safety_admin_global_sticker_verification.sql',import.meta.url),'utf8');
+ assert.match(sql,/\(select private\.my_role\(\)\) not in \('admin','safety_director','safety'\)/);
+ assert.match(sql,/\(select auth\.uid\(\)\) is null/);
+ assert.match(sql,/where q\.status='final'/);
+ assert.match(sql,/security definer/);
+ assert.match(sql,/security invoker/);
+ assert.match(sql,/revoke all on function public\.verify_safety_sticker_global\(text\) from public,anon/);
+ assert.match(sql,/grant execute on function public\.verify_safety_sticker_global\(text\) to authenticated/);
+ for(const sensitive of ["'employee_phone'","'emergency_contact'","'photo_paths'","'approvals'","'warnings'"])assert.equal(sql.includes(sensitive),false,sensitive);
+});
