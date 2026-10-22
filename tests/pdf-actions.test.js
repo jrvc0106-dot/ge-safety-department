@@ -49,6 +49,17 @@ test('download rasterizes saved signatures in the PDF clone before page renderin
  t.context.renderPaginatedPdf=async()=>{assert.equal(rasterized,true);rendered=true;return mockValidPdf('signed')};
  const snapshot=t.report.innerHTML;await t.context.runPdfAction('download',t.button);assert.equal(rendered,true);assert.equal(t.downloads.length,1);assert.equal(t.report.innerHTML,snapshot);
 });
+test('a malformed newly generated PDF is never downloaded, cached, or archived',async()=>{
+ const t=setup(),attempts=[];
+ t.context.renderPaginatedPdf=async()=>new Blob(['bad data'.repeat(24)],{type:'application/pdf'});
+ t.context.registerFinalReport=async()=>attempts.push('registered');
+ await t.context.runPdfAction('download',t.button);
+ assert.equal(t.downloads.length,0);
+ assert.equal(t.context.preparedReportPdf(t.report),null);
+ assert.equal(attempts.length,0);
+ assert.ok(t.messages.some(message=>message[0].includes('integrity check')));
+});
+
 test('a signature rendering failure stops download and restores its control for retry',async()=>{
  const t=setup();t.context.rasterizePdfSignatures=async()=>{throw Error('Unable to render the saved digital signature.')};
  await t.context.runPdfAction('download',t.button);assert.equal(t.downloads.length,0);assert.equal(t.button.disabled,false);assert.ok(t.messages.some(m=>m[0].includes('saved digital signature')));assert.equal(t.context.preparedReportPdf(t.report),null);
