@@ -2138,7 +2138,13 @@ async function quickSafetyOrientationReportView(id){
  const query=await db.from('quick_safety_orientations').select('*').eq('id',id).eq('project_id',projectId).eq('status','final').single();if(!viewCurrent())return;if(query.error)return error(query.error);
  const record=query.data,project=state.projects.find(p=>p.id===projectId)||{};
  try{const photos=await Promise.all((record.photo_paths||[]).slice(0,4).map(async path=>{const url=await signedDisplayImage('quick-orientation-photos',path,3600);if(!url)throw Error(tr('A report photo could not be loaded. Reopen the report to try again.','No se pudo cargar una foto del reporte. Vuelva a abrirlo para intentar otra vez.'));return {path,url}}));if(!viewCurrent())return;
-  const approvalsMarkup=reportSignaturesReport('orientation',record.approvals,tr).replace('Assigned Safety','Safety Representative').replace('Safety asignado','Representante de Safety').replace('Employee / involved person','Employee').replace('Trabajador / persona involucrada','Empleado');const markup=quickSafetyOrientationReport(record,{tr,esc,fmt,project,photos,signatureMarkup:approvalsMarkup});frame(`<div class="no-print report-actions"><button type="button" class="secondary" id="quick-report-back-top">← ${tr('Back','Atrás')}</button></div>${markup}`);document.querySelector('#quick-report-back-top').onclick=()=>navigate('quickOrientation');document.querySelector('#quick-report-back').onclick=()=>navigate('quickOrientation')
+  // Face ID for new records; first saved photo for historical quick orientations.
+  // Reuse an existing signed photo URL when the same image is already in evidence.
+  const facePhotoPath=quickOrientationPrimaryPhotoPath(record);
+  const facePhotoUrl=facePhotoPath?(photos.find(photo=>photo.path===facePhotoPath)?.url||await signedDisplayImage('quick-orientation-photos',facePhotoPath,3600)):'';
+  if(!viewCurrent())return;
+  if(facePhotoPath&&!facePhotoUrl)throw Error(tr('The employee photo could not be loaded. Please reopen the report to retry.','No se pudo cargar la foto del empleado. Vuelva a abrir el reporte para intentarlo otra vez.'));
+  const approvalsMarkup=reportSignaturesReport('orientation',record.approvals,tr).replace('Assigned Safety','Safety Representative').replace('Safety asignado','Representante de Safety').replace('Employee / involved person','Employee').replace('Trabajador / persona involucrada','Empleado');const markup=quickSafetyOrientationReport(record,{tr,esc,fmt,project,photos,facePhotoUrl,signatureMarkup:approvalsMarkup});frame(`<div class="no-print report-actions"><button type="button" class="secondary" id="quick-report-back-top">← ${tr('Back','Atrás')}</button></div>${markup}`);document.querySelector('#quick-report-back-top').onclick=()=>navigate('quickOrientation');document.querySelector('#quick-report-back').onclick=()=>navigate('quickOrientation')
  }catch(err){if(viewCurrent())error(err)}
 }
 
