@@ -42,7 +42,7 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
   input.addEventListener('change',()=>{
    if(form.dataset.submitting==='true')return;
    const selected=[...input.files].map(file=>({file}));if(!selected.length)return;input.value='';entries.push(...selected);draw();
-   enqueue(async()=>{try{const saved=await add(input.name,selected.map(entry=>entry.file));if(!Array.isArray(saved)||saved.length!==selected.length)throw Error(tr('Some photos were not saved. Please retry.','No se guardaron todas las fotos. Intente nuevamente.'));saved.forEach((item,i)=>{selected[i].item=item;selected[i].error=null});draw()}catch(err){selected.forEach(entry=>entry.error=err);throw err}});
+   enqueue(async()=>{try{const saved=await add(input.name,selected.map(entry=>entry.file));if(!Array.isArray(saved)||saved.length!==selected.length)throw Error(tr('Some photos were not saved. Please retry.','No se guardaron todas las fotos. Intente nuevamente.'));saved.forEach((item,i)=>{selected[i].item=item;selected[i].error=null});draw()}catch(err){selected.forEach(entry=>entry.error=err);draw();throw err}});
   });
   draw();
  }
