@@ -2207,3 +2207,41 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 @media(max-width:900px){.quick-report-employee.has-face-photo{grid-template-columns:repeat(3,minmax(0,1fr))}.quick-report-employee>.quick-report-employee-photo{border-top:1px solid #d9e2ec}}
 @media(max-width:700px){.quick-report-employee.has-face-photo{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media print{.quick-report-employee>.quick-report-employee-photo{break-inside:avoid}.quick-report-employee-photo img{object-fit:contain;aspect-ratio:auto}}
+
+
+/* Register Safety Orientation: professional full registration PDF, independent of Quick. */
+.registered-safety-orientation-report{max-width:8in;margin:0 auto;padding:26px 30px;background:#fff;color:#182d40;font-family:Arial,sans-serif}
+.registered-orientation-header{display:grid;grid-template-columns:104px minmax(0,1fr) auto;align-items:center;gap:14px;padding-bottom:12px;border-bottom:3px solid #173c5b}
+.registered-orientation-header>img{display:block;max-width:100%;width:100px;max-height:68px;height:auto;object-fit:contain;aspect-ratio:auto}
+.registered-orientation-header small{display:block;font-size:9px;font-weight:800;letter-spacing:.05em;color:#526779}
+.registered-orientation-header h1{margin:5px 0 3px;color:#173c5b;font-size:20px}
+.registered-orientation-header p{margin:0;font-size:10px;color:#607486}
+.registered-orientation-header .print-report-number{text-align:right;min-width:80px}
+.registered-orientation-header .print-report-number b{font-size:11px;color:#173c5b;overflow-wrap:anywhere}
+.registered-orientation-header .print-report-number span{display:block;margin-top:4px;font-size:9px;font-weight:800;color:#25744c}
+.registered-orientation-section{margin-top:13px;break-inside:avoid-page}
+.registered-orientation-section h2{margin:0 0 7px;padding:7px 10px;background:#ebeff3;border-left:3px solid #385b76;font-size:12px;font-weight:800;color:#1c3b52}
+.registered-orientation-section h3{margin:12px 0 7px;font-size:11px;color:#1c3b52}
+.registered-orientation-identity{display:grid;grid-template-columns:125px minmax(0,1fr);gap:14px;align-items:start}
+.registered-orientation-identity:not(:has(.registered-orientation-evidence)){grid-template-columns:1fr}
+.registered-orientation-identity>.registered-orientation-evidence{min-height:130px}
+.registered-orientation-identity>.registered-orientation-evidence img{height:113px}
+.registered-orientation-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px}
+.registered-orientation-details>div{min-width:0;padding:5px 8px;border:1px solid #dbe2e8;border-radius:4px}
+.registered-orientation-details span{display:block;font-size:8px;font-weight:800;color:#506b80}
+.registered-orientation-details b{display:block;margin-top:4px;font-size:10px;color:#152e41;overflow-wrap:anywhere}
+.registered-orientation-evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.registered-orientation-evidence{min-width:0;margin:0;padding:7px;border:1px solid #d4dee6;border-radius:5px;background:#f8fafb;break-inside:avoid}
+.registered-orientation-evidence img{display:block;width:100%;height:165px;max-width:100%;object-fit:contain;object-position:center;background:#fff}
+.registered-orientation-evidence figcaption{padding:5px 0 0;font-size:9px;font-weight:800;color:#435c71;text-align:center}
+.registered-orientation-evidence-missing{padding:12px;border:1px dashed #aebcc8;color:#556e80;font-size:10px}
+.registered-orientation-evidence-missing b,.registered-orientation-evidence-missing span{display:block;margin-bottom:4px}
+.registered-orientation-notes{white-space:pre-wrap;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.registered-orientation-signatures .report-signatures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.registered-orientation-signatures .report-signatures>div{min-width:0}
+.registered-orientation-signatures img{max-width:100%;object-fit:contain}
+.registered-orientation-footer{display:flex;justify-content:space-between;gap:10px;margin-top:14px;padding-top:7px;border-top:2px solid #173c5b;color:#566a7b;font-size:8px}
+.registered-orientation-footer b{color:#173c5b}
+.registered-orientation-open-report{display:block;margin:14px 0 0;width:100%;min-height:42px;font-weight:800}
+@media(max-width:620px){.registered-safety-orientation-report{padding:15px}.registered-orientation-header{grid-template-columns:72px minmax(0,1fr);gap:9px}.registered-orientation-header>img{width:70px}.registered-orientation-header .print-report-number{grid-column:1/-1;text-align:left}.registered-orientation-identity{grid-template-columns:100px minmax(0,1fr)}.registered-orientation-details{grid-template-columns:1fr}.registered-orientation-evidence-grid{grid-template-columns:1fr}.registered-orientation-footer{flex-wrap:wrap}}
+@media print{.registered-safety-orientation-report{max-width:none;padding:0;box-shadow:none}.registered-orientation-section,.registered-orientation-evidence{break-inside:avoid-page}.registered-orientation-evidence img{object-fit:contain;aspect-ratio:auto}}
