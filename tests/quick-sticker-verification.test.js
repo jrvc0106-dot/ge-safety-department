@@ -1,8 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
 import {quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from '../src/quick-safety-orientation.js';
+import {canVerifyStickerAcrossJobsites,renderGlobalStickerMatches} from '../src/sticker-verification-access.js';
 
+const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const tr=(en)=>en;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=()=> 'Oct 13, 2026';
@@ -60,4 +63,50 @@ test('Team Field sticker verification uses the first recorded image rather than 
  assert.ok(source.includes('const primaryPhotoPath=quickOrientationPrimaryPhotoPath(record)'));
  assert.ok(source.includes('primaryPhotoPath===firstStoredPhoto?photoUrls[0]'));
  assert.ok(source.includes('quickStickerVerificationMarkup(record,{tr,esc,fmt,projectName:project.name,photos:photoUrls,facePhotoUrl,signatures})'));
+});
+
+test('all G&E Safety and Administrator roles can verify stickers from every jobsite',()=>{
+ for(const role of ['admin','safety_director','safety'])assert.equal(canVerifyStickerAcrossJobsites(role),true,role);
+ for(const role of ['worker','foreman','supervisor','superintendent',null,''])assert.equal(canVerifyStickerAcrossJobsites(role),false,String(role));
+});
+test('cross-jobsite read-only results display registration and jobsite without sensitive details',()=>{
+ const record={project_id:'other-project',project_name:'Domus2',sticker_number:'0585',employee_name:'Worker One',employee_trade:'Ironworker',employee_company:'GE',source_type:'quick',employee_phone:'SECRET_PHONE',emergency_contact:'SECRET_EMERGENCY'};
+ const html=renderGlobalStickerMatches([record],'my-project',false,{tr,esc});
+ assert.match(html,/Sticker registered in another jobsite/);
+ for(const v of ['0585','Worker One','Domus2','Ironworker','Quick Safety Orientation'])assert.ok(html.includes(v),v);
+ assert.doesNotMatch(html,/SECRET_PHONE|SECRET_EMERGENCY/);
+ assert.doesNotMatch(html,/data-quick-verify-report=/);
+});
+test('global sticker lookup handles duplicate jobsites without claiming one identity',()=>{
+ const records=[{project_id:'p1',project_name:'Rivage',sticker_number:'0133',employee_name:'Employee A',source_type:'standard'},{project_id:'p2',project_name:'Waldorf',sticker_number:'0133',employee_name:'Employee B',source_type:'quick'}];
+ const html=renderGlobalStickerMatches(records,'p1',true,{tr,esc});
+ assert.match(html,/Waldorf/);
+ assert.doesNotMatch(html,/Employee A/);
+ assert.match(html,/multiple jobsites/);
+ assert.equal(renderGlobalStickerMatches([records[0]],'p1',true,{tr,esc}),'');
+});
+test('cross-jobsite sticker text is HTML escaped to block injected markup',()=>{
+ const html=renderGlobalStickerMatches([{project_id:'p2',project_name:'<img src=x onerror=alert(1)>',sticker_number:'<script>123</script>',employee_name:'<b>Bad</b>'}],'p1',false,{tr,esc});
+ const dom=new JSDOM(html);
+ assert.equal(dom.window.document.querySelector('script'),null);
+ assert.equal(dom.window.document.querySelector('img'),null);
+ assert.match(html,/&lt;script&gt;/);
+});
+test('global lookup is role gated; existing project scoped lookups are preserved',()=>{
+ assert.match(source,/canVerifyStickerAcrossJobsites\(state\.profile\.role\)/);
+ assert.match(source,/canVerifyGlobally\?db\.rpc\('verify_safety_sticker_global'/);
+ assert.match(source,/eq\('project_id',teamProjectId\)/);
+ assert.match(source,/orientation-global-results/);
+});
+
+test('database RPC limits global lookups to active Safety, Safety Director and Admin roles',()=>{
+ const sql=readFileSync(new URL('../supabase/migrations/20261022032923_allow_safety_admin_global_sticker_verification.sql',import.meta.url),'utf8');
+ assert.match(sql,/\(select private\.my_role\(\)\) not in \('admin','safety_director','safety'\)/);
+ assert.match(sql,/\(select auth\.uid\(\)\) is null/);
+ assert.match(sql,/where q\.status='final'/);
+ assert.match(sql,/security definer/);
+ assert.match(sql,/security invoker/);
+ assert.match(sql,/revoke all on function public\.verify_safety_sticker_global\(text\) from public,anon/);
+ assert.match(sql,/grant execute on function public\.verify_safety_sticker_global\(text\) to authenticated/);
+ for(const sensitive of ["'employee_phone'","'emergency_contact'","'photo_paths'","'approvals'","'warnings'"])assert.equal(sql.includes(sensitive),false,sensitive);
 });
