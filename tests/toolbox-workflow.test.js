@@ -23,6 +23,39 @@ test('OSHA-inspired Toolbox catalog has broad subjects in distinct groups, with 
  assert.deepEqual(toolboxTopicLabels(['falls','mot'],'es','Manejo de materiales'),['Protección contra caídas','Control de tránsito en zona de trabajo / MOT','Manejo de materiales']);
 });
 
+test('Safety Topic behaves as a compact multi-select dropdown without changing report field data',async()=>{
+ const {form,dom,ui}=fixture();await ui.start();
+ const button=form.querySelector('.st-toolbox-topic-toggle');
+ const panel=form.querySelector('.st-toolbox-topic-dropdown');
+ const search=form.querySelector('.st-toolbox-topic-dropdown input[type="search"]');
+ assert.equal(panel.hidden,true);
+ assert.equal(button.getAttribute('aria-expanded'),'false');
+ button.click();
+ assert.equal(panel.hidden,false);
+ assert.equal(button.getAttribute('aria-expanded'),'true');
+ assert.equal(dom.window.document.activeElement,search);
+ const falls=form.querySelector('[data-toolbox-topic="falls"]');
+ const cranes=form.querySelector('[data-toolbox-topic="cranes"]');
+ falls.checked=true;falls.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+ cranes.checked=true;cranes.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+ assert.match(button.textContent,/Fall protection/);
+ assert.match(button.textContent,/Crane operations/);
+ form.querySelector('.st-toolbox-topic-done').click();
+ assert.equal(panel.hidden,true);
+ assert.equal(button.getAttribute('aria-expanded'),'false');
+ assert.match(form.elements.topic.value,/Fall protection \/ Crane operations/);
+ button.click();
+ assert.equal(falls.checked,true);
+ assert.equal(cranes.checked,true);
+ search.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+ assert.equal(panel.hidden,true);
+ button.click();
+ dom.window.document.body.dispatchEvent(new dom.window.Event('pointerdown',{bubbles:true}));
+ assert.equal(panel.hidden,true);
+ assert.deepEqual(ui.collect().topic_ids,['falls','cranes']);
+ dom.window.close();
+});
+
 test('Toolbox topics allow multiple choices and generate only actually checked discussion points',async()=>{
  const t=fixture(),{form,dom,ui}=t;await ui.start();
  assert.ok(form.querySelectorAll('[data-toolbox-topic]').length>=40);
