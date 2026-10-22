@@ -23,3 +23,35 @@ test('removing a photo during upload waits for its storage ID and prevents it fr
  const controller=attachJhaPhotos(form,{list:()=>[],add:async()=>{await gate;return [{path:'uploaded',name:'image.jpg'}]},remove:async(_,item)=>removed.push(item.path),preview:async()=>'',download:async()=>{},tr:x=>x,onError:e=>errors.push(e)});
  try{Object.defineProperty(input,'files',{value:[Object.assign(new Blob(['image']),{name:'image.jpg'})]});input.dispatchEvent(new dom.window.Event('change'));form.querySelector('button').click();resolve();assert.deepEqual(await controller.files('photos_0'),[]);assert.deepEqual(removed,['uploaded']);assert.deepEqual(errors,[])}finally{form.remove();await Promise.resolve();Object.assign(globalThis,previous);dom.window.close()}
 });
+
+
+test('a failed JHA photo remains visible, reports the error and can be retried',async()=>{
+ const dom=new JSDOM('<form id="walk-form"><input type="file" name="photos_0" multiple></form>');
+ const previous={document:globalThis.document,MutationObserver:globalThis.MutationObserver};
+ globalThis.document=dom.window.document;globalThis.MutationObserver=dom.window.MutationObserver;
+ const form=document.querySelector('form'),input=form.querySelector('input'),errors=[];
+ let attempts=0;
+ const controller=attachJhaPhotos(form,{
+  list:()=>[],
+  add:async(_,files)=>{if(++attempts===1)throw Error('Storage temporarily unavailable');return files.map(file=>({path:file.name,name:file.name}))},
+  remove:async()=>{},
+  preview:async()=>'',download:async()=>{},
+  tr:x=>x,onError:e=>errors.push(e)
+ });
+ try{
+  Object.defineProperty(input,'files',{configurable:true,value:[new dom.window.File(['photo'],'field.jpg',{type:'image/jpeg'})]});
+  input.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(errors.length,1);
+  assert.match(form.querySelector('.jha-photo-error')?.textContent||'',/Photo not saved/);
+  assert.equal(form.querySelectorAll('.jha-photo-card').length,1);
+  const retry=[...form.querySelectorAll('.jha-photo-card button')].find(b=>b.textContent==='Retry photo');
+  assert.ok(retry,'The user must be able to retry failed uploads');
+  retry.click();
+  const recovered=await controller.files('photos_0');
+  assert.deepEqual(recovered.map(file=>file.name),['field.jpg']);
+  assert.equal(attempts,2);
+  assert.equal(form.querySelector('.jha-photo-error'),null);
+  assert.equal(form.querySelectorAll('.jha-photo-card').length,1);
+ }finally{form.remove();await Promise.resolve();Object.assign(globalThis,previous);dom.window.close()}
+});
