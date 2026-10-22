@@ -44,6 +44,7 @@ import {installTabletViewport} from './tablet-viewport.js';
 import {normalizeMemberEmail,matchOrientationWarnings,summarizeOrientationWarnings,isFormalOrientationWarning} from './team-identity.js';
 import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from './quick-safety-orientation.js';
 import {registeredSafetyOrientationReport} from './registered-safety-orientation-report.js';
+import {loadRegisteredOrientationEvidence} from './registered-orientation-photo-loader.js';
 import {canVerifyStickerAcrossJobsites,renderGlobalStickerMatches} from './sticker-verification-access.js';
 import {isTeamInviteActivation} from './team-invitation.js';
 import {canAccessAdminOnlyPage,adminOnlyAccessMessage} from './admin-only-access.js';
@@ -1187,18 +1188,13 @@ async function registeredSafetyOrientationReportView(id){
  if(q.error)return error(q.error);
  const record=q.data,project=state.projects.find(p=>p.id===projectId)||{};
  try{
-  const certificatePaths=Array.isArray(record.certificate_photo_paths)?record.certificate_photo_paths.filter(Boolean):[];
-  const paths=[record.orientation_photo_path,record.sticker_photo_path,record.orientation_document_photo_path,...certificatePaths];
-  const urls=await Promise.all(paths.map(async path=>{
-   if(!path)return '';
-   const url=await signedDisplayImage('orientation-photos',path,3600);
-   if(!url)throw Error(tr('An orientation photo could not be loaded. Please reopen the report and try again.','No se pudo cargar una foto de la orientación. Vuelva a abrir el reporte e intente nuevamente.'));
-   return url;
-  }));
+  const photos=await loadRegisteredOrientationEvidence(record,{
+   fetchImage:path=>signedDisplayImage('orientation-photos',path,3600),
+   tr
+  });
   if(!viewCurrent())return;
-  const [face,sticker,document,...certificates]=urls;
   const signatures=reportSignaturesReport('orientation',record.approvals||{},tr);
-  const markup=registeredSafetyOrientationReport(record,{tr,esc,fmt,project,photos:{face,sticker,document,certificates},signatureMarkup:signatures});
+  const markup=registeredSafetyOrientationReport(record,{tr,esc,fmt,project,photos,signatureMarkup:signatures});
   frame('<div class="no-print report-actions"><button type="button" class="secondary" id="registered-orientation-back">← '+tr('Back to Sticker Verification','Volver a Verificar Sticker')+'</button></div>'+markup);
   const backButton=document.querySelector('#registered-orientation-back');
   if(backButton)backButton.onclick=()=>navigate('team');
