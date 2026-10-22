@@ -91,3 +91,42 @@ test('Quick Orientation clears the auto-filled employee signature name on form r
  assert.equal(signer.value,'');
  dom.window.close();
 });
+
+test('final Quick Orientation displays the signed Employee Face ID in the information block',()=>{
+ const record={id:'photo-1234',employee_name:'Worker Example',sticker_number:'GE-585',employee_trade:'Ironworker',employee_company:'G&E',orientation_at:'2026-10-21T12:00:00Z',hazards:[]};
+ const url='https://example.test/private-face.jpg?token=abc';
+ const html=quickSafetyOrientationReport(record,{tr,esc,fmt:()=> 'Oct 21, 2026',project:{name:'The Crossings'},photos:[],facePhotoUrl:url,signatureMarkup:'SIGNED'});
+ const dom=new JSDOM(html);
+ const report=dom.window.document.querySelector('.quick-safety-orientation-report');
+ const employee=report.querySelector('.quick-report-employee');
+ const photo=employee.querySelector('.quick-report-employee-photo img');
+ assert.ok(employee.classList.contains('has-face-photo'));
+ assert.ok(photo,'Employee Face ID is shown inside Employee Information');
+ assert.equal(photo.getAttribute('src'),url);
+ assert.equal(photo.closest('.quick-report-employee'),employee);
+ assert.match(report.textContent,/Employee Photo/);
+ assert.match(report.textContent,/The Crossings/);
+ assert.match(report.textContent,/SIGNED/);
+ assert.equal(report.querySelector('.quick-report-header>img').getAttribute('src'),'/ge-logo.png','Official G&E logo stays unchanged');
+ assert.equal(report.querySelector('.print-report-watermark img').getAttribute('src'),'/ge-logo.png','Original watermark stays unchanged');
+ dom.window.close();
+});
+test('legacy Quick Orientation without a saved face photo keeps the approved layout',()=>{
+ const record={id:'legacy-1234',employee_name:'Worker Example',sticker_number:'GE-585',employee_trade:'Ironworker',employee_company:'G&E',orientation_at:'2026-10-21T12:00:00Z',hazards:[]};
+ const html=quickSafetyOrientationReport(record,{tr,esc,fmt:()=> 'Oct 21, 2026',project:{name:'The Crossings'},photos:[],signatureMarkup:'SIGNED'});
+ const dom=new JSDOM(html);
+ assert.equal(dom.window.document.querySelector('.quick-report-employee-photo'),null);
+ assert.equal(dom.window.document.querySelector('.quick-report-employee.has-face-photo'),null);
+ assert.ok(dom.window.document.querySelector('.quick-report-header>img'));
+ dom.window.close();
+});
+test('Quick Orientation face photo URL is escaped in report HTML',()=>{
+ const record={id:'photo-1234',employee_name:'Worker Example',sticker_number:'GE-585',employee_trade:'Ironworker',employee_company:'G&E',orientation_at:'2026-10-21T12:00:00Z',hazards:[]};
+ const html=quickSafetyOrientationReport(record,{tr,esc,fmt:()=> '',project:{name:'The Crossings'},photos:[],facePhotoUrl:'https://example.test/face.jpg" onerror="alert(1)',signatureMarkup:'SIGNED'});
+ const dom=new JSDOM(html);
+ const photo=dom.window.document.querySelector('.quick-report-employee-photo img');
+ assert.ok(photo);
+ assert.equal(photo.getAttribute('onerror'),null);
+ assert.equal(photo.getAttribute('src'),'https://example.test/face.jpg" onerror="alert(1)');
+ dom.window.close();
+});
