@@ -2,9 +2,11 @@ import {createSafetyIntelligencePdf,safetyPdfFilename} from './safety-intelligen
 /** Read-only Safety Intelligence dashboard; only director/admin may change cadence. */
 export const safetyTrendTotal = entries => Object.values(entries||{}).reduce((n,v)=>n+Number(v?.count||0),0);
 export const safetyTrendDelta = (current,previous) => Number(current||0)-Number(previous||0);
+export const canViewSafetyAiFindings = role => role==='admin'||role==='safety_director';
 export function mountSafetyIntelligence({db,profile,projectId,tr}){
  const t=(en,es)=>tr(en,es);
- const canConfigure=['admin','safety_director'].includes(profile?.role);
+ const canConfigure=canViewSafetyAiFindings(profile?.role);
+ const canViewFindings=canConfigure;
  const card=document.createElement('section');
  card.className='card safety-intelligence';
  const section=document.querySelector('.report-library');
@@ -59,6 +61,7 @@ export function mountSafetyIntelligence({db,profile,projectId,tr}){
    t('Disciplinary reports: ','Reportes disciplinarios: ')+(current.disciplinary_actions?.count||0)+' · '+
    t('Safety tools: ','Herramientas de Safety: ')+(current.safety_tools?.count||0)));
   body.append(facts);
+  if(canViewFindings){
   const ai=el('div','si-insights');
   ai.append(el('h3','',t('AI findings','Conclusiones de IA')));
   if(run.ai_status==='complete'&&Array.isArray(run.insights)&&run.insights.length){
@@ -72,6 +75,7 @@ export function mountSafetyIntelligence({db,profile,projectId,tr}){
     t('Not enough reports this period for reliable AI findings.','No hay suficientes registros en este período para conclusiones confiables de IA.')));
   }
   body.append(ai);
+  }
   if(m.limited)body.append(el('p','si-warning',t('Some category breakdowns are limited to the first 1,000 records per source.','Algunas categorías se resumen a partir de un máximo de 1,000 registros por fuente.')));
   body.append(el('p','si-footnote',t('Latest analysis: ','Último análisis: ')+date(run.computed_at)+' · '+t('Next eligible run: ','Próxima ejecución prevista: ')+date(setting?.next_run_at)));
   body.append(el('p','si-footnote',t('Record counts are not a safety score or proof of OSHA compliance.','Los conteos no constituyen una puntuación de seguridad ni prueban cumplimiento OSHA.')));
@@ -154,7 +158,7 @@ export function mountSafetyIntelligence({db,profile,projectId,tr}){
   try{
    const [settingResult,runResult]=await Promise.all([
     db.from('safety_trend_settings').select('project_id,cadence,enabled,next_run_at,last_run_at').eq('project_id',selectedProject).maybeSingle(),
-    db.from('safety_trend_results').select('cadence,period_start,period_end,computed_at,metrics,insights,ai_status').eq('project_id',selectedProject).order('computed_at',{ascending:false}).limit(1)
+    db.from('safety_trend_results').select('id,cadence,period_start,period_end,computed_at,metrics,ai_status').eq('project_id',selectedProject).order('computed_at',{ascending:false}).limit(1)
    ]);
    if(serial!==renderSerial)return;
    if(settingResult.error||runResult.error)throw(settingResult.error||runResult.error);
@@ -163,7 +167,16 @@ export function mountSafetyIntelligence({db,profile,projectId,tr}){
    if(setting)frequencySelect.value=setting.cadence;
    setStatus(setting?(setting.enabled?t('Automatic analysis enabled','Análisis automático activado'):t('Automatic analysis paused','Análisis automático pausado')):t('This project has no automatic schedule yet','Este proyecto todavía no tiene programación automática'));
    if(!run){showEmpty(t('No analysis saved yet. It will appear automatically after the first scheduled run.','Todavía no hay análisis guardados. Aparecerán automáticamente después de la primera ejecución programada.'));return}
-   showResults(run,setting);
+   // Read sensitive AI findings only through the role-checked server RPC.
+   // Safety/supervisor users receive aggregate metrics but never the insights JSON.
+   let authorizedRun=run;
+   if(canViewFindings){
+    const findings=await db.rpc('get_safety_ai_findings',{p_result_id:run.id});
+    if(serial!==renderSerial)return;
+    if(findings.error)throw findings.error;
+    authorizedRun={...run,insights:Array.isArray(findings.data)?findings.data:[]};
+   }
+   showResults(authorizedRun,setting);
   }catch(error){
    if(serial!==renderSerial)return;
    setStatus(t('Could not load analysis. Check your connection and access.','No se pudo cargar el análisis. Revisa la conexión y los permisos.'),true);
