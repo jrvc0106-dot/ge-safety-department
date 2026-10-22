@@ -9,14 +9,14 @@ import {canVerifyStickerAcrossJobsites,renderGlobalStickerMatches} from '../src/
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=parseAst(source);
 const fn=name=>{const n=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);return source.slice(n.start,n.end)};
 async function setup(project='job-a',role='safety',orientationRecord=null){
- const dom=new JSDOM('<main></main>'),doc=dom.window.document,writes=[],uploads=[],errors=[],revoked=[];let serial=0;
+ const dom=new JSDOM('<main></main>'),doc=dom.window.document,writes=[],uploads=[],errors=[],revoked=[],routes=[];let serial=0;
  dom.window.URL.createObjectURL=()=> 'blob:photo-'+(++serial);dom.window.URL.revokeObjectURL=url=>revoked.push(url);
  const db={rpc:async()=>({data:[],error:null}),from(table){const q={select(){return q},eq(){return q},order(){return q},insert(payload){writes.push({table,payload});return q},single:async()=>({data:{id:'new-record'}}),maybeSingle:async()=>({data:table==='safety_orientations'?orientationRecord:null}),then(resolve,reject){return Promise.resolve({data:[],error:null}).then(resolve,reject)}};return q},storage:{from:()=>({upload:async(path,file)=>{uploads.push({path,file});return {}},remove:async()=>({})})}};
- const context=vm.createContext({simplifyOrientationForm,canVerifyStickerAcrossJobsites,renderGlobalStickerMatches,state:{project,profile:{id:'owner',role},projects:[{id:project,name:project==='the-crossings'?'The Crossings':project}]},db,document:doc,FormData:dom.window.FormData,captureView:()=>()=>true,frame:html=>doc.querySelector('main').innerHTML=html,tr:en=>en,esc:x=>String(x??''),localDateKey:()=> '2026-10-09',error:e=>errors.push(e),savedAction(){},normalizeReportImage:async f=>f,matchOrientationWarnings:()=>[],isFormalOrientationWarning:()=>false,summarizeOrientationWarnings:()=>[],signedDisplayImage:async()=>'',reportSignaturesReport:()=>'<div class="report-signatures"></div>',teamRoleLabel:()=>role,fmt:()=>'',crypto:{randomUUID:()=>String(++serial)},reportApprovals:()=>({safety:{name:'Safety'},employee:{name:'Worker'}}),mountReportSignatures(form){const box=doc.createElement('div');box.className='jha-approval-fields';box.innerHTML='<section><input name="jha_safety_name"><input name="jha_safety_signature" value="[]"><button type="button" data-jha-clear="safety">Clear</button></section><section><input name="jha_employee_name"><input name="jha_employee_signature" value="[]"><button type="button" data-jha-clear="employee">Clear</button></section>';form.insertBefore(box,form.querySelector('[type=submit]'));box.querySelectorAll('[data-jha-clear]').forEach(b=>b.onclick=()=>{form.elements['jha_'+b.dataset.jhaClear+'_signature'].value='[]'})}});
+ const context=vm.createContext({simplifyOrientationForm,canVerifyStickerAcrossJobsites,renderGlobalStickerMatches,state:{project,profile:{id:'owner',role},projects:[{id:project,name:project==='the-crossings'?'The Crossings':project}]},db,document:doc,FormData:dom.window.FormData,captureView:()=>()=>true,frame:html=>doc.querySelector('main').innerHTML=html,tr:en=>en,esc:x=>String(x??''),localDateKey:()=> '2026-10-09',error:e=>errors.push(e),navigate:(page,id)=>routes.push({page,id}),savedAction(){},normalizeReportImage:async f=>f,matchOrientationWarnings:()=>[],isFormalOrientationWarning:()=>false,summarizeOrientationWarnings:()=>[],signedDisplayImage:async()=>'',reportSignaturesReport:()=>'<div class="report-signatures"></div>',teamRoleLabel:()=>role,fmt:()=>'',crypto:{randomUUID:()=>String(++serial)},reportApprovals:()=>({safety:{name:'Safety'},employee:{name:'Worker'}}),mountReportSignatures(form){const box=doc.createElement('div');box.className='jha-approval-fields';box.innerHTML='<section><input name="jha_safety_name"><input name="jha_safety_signature" value="[]"><button type="button" data-jha-clear="safety">Clear</button></section><section><input name="jha_employee_name"><input name="jha_employee_signature" value="[]"><button type="button" data-jha-clear="employee">Clear</button></section>';form.insertBefore(box,form.querySelector('[type=submit]'));box.querySelectorAll('[data-jha-clear]').forEach(b=>b.onclick=()=>{form.elements['jha_'+b.dataset.jhaClear+'_signature'].value='[]'})}});
  vm.runInContext(fn('orientationEvidenceField')+'\n'+fn('team'),context);await context.team();
  const form=doc.querySelector('#orientation-form');
  const photo=(name,filename='image.jpg')=>{const input=form.querySelector('[data-evidence-input="'+name+'"][data-source="gallery"]');Object.defineProperty(input,'files',{configurable:true,value:[new dom.window.File(['image'],filename,{type:'image/jpeg'})]});input.onchange()};
- return {dom,doc,form,photo,writes,uploads,errors,revoked};
+ return {dom,doc,form,photo,writes,uploads,errors,revoked,routes};
 }
 test('orientation keeps employee fields and only two required photo choices',async()=>{
  const t=await setup(),f=t.form;
@@ -52,6 +52,7 @@ for(const project of ['job-a','job-b'])test('orientation saves Face ID, sticker 
  await f.onsubmit({preventDefault(){}});await new Promise(r=>setTimeout(r,0));
  assert.deepEqual(t.errors,[]);assert.equal(t.uploads.length,2);const saved=t.writes.find(x=>x.table==='safety_orientations').payload;
  assert.equal(saved.project_id,project);assert.equal(saved.sticker_number,'GE-0248');assert.equal(saved.employee_name,'Juan Pérez');assert.equal(saved.notes,'Original notes');assert.equal(Object.hasOwn(saved,'certificate_photo_paths'),false);assert.equal(Object.hasOwn(saved,'orientation_document_photo_path'),false);assert.equal(Object.hasOwn(saved,'employee_profile_id'),false);assert.equal(saved.approvals.employee.name,'Worker');
+ assert.deepEqual(t.routes,[{page:'safetyOrientationReport',id:'new-record'}]);
  assert.equal(f.querySelectorAll('.orientation-photo-previews img').length,0);assert.equal(f.elements.jha_employee_signature.value,'[]');assert.equal(f.elements.employee_name.value,'');t.dom.window.close();
 });
 
@@ -62,6 +63,7 @@ test('The Crossings traditional sticker verifies for Safety without an undefined
  await t.doc.querySelector('#sticker-find').onclick();
  assert.deepEqual(t.errors,[]);
  assert.match(t.doc.querySelector('#orientation-result').textContent,/ORIENTATION VERIFIED/);
+ assert.ok(t.doc.querySelector('[data-registered-orientation-report]'),'Traditional sticker must link to its final PDF');
  assert.match(t.doc.querySelector('#orientation-result').textContent,/Safety Test Worker/);
  assert.equal(t.doc.querySelector('.orientation-delete'),null,'Safety must not have administrator deletion button');
  t.dom.window.close();
