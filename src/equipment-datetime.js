@@ -38,7 +38,7 @@ export function equipmentReportDate(instant,language='en'){
  const date=new Date(instant);
  if(!Number.isFinite(date.getTime()))return '—';
  return new Intl.DateTimeFormat(language==='es'?'es-US':'en-US',{
-  timeZone:EQUIPMENT_TIME_ZONE,dateStyle:'medium',timeStyle:'short',timeZoneName:'short'
+  timeZone:EQUIPMENT_TIME_ZONE,year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'
  }).format(date);
 }
 export function restoredEquipmentDate(saved,now=new Date()){
