@@ -35,7 +35,7 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
     if(entry.previewUrl)image.src=entry.previewUrl;
     else if(entry.item&&/\.hei[cf]$/i.test(entry.file?.name||''))preview(entry.item).then(showPreview).catch(()=>{});
     else if(entry.url)image.src=entry.url;
-    else if(entry.file){try{entry.url=URL.createObjectURL(entry.file);image.src=entry.url}catch{status.textContent=tr('Preview unavailable; photo selected','Vista no disponible; foto seleccionada')}}
+    else if(entry.file){try{entry.url=URL.createObjectURL(entry.file);image.src=entry.url}catch{if(!entry.error)status.textContent=tr('Preview unavailable; photo selected','Vista no disponible; foto seleccionada')}}
     else if(entry.item)preview(entry.item).then(showPreview).catch(()=>{label.textContent=tr('Preview unavailable: ','Vista no disponible: ')+image.alt});
    }
   }
