@@ -92,8 +92,15 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  languageSelect.value=tr('en','es')==='es'?'es':'en';
  originalLanguage.replaceWith(languageSelect);
  const topicsBox=make('section','st-toolbox-topics'),heading=make('h3','',tr('Safety topics (choose several)','Temas de seguridad (seleccione varios)'));
+ // Keep the full checklist hidden behind a single select-like control until requested.
+ const topicToggle=make('button','st-toolbox-topic-toggle');topicToggle.type='button';
+ topicToggle.setAttribute('aria-expanded','false');topicToggle.setAttribute('aria-controls','st-toolbox-topic-dropdown');
+ const topicSelection=make('span','st-toolbox-topic-selected',tr('Select safety topics','Seleccione temas de seguridad'));
+ const topicChevron=make('span','st-toolbox-topic-chevron','▾');topicChevron.setAttribute('aria-hidden','true');
+ topicToggle.append(topicSelection,topicChevron);
+ const topicDropdown=make('div','st-toolbox-topic-dropdown');topicDropdown.id='st-toolbox-topic-dropdown';topicDropdown.hidden=true;
  const search=make('input');search.type='search';search.placeholder=tr('Find a topic…','Buscar tema…');search.setAttribute('aria-label',search.placeholder);
- const catalog=make('div','st-toolbox-topic-catalog');topicsBox.append(heading,search,catalog);
+ const catalog=make('div','st-toolbox-topic-catalog');topicDropdown.append(search,catalog);topicsBox.append(heading,topicToggle,topicDropdown);
  for(const group of TOOLBOX_TOPIC_GROUPS){
   const groupBox=make('fieldset','st-toolbox-topic-group'),legend=make('legend','',tr(group.en,group.es));
   groupBox.append(legend);
@@ -105,7 +112,8 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  }
  const topicOther=make('input');topicOther.name='toolbox_topic_other';topicOther.maxLength=250;topicOther.placeholder=tr('Other topic (optional)','Otro tema (opcional)');
  const otherLabel=make('label','st-toolbox-other',tr('Add a custom topic','Agregar tema propio'));otherLabel.append(topicOther);
- const topicCounter=make('small','st-toolbox-topic-count');topicsBox.append(otherLabel,topicCounter);
+ const topicDone=make('button','secondary st-toolbox-topic-done',tr('Done','Listo'));topicDone.type='button';
+ const topicCounter=make('small','st-toolbox-topic-count');topicDropdown.append(otherLabel,topicDone);topicsBox.append(topicCounter);
  const detailsLabel=languageSelect.closest('label');detailsLabel?.parentElement?.insertBefore(topicsBox,detailsLabel);
 
  const instructorLabel=make('label','st-toolbox-instructor',tr('Instructor — registered Safety staff','Instructor — personal de Safety registrado'));
@@ -151,8 +159,10 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
   const chosen=new Set(selectedIds());
   for(const box of form.querySelectorAll('[data-topic-group]'))box.hidden=!chosen.has(box.dataset.topicGroup);
   noPoints.hidden=chosen.size>0;
-  topicCounter.textContent=String(chosen.size)+' '+tr('selected','seleccionados');
-  originalTopic.value=selectedLabels().join(' / ');
+  const labels=selectedLabels();
+  topicSelection.textContent=labels.length?labels.join(', '):(language()==='es'?'Seleccione temas de seguridad':'Select safety topics');
+  topicCounter.textContent=String(labels.length)+' '+(language()==='es'?'seleccionados':'selected');
+  originalTopic.value=labels.join(' / ');
   updateOutline();
  };
  for(const input of form.querySelectorAll('[data-toolbox-topic]'))input.addEventListener('change',syncTopics);
@@ -160,6 +170,18 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  topicOther.addEventListener('input',syncTopics);
  discussed.addEventListener('input',event=>{if(!event.isTrusted&&discussed.value===autoOutline)return;manualTopics=discussed.value!==autoOutline});
  updateButton.onclick=()=>updateOutline(true);
+ const setTopicDropdownOpen=open=>{
+  topicDropdown.hidden=!open;topicToggle.setAttribute('aria-expanded',String(open));
+  if(open){search.value='';search.dispatchEvent(new win.Event('input',{bubbles:true}));search.focus()}
+ };
+ topicToggle.addEventListener('click',()=>setTopicDropdownOpen(topicDropdown.hidden));
+ topicDone.addEventListener('click',()=>{setTopicDropdownOpen(false);topicToggle.focus()});
+ const closeTopicsOnOutside=event=>{if(!topicsBox.contains(event.target))setTopicDropdownOpen(false)};
+ const closeTopicsOnEscape=event=>{
+  if(event.key==='Escape'&&!topicDropdown.hidden){setTopicDropdownOpen(false);topicToggle.focus();event.preventDefault()}
+ };
+ doc.addEventListener('pointerdown',closeTopicsOnOutside);
+ form.addEventListener('keydown',closeTopicsOnEscape);
  instructorChoice.addEventListener('change',syncInstructor);
  instructorCustom.addEventListener('input',syncInstructor);
  search.addEventListener('input',()=>{
@@ -213,7 +235,7 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
   void refreshPhotos();
  });
  const observer=new win.MutationObserver(()=>{
-  if(form.isConnected)return;imageUrls.forEach(url=>win.URL.revokeObjectURL(url));imageUrls=[];observer.disconnect()
+  if(form.isConnected)return;imageUrls.forEach(url=>win.URL.revokeObjectURL(url));imageUrls=[];doc.removeEventListener('pointerdown',closeTopicsOnOutside);form.removeEventListener('keydown',closeTopicsOnEscape);observer.disconnect()
  });
  observer.observe(doc.body,{childList:true,subtree:true});
  const collect=()=>{syncInstructor();syncTopics();return {topic_ids:selectedIds(),discussion_points:selectedPoints()}};
