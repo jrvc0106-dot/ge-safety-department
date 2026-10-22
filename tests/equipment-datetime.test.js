@@ -23,4 +23,5 @@ test('a prior-day equipment draft resets only the inspection timestamp and never
  assert.equal(result.equipment_name,'Forklift #1');
  assert.equal(result.check_0,'fail');
  assert.equal(restoredEquipmentDate('2026-10-22T07:15',now),'2026-10-22T07:15');
+ assert.equal(restoredEquipmentDate(undefined,now),'2026-10-22T09:34');
 });
