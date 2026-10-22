@@ -163,7 +163,8 @@ async function persistDraft(form,type,key='default'){
   let result;try{result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'})}catch{result={error:true}}
   if(!form.isConnected||form.dataset.autoDraft==='false')return;
   if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
-  setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
+  const localPhotos=Object.values(payload.__files||{}).flat().some(item=>item?.localId);
+  setDraftStatus(form,localPhotos?tr('Photos saved on this iPad · will upload when the report is completed online','Fotos guardadas en este iPad · se subirán al finalizar el reporte con conexión'):tr('Draft saved ✓','Borrador guardado ✓'),localPhotos?'local':'saved');
  });
  draftWrites.set(context,write);
  try{await write}finally{if(draftWrites.get(context)===write)draftWrites.delete(context)}
@@ -175,8 +176,9 @@ async function uploadDraftFiles(form,type,key,input){
  const saved=[];
  if(type==='safety_tool_toolbox'&&old.length+input.files.length>12)throw Error(tr('Maximum 12 Toolbox Talk photos per report.','Máximo 12 fotos por Toolbox Talk.'));
  for(const original of [...input.files]){
-  if(original.size>10*1024*1024)throw Error(tr('Each draft photo must be 10 MB or less.','Cada foto del borrador debe ser de 10 MB o menos.'));
+  if(original.size>50*1024*1024)throw Error(tr('The original photo exceeds 50 MB.','La foto original supera los 50 MB.'));
   let file=await normalizeReportImage(original);
+  if(file.size>10*1024*1024)throw Error(tr('The processed photo exceeds 10 MB. Choose a smaller image.','La foto procesada supera los 10 MB. Seleccione una imagen más pequeña.'));
   if(!file.type.startsWith('image/'))throw Error(tr('Only supported images can be saved as draft evidence.','Solo imágenes compatibles pueden guardarse como evidencia temporal.'));
   const ext=file.type.split('/')[1]?.replace(/[^a-z0-9]/gi,'')||'jpg';
   const safeName=input.name.replace(/[^a-z0-9_-]/gi,'_');
@@ -333,9 +335,9 @@ async function enableAutoDraft(form,type,key='default'){
  if(type==='daily_safety_walk'||type==='equipment_inspection'||type==='observation')attachJhaPhotos(form,{
   list:name=>(draftFileState.get(formDraftKey(form,type,key))||{})[name]||[],
   add:(name,files)=>uploadDraftFiles(form,type,key,{name,files}),
-  remove:async(name,item)=>{const ctx=formDraftKey(form,type,key),all=draftFileState.get(ctx)||{},previous=all[name]||[];all[name]=previous.filter(photo=>photo.path!==item.path);draftFileState.set(ctx,all);try{await persistDraft(form,type,key)}catch(err){all[name]=previous;throw err}renderDraftFileBadges(form,all);await db.storage.from('draft-evidence').remove([item.path])},
-  preview:item=>signedDisplayImage('draft-evidence',item.path,3600),
-  download:async item=>{if(type==='observation'&&item.localId){const local=await getOfflineDraftFile(item.localId);if(local)return local}const result=await db.storage.from('draft-evidence').download(item.path);if(result.error)throw result.error;return new File([result.data],item.name,{type:item.type||result.data.type})},tr,onError:error
+  remove:async(name,item)=>{const ctx=formDraftKey(form,type,key),all=draftFileState.get(ctx)||{},previous=all[name]||[];all[name]=previous.filter(photo=>photo.path!==item.path);draftFileState.set(ctx,all);try{await persistDraft(form,type,key)}catch(err){all[name]=previous;throw err}renderDraftFileBadges(form,all);if(item.localId){await deleteOfflineDraftFiles([item.localId])}else{const cleanup=await db.storage.from('draft-evidence').remove([item.path]);if(cleanup.error)console.warn('Draft photo cleanup pending',cleanup.error)}},
+  preview:async item=>{if(item.localId){const file=await getOfflineDraftFile(item.localId);return file?URL.createObjectURL(file):''}return signedDisplayImage('draft-evidence',item.path,3600)},
+  download:async item=>{if(item.localId){const local=await getOfflineDraftFile(item.localId);if(!local)throw Error(tr('An offline photo is missing on this iPad. Please attach it again.','Falta una foto guardada en este iPad. Vuelva a adjuntarla.'));return local}const result=await db.storage.from('draft-evidence').download(item.path);if(result.error)throw result.error;return new File([result.data],item.name,{type:item.type||result.data.type})},tr,onError:error
  });
  return restored;
 }
