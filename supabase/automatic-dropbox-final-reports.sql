@@ -62,7 +62,7 @@ returns setof public.dropbox_automatic_reports
 language sql security invoker set search_path='' as $$
  with selected as (
   select report_id from public.dropbox_automatic_reports
-  where status in ('pending','failed')
+  where (status in ('pending','failed') or (status='sending' and lock_until < now()))
     and next_attempt_at <= now()
     and (lock_until is null or lock_until < now())
   order by created_at,report_id
