@@ -45,6 +45,7 @@ import {groupFinalWalkReportsByCreator} from './report-groups.js';
 import {installTabletViewport} from './tablet-viewport.js';
 import {installMobileExperience,decorateMobileFrame} from './mobile-experience.js';
 import './mobile-experience.css';
+import './mobile-field-workflow.css';
 import {normalizeMemberEmail,matchOrientationWarnings,summarizeOrientationWarnings,isFormalOrientationWarning} from './team-identity.js';
 import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from './quick-safety-orientation.js';
 import {registeredSafetyOrientationReport} from './registered-safety-orientation-report.js';
