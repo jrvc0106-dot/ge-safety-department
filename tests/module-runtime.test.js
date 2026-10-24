@@ -7,6 +7,7 @@ import {jhaSignatureFields,jhaApprovals} from '../src/jha-signatures.js';
 import {parseAst} from 'rollup/parseAst';
 import {createImageCache,createTaskQueue} from '../src/image-cache.js';
 import {effectiveWalkStatus} from '../src/daily-walk-report-status.js';
+import {compactReportRow} from '../src/report-center-compact.js';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=parseAst(source);
 function fn(name){const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);assert.ok(node,name);return source.slice(node.start,node.end)}
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject}}
@@ -107,6 +108,6 @@ test('daily report batches related queries and remains nonexportable until rows 
 });
 test('report date filters use original timestamps for both English and Spanish display dates',()=>{
  let rowNode;function walk(n){if(!n||typeof n!=='object')return;if(n.type==='FunctionDeclaration'&&n.id.name==='row'&&n.params.some(p=>p.name==='timestamp'||p.left?.name==='timestamp'))rowNode=n;for(const v of Object.values(n))if(Array.isArray(v))v.forEach(walk);else if(v&&typeof v==='object')walk(v)}walk(ast);assert.ok(rowNode);
- const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},esc:x=>x,docMeta:()=>'',tr:x=>x});vm.runInContext(source.slice(rowNode.start,rowNode.end),context);const timestamp='2026-09-30T15:00:00Z';
- for(const lang of ['en-US','es-US']){const displayed=new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(new Date(timestamp)),html=context.row('walk','x','Walk',displayed,'safe','daily_safety_walk',timestamp);assert.ok(html.includes(`data-time="${new Date(timestamp).getTime()}"`));assert.ok(html.includes(displayed));}
+ const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},esc:x=>x,docMeta:()=>'',tr:x=>x,compactReportRow,state:{lang:'en'}});vm.runInContext(source.slice(rowNode.start,rowNode.end),context);const timestamp='2026-09-30T15:00:00Z';
+ for(const lang of ['en','es']){context.state.lang=lang;const html=context.row('walk','x','Daily Report (JHA)','','','daily_safety_walk',timestamp,'Safety Worker');assert.ok(html.includes(`data-time="${new Date(timestamp).getTime()}"`));assert.ok(html.includes('09.30.2026'));assert.ok(html.includes('Safety Worker'));assert.ok(html.includes('Daily Report (JHA)'));}
 });

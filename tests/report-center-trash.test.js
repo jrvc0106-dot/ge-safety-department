@@ -6,6 +6,7 @@ import {JSDOM} from 'jsdom';
 import {parseAst} from 'rollup/parseAst';
 import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,confirmAdminTrashPermanentDeletion} from '../src/report-center-trash.js';
 import {groupFinalWalkReportsByCreator} from '../src/report-groups.js';
+import {compactReportRow} from '../src/report-center-compact.js';
 import {indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf} from '../src/finalized-pdf-direct.js';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const node=parseAst(source).body.find(x=>x.type==='FunctionDeclaration'&&x.id.name==='reportCenter');
@@ -82,7 +83,7 @@ async function setup(role='admin'){
   fmt:()=> 'Oct 14',localDateKey:()=> '2026-10-14',captureView:()=>()=>true,
   toolsHomeMarkup:()=>'',safetyTools:{bindHome(){}},nativeReportArchiveAvailable:()=>false,
   reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,confirmAdminTrashPermanentDeletion,
-  groupFinalWalkReportsByCreator,indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf,effectiveWalkStatus:()=> 'safe',disciplinaryActionLabel:()=> 'Coaching',
+  groupFinalWalkReportsByCreator,compactReportRow,indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf,effectiveWalkStatus:()=> 'safe',disciplinaryActionLabel:()=> 'Coaching',
   confirmAction:msg=>messages.push(msg),error:e=>messages.push('ERROR: '+e.message),
   navigate:(...args)=>navigation.push(args),Date,console
  });
@@ -138,9 +139,12 @@ test('correction deletion hides only the corrective report, not its underlying o
 test('walk cards keep own admin delete button outside record button',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="walks"]').click();
- assert.equal(t.doc.querySelectorAll('details.report-person-group').length,1);
+ assert.equal(t.doc.querySelectorAll('details.report-person-group').length,0,'Safety creators now appear inline in option 2');
  const outer=t.doc.querySelector('.report-center-admin-entry');
- assert.ok(outer);assert.equal(outer.querySelectorAll('button').length,3);
+ assert.ok(outer);
+ assert.match(outer.textContent,/Safety Worker/);
+ assert.equal(outer.querySelectorAll('.report-compact-action').length,2);
+ assert.equal(outer.querySelectorAll('.report-center-admin-delete').length,2);
  assert.equal(outer.querySelector('button.report-record').contains(outer.querySelector('.report-center-admin-delete')),false);
  t.dom.window.close();
 });
@@ -179,10 +183,13 @@ test('irreversible deletion calls the secure Supabase Edge Function and rejects 
 test('Admin sees a direct Delete permanently button on an active report',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="discipline"]').click();
- const buttons=[...t.doc.querySelectorAll('.report-center-admin-entry button')];
- assert.equal(buttons.length,3);
- assert.match(buttons[2].textContent,/Delete permanently/);
- buttons[2].click();await tick();await tick();
+ const wrapper=t.doc.querySelector('.report-center-admin-entry');
+ const buttons=[...wrapper.querySelectorAll('button')];
+ assert.equal(buttons.length,5,'Record, two PDF buttons and two separate admin controls');
+ const permanent=wrapper.querySelector('[data-report-action="permanent"]');
+ assert.ok(permanent);
+ assert.match(permanent.textContent,/Delete permanently/);
+ permanent.click();await tick();await tick();
  assert.equal(t.rows.safety_discipline.length,0);
  assert.equal(t.rows.report_center_trash[0].state,'permanent');
  assert.equal(t.doc.querySelectorAll('.report-record').length,0);

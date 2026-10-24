@@ -47,6 +47,8 @@ import { createClient } from '@supabase/supabase-js';
 import './style.css';
 import './report-groups.css';
 import {groupFinalWalkReportsByCreator} from './report-groups.js';
+import {compactReportRow} from './report-center-compact.js';
+import './report-center-compact.css';
 import {installTabletViewport} from './tablet-viewport.js';
 import {installMobileExperience,decorateMobileFrame} from './mobile-experience.js';
 import './mobile-experience.css';
@@ -2012,8 +2014,8 @@ async function reportCenter(){
   db.from('safety_discipline').select('id,employee_name,violation_type,action_level,incident_date,created_by,issuer:profiles!safety_discipline_created_by_fkey(name)').eq('project_id',state.project).order('incident_date',{ascending:false}),
   db.from('corrective_actions').select('id,observation_id,comment,created_at,created_by,author:profiles!corrective_actions_created_by_fkey(name),observation:observations!inner(id,project_id,area,category,status,priority,description)').eq('observation.project_id',state.project).order('created_at',{ascending:false}),
   db.from('report_documents').select('id,project_id,report_type,source_id,report_number,title,document_status,version,pdf_path,created_at,finalized_at,snapshot').eq('project_id',state.project).order('created_at',{ascending:false}),
-  db.from('incident_reports').select('id,report_number,incident_type,incident_at,employee_name,exact_location,severity,status,created_at').eq('project_id',state.project).order('incident_at',{ascending:false}),
-  db.from('equipment_inspections').select('id,report_number,equipment_name,equipment_type,inspector_name,inspection_at,overall_status,created_at').eq('project_id',state.project).order('inspection_at',{ascending:false}),
+  db.from('incident_reports').select('id,report_number,incident_type,incident_at,employee_name,exact_location,severity,status,created_at,created_by,creator:profiles!incident_reports_created_by_fkey(name)').eq('project_id',state.project).order('incident_at',{ascending:false}),
+  db.from('equipment_inspections').select('id,report_number,equipment_name,equipment_type,inspector_name,inspection_at,overall_status,created_at,created_by,creator:profiles!equipment_inspections_created_by_fkey(name)').eq('project_id',state.project).order('inspection_at',{ascending:false}),
   db.from('inventory_items').select('id,item_name,quantity').eq('project_id',state.project),
   db.from('report_center_trash').select('project_id,report_kind,report_id,report_title,state,deleted_at,deleted_by,restored_at,permanently_removed_at').eq('project_id',state.project)
  ]);
@@ -2085,100 +2087,57 @@ async function reportCenter(){
   const title=document.querySelector('#report-library-title'),list=document.querySelector('#report-library-list'),search=document.querySelector('#report-search'),dateFilter=document.querySelector('#report-date-filter'),library=title.closest('.report-library'),libraryHead=title.closest('.report-library-head'),filterBar=search.closest('.report-filter-bar');let currentCategory='daily';
  function empty(){return '<div class="report-empty">'+tr('No reports in this category yet.','Aún no hay reportes en esta categoría.')+'</div>'}
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}
- function row(kind,id,name,meta,status='',type='',timestamp=new Date().toISOString()){return '<button class="report-record" data-time="'+new Date(timestamp).getTime()+'" data-kind="'+esc(kind)+'" data-id="'+esc(id)+'"><div class="report-record-main"><strong>'+esc(name)+'</strong>'+docMeta(type,id)+'<span>'+esc(meta)+'</span></div>'+(status?'<span class="report-record-status">'+esc(status)+'</span>':'')+'<span class="report-open-pdf">PDF / '+tr('VIEW','VER')+' ›</span></button>'}
+ function row(kind,id,name,meta,status='',type='',timestamp=new Date().toISOString(),creator=''){
+  return compactReportRow({kind,id,title:name,creator,createdAt:timestamp,language:state.lang},tr,esc);
+ }
  function bind(){list.querySelectorAll('.report-record').forEach(el=>el.onclick=()=>{const k=el.dataset.kind,id=el.dataset.id;if(k==='daily')navigate('report');else if(k==='walk')navigate('safetyWalkReport',id);else if(k==='discipline')navigate('disciplineReport',id);else if(k==='incident')navigate('incidentReport',id);else if(k==='equipment')navigate('equipmentInspectionReport',id);else if(k==='inventory')navigate('inventoryReport');else if(k==='correction'){const c=corrections.data.find(x=>x.id===id);if(c)navigate('observationReport',c.observation_id)}else navigate('observationReport',id)})}
- let readyArchivedPdf=null; // At most one prepared cloud PDF in report-center memory.
+ // The report library has exactly two compact PDF actions per record.
+ // Saved files are streamed directly without rebuilding or editing the report.
  function decorateFinalPdfShortcuts(){
   for(const record of list.querySelectorAll('.report-record')){
-   if(record.nextElementSibling?.classList?.contains('final-pdf-shortcuts'))continue;
+   if(record.closest('.report-compact-row'))continue;
    const kind=record.dataset.kind,sourceId=record.dataset.id;
-   // Synthetic daily/inventory report IDs have no stable finalized source ID.
-   // Do not accidentally show a different project's or another record's PDF.
    const reportType=kind==='walk'?'daily_safety_walk':kind==='discipline'?'disciplinary_action':
     kind==='equipment'?'equipment_inspection':kind==='observation'?'observation':
     kind==='incident'?(currentCategory==='near-misses'?'near_miss':'incident'):null;
-   if(!reportType||!sourceId)continue;
-   const entry=archivedPdfs.get(reportType+':'+sourceId);
-   if(!entry)continue;
-   const bar=document.createElement('section');bar.className='final-pdf-shortcuts';
-   bar.setAttribute('role','group');
-   bar.setAttribute('aria-label',tr('Final PDF actions','Acciones del PDF finalizado'));
-   const heading=document.createElement('div');heading.className='final-pdf-shortcuts-heading';
-   const headingLabel=document.createElement('strong');
-   headingLabel.className='final-pdf-shortcuts-title';
-   headingLabel.textContent=tr('SAVED FINAL PDF','PDF FINAL GUARDADO');
-   const headingHint=document.createElement('span');headingHint.className='final-pdf-shortcuts-hint';
-   headingHint.textContent=tr('Choose an action for this document','Seleccione una acción para este documento');
-   heading.append(headingLabel,headingHint);
-   const actionGrid=document.createElement('div');actionGrid.className='final-pdf-actions-grid';
-   const add=(mode)=>{
+   const entry=reportType&&sourceId?archivedPdfs.get(reportType+':'+sourceId):null;
+   const line=document.createElement('div');line.className='report-compact-row';
+   record.parentNode.insertBefore(line,record);line.appendChild(record);
+   const actions=document.createElement('div');actions.className='report-compact-actions';
+   actions.setAttribute('role','group');
+   actions.setAttribute('aria-label',tr('PDF actions','Acciones de PDF'));
+   const add=mode=>{
     const button=document.createElement('button');button.type='button';
-    button.className='final-pdf-shortcut final-pdf-shortcut--'+mode;
+    button.className='report-compact-action report-compact-action--'+mode;
     button.dataset.pdfAction=mode;
-    const label=mode==='view'?tr('View saved PDF','Ver PDF guardado'):
-      mode==='download'?tr('Download saved PDF','Descargar PDF guardado'):
-      tr('Save PDF to…','Guardar PDF en…');
-    button.setAttribute('aria-label',label);
-    const icon=document.createElement('span');icon.className='final-pdf-shortcut-icon';
-    icon.setAttribute('aria-hidden','true');
-    icon.textContent=mode==='view'?'◉':mode==='download'?'↓':'▣';
-    const caption=document.createElement('span');caption.className='final-pdf-shortcut-label';
-    // Compact labels reduce visual crowding; accessible names stay descriptive.
-    caption.textContent=mode==='view'?tr('View PDF','Ver PDF'):
-      mode==='download'?tr('Download PDF','Descargar PDF'):
-      tr('Save PDF to…','Guardar PDF en…');
-    button.append(icon,caption);
-    button.onclick=async()=>{
-     if(button.disabled||!viewCurrent()||state.project!==entry.project_id)return;
-     // Begin an available folder picker synchronously in the original click.
-     const destination=mode==='save'?reservePdfDestination(archivedPdfFilename(entry),{win:window}):null;
+    const icon=document.createElement('span');icon.className='report-compact-action-icon';
+    icon.setAttribute('aria-hidden','true');icon.textContent=mode==='view'?'◉':'↓';
+    const label=document.createElement('span');label.textContent=mode==='view'?tr('View PDF','Ver PDF'):tr('Download PDF','Bajar PDF');
+    button.append(icon,label);
+    button.setAttribute('aria-label',mode==='view'?tr('View PDF','Ver PDF'):tr('Download PDF','Bajar PDF'));
+    if(!entry&&mode==='download'){
      button.disabled=true;
-     const original=caption.textContent;
-     caption.textContent=mode==='view'?tr('Opening saved PDF…','Abriendo PDF guardado…'):
-       mode==='download'?tr('Starting download…','Iniciando descarga…'):
-       tr('Preparing saved PDF…','Preparando PDF guardado…');
+     button.title=tr('No saved final PDF yet. Open the report to generate it.','Aún no hay PDF final guardado. Abra el reporte para generarlo.');
+    }
+    button.onclick=async()=>{
+     if(button.disabled||!viewCurrent())return;
+     if(!entry){
+      if(mode==='view')record.click();
+      return;
+     }
+     if(state.project!==entry.project_id)return;
+     button.disabled=true;
      try{
       if(mode==='view')await openArchivedPdf(db.storage,entry,{win:window,isCurrent:viewCurrent});
-      else if(mode==='download')await downloadArchivedPdf(db.storage,entry,{doc:document,win:window,isCurrent:viewCurrent});
-      else{
-       if(destination?.kind==='picker'){
-        const selected=await destination.result;
-        if(selected.error)throw selected.error;
-       }
-       let ready=readyArchivedPdf?.entryId===entry.id?readyArchivedPdf:null;
-       if(!ready){
-        // Verify authorized signed Storage metadata before fetching private bytes.
-        await archivedPdfLink(db.storage,entry);
-        const received=await db.storage.from('final-reports').download(entry.pdf_path);
-        if(received.error)throw received.error;
-        if(!(await isValidPdfBlob(received.data)))throw Error(tr('The saved PDF failed integrity validation.','El PDF guardado no pasó la verificación de integridad.'));
-        if(!viewCurrent()||state.project!==entry.project_id)return;
-        ready={entryId:entry.id,blob:received.data,filename:archivedPdfFilename(entry)};
-        readyArchivedPdf=ready;
-        if(destination?.kind!=='picker'&&fileShareSupported(ready.blob,ready.filename,{nav:navigator,FileClass:File})){
-         confirmAction(tr('PDF ready. Tap “Save PDF now” on this report to choose its destination.','PDF listo. Pulse “Guardar PDF ahora” en este reporte para elegir su destino.'));
-         return;
-        }
-       }
-       const saved=await savePdfToDevice(ready.blob,ready.filename,{
-        destination,win:window,nav:navigator,doc:document,download:downloadReportPdf
-       });
-       if(viewCurrent())confirmAction(saved.kind==='saved'?tr('PDF saved in selected folder.','PDF guardado en carpeta seleccionada.'):
-         saved.kind==='shared'?tr('Choose Save to Files and your folder.','Seleccione Guardar en Archivos y su carpeta.'):
-         tr('PDF download started. Folder depends on browser settings.','Descarga iniciada. La carpeta depende de su navegador.'));
-      }
-      if(mode==='download'&&viewCurrent())confirmAction(tr('Download requested for the saved PDF.','Se solicitó la descarga del PDF guardado.'));
+      else await downloadArchivedPdf(db.storage,entry,{doc:document,isCurrent:viewCurrent});
      }catch(err){
-      if(viewCurrent())error(new Error(tr('Could not access the saved PDF. Open the original report to review or regenerate it. Details: ','No se pudo acceder al PDF guardado. Abra el reporte original para revisarlo o regenerarlo. Detalle: ')+(err?.message||String(err))));
-     }finally{
-      if(button.isConnected){button.disabled=false;caption.textContent=mode==='save'&&readyArchivedPdf?.entryId===entry.id?tr('Save PDF now','Guardar PDF ahora'):original}
-     }
+      if(viewCurrent())error(new Error(tr('Unable to access saved PDF: ','No se pudo acceder al PDF guardado: ')+(err?.message||String(err))));
+     }finally{if(button.isConnected)button.disabled=false}
     };
     return button;
    };
-   actionGrid.append(add('view'),add('download'),add('save'));
-   bar.append(heading,actionGrid);
-   record.after(bar);
+   actions.append(add('view'),add('download'));
+   line.appendChild(actions);
   }
  }
 
@@ -2350,41 +2309,33 @@ async function reportCenter(){
   list.querySelectorAll('.report-record').forEach(el=>{
    const text=el.textContent.toLowerCase(),t=Number(el.dataset.time||0),days=t?(now-t)/86400000:0;
    const dateOk=range==='all'||(range==='today'&&t&&localDateKey(new Date(t).toISOString())===localDateKey())||(range==='week'&&t&&days<=7)||(range==='month'&&t&&days<=30);
-   el.style.display=text.includes(q)&&dateOk?'':'none';
+   const show=text.includes(q)&&dateOk;
+   el.style.display=show?'':'none';
+   const line=el.closest('.report-compact-row');if(line)line.style.display=show?'':'none';
+   const adminLine=el.closest('.report-center-admin-entry');if(adminLine)adminLine.style.display=show?'':'none';
   });
  }
  function walkRecordStatus(x){const d=registered.find(item=>item.report_type==='daily_safety_walk'&&item.source_id===x.id);if(d?.document_status!=='final')return tr('NOT FINALIZED','NO FINALIZADO');const status=effectiveWalkStatus(x.overall_status,x.items);return status==='unsafe'?tr('Unsafe','No seguro'):status==='needs_attention'?tr('Needs Attention','Necesita atención'):tr('Safe','Seguro')}
  function draw(key){
   if(trashOpen&&trashPanel){trashOpen=false;trashPanel.hidden=true;list.hidden=false;filterBar.hidden=false;if(trashToggle)trashToggle.setAttribute('aria-pressed','false')}
   currentCategory=key;document.querySelectorAll('.report-category').forEach(x=>x.classList.toggle('selected',x.dataset.category===key));const cat=cats.find(x=>x.key===key);title.textContent=cat?.title||'';if(key==='walks'){library.classList.add('report-creator-mode');libraryHead.append(filterBar)}else{library.classList.remove('report-creator-mode');library.insertBefore(filterBar,list)}
-  if(key==='daily')list.innerHTML=todayObs.length&&!hidden('daily',todayReportId)?row('daily',todayReportId,tr("Today's Daily Safety Report",'Daily Safety Report de Hoy'),tr('Generated from today’s project activity','Generado desde la actividad del proyecto de hoy'),tr('PDF READY','LISTO PARA PDF')):empty();
+  if(key==='daily')list.innerHTML=todayObs.length&&!hidden('daily',todayReportId)?row('daily',todayReportId,tr("Today's Daily Safety Report",'Reporte Diario de Safety'),'','','',new Date().toISOString(),tr('Generated by GE ONE','Generado por GE ONE')):empty();
   else if(key==='walks'){
    const groups=groupFinalWalkReportsByCreator(visible('walk',walks.data),registered,tr('Unknown creator','Creador desconocido'));
-   title.textContent=tr('Daily Safety Walks — Report Creators','Recorridos Diarios de Seguridad — Creadores de Reportes');
-   list.innerHTML=groups.length?groups.map((group,index)=>{
-    const count=group.reports.length,countLabel=count===1?tr('1 report','1 reporte'):tr(count+' reports',count+' reportes');
-    const initials=group.name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toLocaleUpperCase();
-    const records=group.reports.map(x=>{
-     const date=new Date(x.created_at),locale=state.lang==='es'?'es-US':'en-US';
-     const timestamp=date.getTime(),safeTimestamp=Number.isFinite(timestamp)?timestamp:0;
-     const dateLabel=Number.isFinite(timestamp)?new Intl.DateTimeFormat(locale,{dateStyle:'medium'}).format(date):'—';
-     const timeLabel=Number.isFinite(timestamp)?new Intl.DateTimeFormat(locale,{hour:'numeric',minute:'2-digit'}).format(date):'—';
-     const note=String(x.notes||'').trim().replace(/\s+/g,' ');
-     const reportLabel=note?(note.length>90?note.slice(0,87)+'…':note):tr('Daily Safety Walk Report','Reporte Daily Safety Walk');
-     const outcome=effectiveWalkStatus(x.overall_status,x.items),outcomeClass=outcome==='unsafe'?'unsafe':outcome==='needs_attention'?'needs-attention':'safe';
-     const outcomeLabel=outcome==='unsafe'?tr('Unsafe','No seguro'):outcome==='needs_attention'?tr('Needs Attention','Necesita atención'):tr('Safe','Seguro');
-     return '<button class="report-record report-walk-record" data-time="'+safeTimestamp+'" data-kind="walk" data-id="'+esc(x.id)+'"><span class="walk-result-icon" aria-hidden="true">▦</span><span class="walk-result-title"><strong title="'+esc(note)+'">'+esc(reportLabel)+'</strong></span><span class="walk-result-date"><small>'+tr('DATE','FECHA')+'</small>'+esc(dateLabel)+'</span><span class="walk-result-time"><small>'+tr('TIME','HORA')+'</small>'+esc(timeLabel)+'</span><span class="walk-result-statuses"><span class="report-record-status walk-result-complete">'+tr('Completed','Completado')+'</span><span class="report-record-status walk-result-safety walk-result-safety-'+outcomeClass+'">'+esc(outcomeLabel)+'</span></span><span class="report-open-pdf">PDF / '+tr('VIEW','VER')+' ›</span></button>';
-    }).join('');
-    return '<details class="report-person-group" '+(index===0?'open':'')+'><summary><span class="report-person-avatar" aria-hidden="true">'+esc(initials||'GE')+'</span><span class="report-person-name">'+esc(group.name)+'</span><span class="report-person-group-count">'+esc(countLabel)+'</span></summary><div class="report-person-group-records">'+records+'</div></details>';
-   }).join(''):'<div class="report-empty">'+tr('No completed Daily Safety Walk reports yet.','Todavía no hay reportes Daily Safety Walk finalizados.')+'</div>';
+   const reports=groups.flatMap(group=>group.reports.map(report=>({report,creator:report.creator?.name||group.name})))
+    .sort((a,b)=>new Date(b.report.created_at)-new Date(a.report.created_at));
+   title.textContent=tr('Daily Reports (JHA)','Reportes Diarios (JHA)');
+   list.innerHTML=reports.length?reports.map(({report,creator})=>
+    row('walk',report.id,tr('Daily Report (JHA)','Reporte Diario (JHA)'),'','','daily_safety_walk',report.created_at,creator)
+   ).join(''):empty();
   }
-  else if(key==='discipline')list.innerHTML=visible('discipline',disc.data).length?visible('discipline',disc.data).map(x=>row('discipline',x.id,x.employee_name||tr('Employee Disciplinary Action','Acción Disciplinaria'),fmt(x.incident_date)+' · '+(x.issuer?.name||'—'),disciplinaryActionLabel(x),'disciplinary_action',x.incident_date)).join(''):empty();
-  else if(key==='corrections')list.innerHTML=visible('correction',corrections.data).length?visible('correction',corrections.data).map(x=>row('correction',x.id,x.observation?.area||tr('Corrective Action','Acción Correctiva'),fmt(x.created_at)+' · '+(x.author?.name||x.observation?.category||'—'),x.observation?.status?.replaceAll('_',' ')||'','correction',x.created_at)).join(''):empty();
-  else if(key==='observations')list.innerHTML=visible('observation',obs).length?visible('observation',obs).map(x=>row('observation',x.id,x.area,fmt(x.created_at)+' · '+x.category,x.priority.toUpperCase(),'observation',x.created_at)).join(''):empty();
-  else if(key==='incidents')list.innerHTML=visible('incident',incidentReports).length?visible('incident',incidentReports).map(x=>row('incident',x.id,x.report_number||tr('Incident / Accident','Incidente / Accidente'),fmt(x.incident_at||x.created_at)+' · '+(x.employee_name||x.incident_type||'—')+' · '+(x.exact_location||'—'),(x.severity||x.status||'').replaceAll('_',' '),'incident',x.incident_at||x.created_at)).join(''):empty();
-  else if(key==='near-misses')list.innerHTML=visible('incident',nearMissReports).length?visible('incident',nearMissReports).map(x=>row('incident',x.id,x.report_number||tr('Near Miss Report','Reporte Near Miss'),fmt(x.incident_at||x.created_at)+' · '+(x.employee_name||x.incident_type||'—')+' · '+(x.exact_location||'—'),(x.severity||x.status||'').replaceAll('_',' '),'incident',x.incident_at||x.created_at)).join(''):empty();
-  else if(key==='equipment')list.innerHTML=visible('equipment',equipmentRows).length?visible('equipment',equipmentRows).map(x=>row('equipment',x.id,x.report_number||x.equipment_name||x.equipment_type||tr('Equipment Inspection','Inspección de Equipo'),fmt(x.inspection_at||x.created_at)+' · '+(x.equipment_name||x.equipment_type||'—')+' · '+(x.inspector_name||'—'),(x.overall_status||tr('Pending','Pendiente')).replaceAll('_',' '),'equipment_inspection',x.inspection_at||x.created_at)).join(''):empty();
-  else if(key==='inventory'){const total=inventoryRows.reduce((n,x)=>n+(Number(x.quantity)||0),0);list.innerHTML=inventoryRows.length&&!hidden('inventory',inventoryReportId)?row('inventory',inventoryReportId,tr('Project Inventory Summary','Resumen de Inventario del Proyecto'),tr(inventoryRows.length+' inventory items · '+total+' units',inventoryRows.length+' artículos de inventario · '+total+' unidades'),tr('VIEW REPORT','VER REPORTE'),''):empty()}
+  else if(key==='discipline')list.innerHTML=visible('discipline',disc.data).length?visible('discipline',disc.data).map(x=>row('discipline',x.id,tr('Disciplinary Action','Acción Disciplinaria')+(x.employee_name?' · '+x.employee_name:''),'','','disciplinary_action',x.incident_date,x.issuer?.name)).join(''):empty();
+  else if(key==='corrections')list.innerHTML=visible('correction',corrections.data).length?visible('correction',corrections.data).map(x=>row('correction',x.id,tr('Corrective Action','Acción Correctiva')+(x.observation?.area?' · '+x.observation.area:''),'','','correction',x.created_at,x.author?.name)).join(''):empty();
+  else if(key==='observations')list.innerHTML=visible('observation',obs).length?visible('observation',obs).map(x=>row('observation',x.id,tr('Safety Observation','Observación de Safety')+(x.area?' · '+x.area:''),'','','observation',x.created_at,x.creator?.name)).join(''):empty();
+  else if(key==='incidents')list.innerHTML=visible('incident',incidentReports).length?visible('incident',incidentReports).map(x=>row('incident',x.id,tr('Incident / Accident','Incidente / Accidente')+(x.report_number?' · '+x.report_number:''),'','','incident',x.incident_at||x.created_at,x.creator?.name)).join(''):empty();
+  else if(key==='near-misses')list.innerHTML=visible('incident',nearMissReports).length?visible('incident',nearMissReports).map(x=>row('incident',x.id,tr('Near Miss Report','Reporte Near Miss')+(x.report_number?' · '+x.report_number:''),'','','near_miss',x.incident_at||x.created_at,x.creator?.name)).join(''):empty();
+  else if(key==='equipment')list.innerHTML=visible('equipment',equipmentRows).length?visible('equipment',equipmentRows).map(x=>row('equipment',x.id,tr('Equipment Inspection','Inspección de Equipo')+(x.equipment_name||x.equipment_type?' · '+(x.equipment_name||x.equipment_type):''),'','','equipment_inspection',x.inspection_at||x.created_at,x.creator?.name)).join(''):empty();
+  else if(key==='inventory'){const total=inventoryRows.reduce((n,x)=>n+(Number(x.quantity)||0),0);list.innerHTML=inventoryRows.length&&!hidden('inventory',inventoryReportId)?row('inventory',inventoryReportId,tr('Project Inventory Summary','Resumen de Inventario del Proyecto'),'','','',new Date().toISOString(),tr('Generated by GE ONE','Generado por GE ONE')):empty()}
   bind();decorateDeleteButtons();decorateFinalPdfShortcuts();applyFilters();updateCenterCounts()
  }
  if(isAdmin){

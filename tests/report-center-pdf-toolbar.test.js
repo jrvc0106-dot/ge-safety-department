@@ -3,100 +3,121 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
+import {compactReportRow,reportCompactDate} from '../src/report-center-compact.js';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
-const styles=readFileSync(new URL('../src/finalized-pdf-direct.css',import.meta.url),'utf8');
-const start=main.indexOf(' let readyArchivedPdf=null;');
+const styles=readFileSync(new URL('../src/report-center-compact.css',import.meta.url),'utf8');
+const start=main.indexOf(' function decorateFinalPdfShortcuts(){');
 const end=main.indexOf('\n let trashOpen=',start);
-assert.ok(start>=0&&end>start,'Report Center PDF toolbar source must be present');
+assert.ok(start>=0&&end>start,'Compact PDF action source must be present');
 const code=main.slice(start,end);
+const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function mountToolbar(){
- const dom=new JSDOM('<div id="app"><main><section class="report-center"><div id="report-library-list"><button class="report-record" data-kind="walk" data-id="walk-a" data-time="1761242400000"><strong>Daily Report</strong></button><button class="report-record" data-kind="walk" data-id="not-finalized">Unfinished</button></div></section></main></div>',{url:'https://ge-one.example'});
- const doc=dom.window.document;
- const list=doc.querySelector('#report-library-list');
- const archive={id:'arch-01',project_id:'job-one',report_type:'daily_safety_walk',source_id:'walk-a',document_status:'final',pdf_path:'path/a.pdf'};
- const calls=[];
- const ctx=vm.createContext({
-  document:doc,list,
-  archivedPdfs:new Map([['daily_safety_walk:walk-a',archive]]),
-  tr:en=>en,state:{project:'job-one'},viewCurrent:()=>true,
-  readyArchivedPdf:null,
-  reservePdfDestination:()=>({kind:'system'}),
-  archivedPdfFilename:()=> 'Daily Report 10.23.2026 By G&E.pdf',
-  db:{storage:{from:()=>({download:async()=>({data:new Blob(['%PDF-1.4\n'+'PDF '.repeat(15)+'\n%%EOF'],{type:'application/pdf'}),error:null})})}},
-  win:dom.window,window:dom.window,
-  navigator:dom.window.navigator,File:dom.window.File,
-  openArchivedPdf:async()=>{calls.push('view')},
-  downloadArchivedPdf:async()=>{calls.push('download')},
-  archivedPdfLink:async()=>{calls.push('signed')},
-  isValidPdfBlob:async()=>true,
-  fileShareSupported:()=>false,
-  savePdfToDevice:async()=>{calls.push('save');return{kind:'saved'}},
-  downloadReportPdf:()=>calls.push('download-fallback'),
-  confirmAction:()=>calls.push('confirm'),
-  error:e=>{throw e}
+ const html='<section class="report-center"><div id="report-library-list">'+
+  compactReportRow({kind:'walk',id:'walk-a',title:'Daily Report (JHA)',creator:'Jorling Jirón',createdAt:'2026-10-24T13:00:00Z'},x=>x,escapeHtml)+
+  compactReportRow({kind:'equipment',id:'equipment-a',title:'Equipment Inspection · JLG',creator:'Juan Benítez',createdAt:'2026-10-23T13:00:00Z'},x=>x,escapeHtml)+
+  compactReportRow({kind:'walk',id:'not-finalized',title:'Daily Report (JHA)',creator:'Safety Worker',createdAt:'2026-10-22T13:00:00Z'},x=>x,escapeHtml)+
+ '</div></section>';
+ const dom=new JSDOM(html,{url:'https://ge-one.example'});
+ const doc=dom.window.document,list=doc.querySelector('#report-library-list'),calls=[];
+ const archives=new Map([
+  ['daily_safety_walk:walk-a',{id:'arch-walk',project_id:'job-one',report_type:'daily_safety_walk',source_id:'walk-a',document_status:'final',pdf_path:'private/walk.pdf'}],
+  ['equipment_inspection:equipment-a',{id:'arch-equipment',project_id:'job-one',report_type:'equipment_inspection',source_id:'equipment-a',document_status:'final',pdf_path:'private/equipment.pdf'}],
+ ]);
+ const ctx=vm.createContext({document:doc,list,archivedPdfs:archives,tr:x=>x,
+  state:{project:'job-one'},viewCurrent:()=>true,currentCategory:'walks',window:dom.window,
+  openArchivedPdf:async(_storage,entry)=>{calls.push('view:'+entry.id)},
+  downloadArchivedPdf:async(_storage,entry)=>{calls.push('download:'+entry.id)},
+  db:{storage:{}},error:e=>{throw e}
  });
  vm.runInContext(code+'\ndecorateFinalPdfShortcuts();',ctx);
  return {dom,doc,list,calls,ctx};
 }
 
-test('Report Center places the three finalized PDF controls in a single semantic toolbar',()=>{
+test('each compact line has only Ver PDF and Bajar PDF, never Save PDF',()=>{
  const t=mountToolbar();
- const row=t.list.querySelector('[data-id="walk-a"]');
- const group=row.nextElementSibling;
- assert.equal(group.className,'final-pdf-shortcuts');
- assert.equal(group.getAttribute('role'),'group');
- assert.match(group.getAttribute('aria-label'),/PDF/);
- assert.match(group.querySelector('.final-pdf-shortcuts-title').textContent,/SAVED FINAL PDF/);
- assert.ok(group.querySelector('.final-pdf-shortcuts-hint'));
- const buttons=[...group.querySelectorAll('button')];
- assert.deepEqual(buttons.map(b=>b.dataset.pdfAction),['view','download','save']);
- assert.deepEqual(buttons.map(b=>b.getAttribute('aria-label')),['View saved PDF','Download saved PDF','Save PDF to…']);
- assert.deepEqual(buttons.map(b=>b.querySelector('.final-pdf-shortcut-label').textContent),['View PDF','Download PDF','Save PDF to…']);
- assert.ok(buttons.every(button=>button.querySelector('[aria-hidden="true"]')&&button.querySelector('.final-pdf-shortcut-label')));
- assert.equal(t.list.querySelector('[data-id="not-finalized"]').nextElementSibling,null,'Do not add saved-PDF actions to unfinished reports');
+ assert.equal(t.list.querySelectorAll('.report-compact-row').length,3);
+ for(const line of t.list.querySelectorAll('.report-compact-row')){
+  const buttons=[...line.querySelectorAll('.report-compact-action')];
+  assert.deepEqual(buttons.map(b=>b.dataset.pdfAction),['view','download']);
+  assert.deepEqual(buttons.map(b=>b.getAttribute('aria-label')),['View PDF','Download PDF']);
+  assert.equal(line.querySelector('.final-pdf-shortcuts'),null);
+ }
  t.dom.window.close();
 });
 
-test('PDF toolbar visually organizes desktop, tablet, phone, and tiny screens',()=>{
- for(const part of [
-  '.final-pdf-actions-grid','grid-template-columns:repeat(3,minmax(0,1fr))',
-  '@media(max-width:700px)','grid-template-columns:repeat(2,minmax(0,1fr))',
-  '.final-pdf-shortcut--save','grid-column:1/-1',
-  '@media(max-width:390px)','grid-template-columns:minmax(0,1fr)',
-  'min-height:42px','min-height:44px',
-  'max-width:630px','max-width:220px','padding:7px 9px',
-  '.final-pdf-shortcut:focus-visible','@media(prefers-reduced-motion:reduce)',
-  '.report-record[style*="display: none"]+.final-pdf-shortcuts',
-  '@media print'
- ])assert.ok(styles.includes(part),'Missing safe mobile/tablet styling: '+part);
- assert.doesNotMatch(styles,/(?:article\.report|\.professional-report|\.print-report)\s*\{/,'Printable PDFs must not be restyled');
-});
-
-test('View, Download, and Save retain existing direct-PDF actions and do not open the report row',async()=>{
+test('both Safety names come from separate report records, not active viewer',()=>{
  const t=mountToolbar();
- const bar=t.list.querySelector('.final-pdf-shortcuts');
- const actions=[...bar.querySelectorAll('button')];
- let opens=0;
- t.list.querySelector('.report-record').addEventListener('click',()=>opens++);
- await actions[0].onclick();
- await actions[1].onclick();
- await actions[2].onclick();
- assert.deepEqual(t.calls,['view','download','confirm','signed','save','confirm']);
- assert.equal(opens,0,'Saved PDF controls should not navigate the source report');
- assert.ok(actions.every(b=>!b.disabled),'All buttons must unlock after operation');
- assert.equal(actions[2].querySelector('.final-pdf-shortcut-label').textContent,'Save PDF now');
+ const records=[...t.list.querySelectorAll('.report-compact-copy')];
+ assert.match(records[0].textContent,/Jorling Jirón/);
+ assert.match(records[1].textContent,/Juan Benítez/);
+ assert.match(records[0].textContent,/Daily Report \(JHA\)/);
+ assert.match(records[1].textContent,/Equipment Inspection · JLG/);
+ assert.match(records[0].textContent,/10\.24\.2026/);
  t.dom.window.close();
 });
 
-test('toolbar cannot duplicate on repaint or start a PDF action for another project',async()=>{
+test('saved PDFs open and download without opening HTML reports or saving another copy',async()=>{
+ const t=mountToolbar();
+ let navigation=0;
+ t.list.querySelector('[data-id="walk-a"]').onclick=()=>navigation++;
+ const walk=t.list.querySelector('[data-id="walk-a"]').closest('.report-compact-row');
+ const equipment=t.list.querySelector('[data-id="equipment-a"]').closest('.report-compact-row');
+ await walk.querySelector('[data-pdf-action="view"]').onclick();
+ await walk.querySelector('[data-pdf-action="download"]').onclick();
+ await equipment.querySelector('[data-pdf-action="download"]').onclick();
+ assert.deepEqual(t.calls,['view:arch-walk','download:arch-walk','download:arch-equipment']);
+ assert.equal(navigation,0);
+ t.dom.window.close();
+});
+
+test('non-finalized reports do not download a different PDF or invent a saved file',()=>{
+ const t=mountToolbar();
+ const record=t.list.querySelector('[data-id="not-finalized"]');
+ const row=record.closest('.report-compact-row');
+ let opened=0;record.onclick=()=>opened++;
+ const download=row.querySelector('[data-pdf-action="download"]');
+ assert.equal(download.disabled,true);
+ row.querySelector('[data-pdf-action="view"]').click();
+ assert.equal(opened,1);
+ assert.equal(download.title.includes('No saved final PDF'),true);
+ t.dom.window.close();
+});
+
+test('PDF controls do not duplicate and reject an archived document from another project',async()=>{
  const t=mountToolbar();
  vm.runInContext('decorateFinalPdfShortcuts();',t.ctx);
- assert.equal(t.list.querySelectorAll('.final-pdf-shortcuts').length,1);
- t.ctx.state.project='job-two';
- const action=t.list.querySelector('.final-pdf-shortcut--download');
- await action.onclick();
+ assert.equal(t.list.querySelectorAll('.report-compact-row').length,3);
+ t.ctx.state.project='project-two';
+ await t.list.querySelector('[data-id="walk-a"]').closest('.report-compact-row').querySelector('[data-pdf-action="download"]').onclick();
  assert.deepEqual(t.calls,[]);
  t.dom.window.close();
+});
+
+test('small responsive PDF actions stay isolated to Report Center and never restyle the PDFs',()=>{
+ assert.match(styles,/\.report-center #report-library-list \.report-compact-row/);
+ assert.match(styles,/\.report-compact-action/);
+ assert.match(styles,/min-height:36px/);
+ assert.match(styles,/@media\(max-width:540px\)/);
+ assert.doesNotMatch(styles,/(?:article\.report|\.ge-reference-jha|\.equipment-pdf)\s*\{/);
+});
+
+test('empty creator shows truthful fallback and malicious names are escaped',()=>{
+ assert.equal(reportCompactDate('bad-date'),'—');
+ const unsafe=compactReportRow({kind:'walk',id:'1',title:'Daily Report (JHA)',creator:'<script>danger</script>',createdAt:'2026-10-24T12:00:00Z'},x=>x,escapeHtml);
+ assert.ok(!unsafe.includes('<script>'));
+ assert.ok(unsafe.includes('&lt;script&gt;'));
+ const unknown=compactReportRow({kind:'walk',id:'2',title:'Daily Report (JHA)',creator:'',createdAt:'2026-10-24T12:00:00Z'},x=>x,escapeHtml);
+ assert.ok(unknown.includes('Creator not recorded'));
+});
+
+test('main Report Center selects real persisted creators rather than the signed-in user',()=>{
+ assert.ok(main.includes('creator:profiles!daily_safety_walks_created_by_fkey(name)'));
+ assert.ok(main.includes('creator:profiles!equipment_inspections_created_by_fkey(name)'));
+ assert.ok(main.includes('creator:profiles!incident_reports_created_by_fkey(name)'));
+ assert.ok(main.includes("x.creator?.name"));
+ assert.ok(main.includes("x.issuer?.name"));
+ assert.ok(main.includes("x.author?.name"));
+ assert.ok(!main.includes("readyArchivedPdf?.entryId"),'Report Center no longer has a third Save action');
 });

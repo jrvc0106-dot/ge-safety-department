@@ -56,13 +56,13 @@ test('damaged or empty PDF bytes are rejected before a file can be shared or sav
  await assert.rejects(savePdfToDevice(new Blob(['bad']), 'bad.pdf',{nav:{},download:()=>{throw Error('called')}}),/incomplete/);
 });
 
-test('Save PDF is inserted in shared toolbar and archived Reports Center, with no PDF template change',()=>{
+test('Save PDF remains in editor but Report Center has exactly two PDF actions',()=>{
  const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
  assert.match(main,/class="secondary pdf-save"/);
- assert.match(main,/actionGrid\.append\(add\('view'\),add\('download'\),add\('save'\)\)/);
- assert.match(main,/bar\.append\(heading,actionGrid\)/);
+ assert.match(main,/actions\.append\(add\('view'\),add\('download'\)\)/);
+ assert.match(main,/className='report-compact-actions'/);
+ assert.doesNotMatch(main,/actionGrid\.append\(add\('view'\),add\('download'\),add\('save'\)\)/);
  assert.match(main,/openLocalReport\(prepared\.localArchive\)/);
- assert.match(main,/PDF prepared\. Tap “Save PDF now”/);
  const hooks=readFileSync(new URL('../src/jha-pdf-actions.js',import.meta.url),'utf8');
  assert.match(hooks,/\['view','download','share','save'\]/);
 });
