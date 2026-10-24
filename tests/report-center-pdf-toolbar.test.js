@@ -53,6 +53,7 @@ test('Report Center places the three finalized PDF controls in a single semantic
  const buttons=[...group.querySelectorAll('button')];
  assert.deepEqual(buttons.map(b=>b.dataset.pdfAction),['view','download','save']);
  assert.deepEqual(buttons.map(b=>b.getAttribute('aria-label')),['View saved PDF','Download saved PDF','Save PDF to…']);
+ assert.deepEqual(buttons.map(b=>b.querySelector('.final-pdf-shortcut-label').textContent),['View PDF','Download PDF','Save PDF to…']);
  assert.ok(buttons.every(button=>button.querySelector('[aria-hidden="true"]')&&button.querySelector('.final-pdf-shortcut-label')));
  assert.equal(t.list.querySelector('[data-id="not-finalized"]').nextElementSibling,null,'Do not add saved-PDF actions to unfinished reports');
  t.dom.window.close();
@@ -64,7 +65,8 @@ test('PDF toolbar visually organizes desktop, tablet, phone, and tiny screens',(
   '@media(max-width:700px)','grid-template-columns:repeat(2,minmax(0,1fr))',
   '.final-pdf-shortcut--save','grid-column:1/-1',
   '@media(max-width:390px)','grid-template-columns:minmax(0,1fr)',
-  'min-height:49px','min-height:48px',
+  'min-height:42px','min-height:44px',
+  'max-width:630px','max-width:220px','padding:7px 9px',
   '.final-pdf-shortcut:focus-visible','@media(prefers-reduced-motion:reduce)',
   '.report-record[style*="display: none"]+.final-pdf-shortcuts',
   '@media print'

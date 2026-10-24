@@ -2115,7 +2115,10 @@ async function reportCenter(){
     icon.setAttribute('aria-hidden','true');
     icon.textContent=mode==='view'?'◉':mode==='download'?'↓':'▣';
     const caption=document.createElement('span');caption.className='final-pdf-shortcut-label';
-    caption.textContent=label;
+    // Compact labels reduce visual crowding; accessible names stay descriptive.
+    caption.textContent=mode==='view'?tr('View PDF','Ver PDF'):
+      mode==='download'?tr('Download PDF','Descargar PDF'):
+      tr('Save PDF to…','Guardar PDF en…');
     button.append(icon,caption);
     button.onclick=async()=>{
      if(button.disabled||!viewCurrent()||state.project!==entry.project_id)return;
