@@ -7,6 +7,19 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
  for(const input of form.querySelectorAll('input[type=file]')){
   const entries=(list(input.name)||[]).map(item=>({item}));
   const gallery=document.createElement('div');gallery.className='jha-photo-gallery';input.after(gallery);fields.set(input.name,entries);
+  function loadStoredPreview(entry,image,label){
+   // Reuse preview requests so offline blob URLs survive redraws without leaks.
+   if(entry.url){image.src=entry.url;return}
+   if(!entry.previewTask)entry.previewTask=Promise.resolve().then(()=>preview(entry.item));
+   entry.previewTask.then(url=>{
+    if(!url)throw Error('Preview unavailable');
+    if(url.startsWith('blob:')){
+     if(!form.isConnected||!entries.includes(entry)){URL.revokeObjectURL(url);return}
+     entry.url=url;
+    }
+    if(image.isConnected)image.src=url;
+   }).catch(()=>{if(image.isConnected)label.textContent=tr('Preview unavailable: ','Vista no disponible: ')+image.alt});
+  }
   function draw(){
    if(!form.isConnected)return;
    gallery.replaceChildren();
@@ -17,10 +30,11 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
     const button=document.createElement('button');button.type='button';button.textContent=tr('Remove photo','Eliminar foto');button.disabled=form.dataset.submitting==='true';
     button.onclick=()=>{if(form.dataset.submitting==='true'||entry.removing)return;entry.removing=true;button.disabled=true;enqueue(async()=>{try{if(entry.item)await remove(input.name,entry.item);const index=entries.indexOf(entry);if(index>=0)entries.splice(index,1);if(entry.url)URL.revokeObjectURL(entry.url);draw()}catch(err){entry.removing=false;draw();throw err}})};
     card.append(image,label,button);gallery.append(card);
-    if(entry.item&&/\.hei[cf]$/i.test(entry.file?.name||''))preview(entry.item).then(url=>{if(url&&image.isConnected)image.src=url}).catch(()=>{});
+    if(entry.item&&/\.hei[cf]$/i.test(entry.file?.name||''))loadStoredPreview(entry,image,label);
     else if(entry.url)image.src=entry.url;
     else if(entry.file){entry.url=URL.createObjectURL(entry.file);image.src=entry.url}
-    else if(entry.item)preview(entry.item).then(url=>{if(url&&image.isConnected)image.src=url}).catch(()=>{label.textContent=tr('Preview unavailable: ','Vista no disponible: ')+image.alt});
+    else if(entry.item)loadStoredPreview(entry,image,label);
+    image.addEventListener('error',()=>{if(image.isConnected)label.textContent=tr('Preview unavailable: ','Vista no disponible: ')+image.alt});
    }
   }
   input.addEventListener('change',()=>{
