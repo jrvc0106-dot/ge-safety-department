@@ -1,6 +1,7 @@
 import {mountSafetyIntelligence} from './safety-intelligence.js';
 import {isValidPdfBlob,protectPdfReportLogos} from './report-pdf-quality.js';
-import {indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf} from './finalized-pdf-direct.js';
+import {indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf,archivedPdfLink,archivedPdfFilename} from './finalized-pdf-direct.js';
+import {reservePdfDestination,savePdfToDevice,fileShareSupported} from './pdf-save-location.js';
 import './finalized-pdf-direct.css';
 import './safety-intelligence.css';
 import {helpCenterPage} from './help-center.js';
@@ -656,10 +657,10 @@ async function buildReportPdf(highQuality=false){
   finally{if(pendingReportPdfs.get(report)?.promise===promise)pendingReportPdfs.delete(report)}
 }
 async function auditMedicalPdfAction(action,report){
- if(report?.dataset?.toolKind!=='medical_followup'||!['download','share'].includes(action))return;
+ if(report?.dataset?.toolKind!=='medical_followup'||!['download','share','save'].includes(action))return;
  if(!['admin','safety_director','safety'].includes(state.profile?.role)||!state.project)throw Error(tr('You are not authorized to export this confidential medical report.','No tiene autorización para exportar este reporte médico confidencial.'));
  const followupId=report.dataset.medicalFollowupId;if(!followupId)throw Error(tr('The medical record could not be verified. Reopen it and try again.','No se pudo verificar el registro médico. Vuelva a abrirlo e inténtelo de nuevo.'));
- const result=await db.from('employee_medical_pdf_events').insert({project_id:state.project,followup_id:followupId,actor_id:state.profile.id,event_type:action==='download'?'download_started':'share_opened'});
+ const result=await db.from('employee_medical_pdf_events').insert({project_id:state.project,followup_id:followupId,actor_id:state.profile.id,event_type:action==='share'?'share_opened':'download_started'});
  if(result.error)throw result.error;
 }
 async function runPdfAction(action,button){
@@ -670,11 +671,37 @@ async function runPdfAction(action,button){
   const isJha=report?.dataset?.pdfViewMode==='single-click';
   const readyFirstView=action==='view'&&report?.dataset?.pdfViewMode==='ready-first';
   const original=button?.innerHTML;
+  // iOS/Android file sharing and desktop Save picker must start on the user click.
+  // Deny unauthorized medical exports before offering a file destination.
+  if(action==='save'&&report?.dataset?.toolKind==='medical_followup'&&
+    !['admin','safety_director','safety'].includes(state.profile?.role)){
+    error(new Error(tr('Not authorized to export this confidential report.','Sin autorización para exportar este reporte confidencial.')));return;
+  }
+  const saveDestination=action==='save'&&report?reservePdfDestination(reportPdfFilename(report),{win:window}):null;
   pdfActionBusy=true;
   try{
     if(button){button.disabled=true;button.textContent=tr('Preparing PDF…','Preparando PDF…')}
-    if(report?.dataset?.toolKind==='medical_followup'&&action==='share')void auditMedicalPdfAction(action,report).catch(e=>console.warn('Medical PDF share audit could not be recorded',e));
+    if(report?.dataset?.toolKind==='medical_followup'&&['share','save'].includes(action))void auditMedicalPdfAction(action,report).catch(e=>console.warn('Medical PDF export audit could not be recorded',e));
     else if(report?.dataset?.toolKind==='medical_followup')await auditMedicalPdfAction(action,report);
+    // A canceled desktop location picker should not waste time rendering a PDF.
+    if(saveDestination?.kind==='picker'){
+      const selected=await saveDestination.result;
+      if(selected.error)throw selected.error;
+    }
+    if(action==='save'&&prepared){
+      if(nativeReportArchiveAvailable()&&prepared.localArchive){
+        const opened=await openLocalReport(prepared.localArchive);
+        confirmAction(opened?tr('Choose Save to Files and select your folder in the system menu.','Seleccione Guardar en Archivos y elija su carpeta en el menú del sistema.'):tr('Save canceled.','Guardado cancelado.'));
+        return;
+      }
+      const saved=await savePdfToDevice(prepared.blob,prepared.filename,{
+        destination:saveDestination,win:window,nav:navigator,doc:document,download:downloadReportPdf
+      });
+      confirmAction(saved.kind==='saved'?tr('PDF saved in the selected folder.','PDF guardado en la carpeta seleccionada.'):
+        saved.kind==='shared'?tr('Choose Save to Files and select your folder.','Seleccione Guardar en Archivos y elija su carpeta.'):
+        tr('PDF download started. Your browser controls its download folder.','Descarga iniciada. Su navegador controla la carpeta de descargas.'));
+      return;
+    }
     // Reserve the preview while the click still has browser activation.
     if(action==='view'&&!readyFirstView&&!(isJha&&prepared)){
       try{preview=window.open('about:blank','_blank');if(preview)preview.opener=null}
@@ -714,6 +741,27 @@ async function runPdfAction(action,button){
     }
     prepared=await buildReportPdf(true);
     const {blob,filename}=prepared;
+    if(action==='save'){
+      if(nativeReportArchiveAvailable()&&prepared.localArchive){
+        const opened=await openLocalReport(prepared.localArchive);
+        confirmAction(opened?tr('Choose Save to Files and select your folder.','Seleccione Guardar en Archivos y elija su carpeta.'):
+          tr('Save canceled.','Guardado cancelado.'));
+        return;
+      }
+      if(saveDestination?.kind!=='picker'&&fileShareSupported(blob,filename,{nav:navigator,FileClass:File})){
+        // Web Share on iOS needs a fresh user gesture; the completed PDF is now
+        // cached so the next tap opens the actual Files/share selector.
+        confirmAction(tr('PDF prepared. Tap “Save PDF now” to choose a folder.','PDF preparado. Pulse “Guardar PDF ahora” para elegir una carpeta.'));
+        return;
+      }
+      const saved=await savePdfToDevice(blob,filename,{
+        destination:saveDestination,win:window,nav:navigator,doc:document,download:downloadReportPdf
+      });
+      confirmAction(saved.kind==='saved'?tr('PDF saved in the selected folder.','PDF guardado en la carpeta seleccionada.'):
+        saved.kind==='shared'?tr('Choose Save to Files and select your folder.','Seleccione Guardar en Archivos y elija su carpeta.'):
+        tr('PDF download started. Your browser controls its download folder.','Descarga iniciada. Su navegador controla la carpeta de descargas.'));
+      return;
+    }
     if(readyFirstView){
       confirmAction(tr('PDF ready. Tap “View PDF now” to open it.','PDF listo. Pulse “Ver PDF ahora” para abrirlo.'));return;
     }
@@ -754,7 +802,7 @@ async function runPdfAction(action,button){
     if(preview&&!preview.closed)preview.close();
     if(e?.name==='AbortError')confirmAction(tr('Sharing canceled.','Se canceló la acción de compartir.'));
     else {
-      const labels={view:tr('View PDF','Ver PDF'),download:tr('Download PDF','Descargar PDF'),share:tr('Share PDF','Compartir PDF')};
+      const labels={view:tr('View PDF','Ver PDF'),download:tr('Download PDF','Descargar PDF'),share:tr('Share PDF','Compartir PDF'),save:tr('Save PDF to…','Guardar PDF en…')};
       const label=labels[action]||tr('PDF action','acción del PDF');
       error(new Error(tr('The PDF could not be completed. Tap ','No se pudo completar el PDF. Pulsa ')+label+tr(' again to retry. Details: ',' otra vez para reintentarlo. Detalle: ')+(e?.message||String(e))));
     }
@@ -762,6 +810,8 @@ async function runPdfAction(action,button){
     pdfActionBusy=false;
     if(button){button.disabled=false;button.innerHTML=original}
     if(readyFirstView&&button&&report&&preparedReportPdf(report,true))button.textContent='◉ '+tr('View PDF now','Ver PDF ahora');
+    const saveButton=document.querySelector('.pdf-save');
+    if(saveButton&&report&&preparedReportPdf(report,true))saveButton.textContent='▣ '+tr('Save PDF now','Guardar PDF ahora');
     const shareButton=document.querySelector('.pdf-share');
     if(shareButton&&report&&preparedReportPdf(report,true))shareButton.textContent='↗ '+tr('Share PDF now','Compartir PDF ahora');
   }
@@ -774,7 +824,7 @@ function installReportDocumentActions(){
   bar.dataset.pdfActions='1';
   const actions=document.createElement('div');actions.className='pdf-document-actions';
   const isDailyJha=state.page==='safetyWalkReport';
-  actions.innerHTML=(isDailyJha?'':'<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>')+'<button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button>'+'<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>';
+  actions.innerHTML=(isDailyJha?'':'<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>')+'<button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button>'+'<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>'+'<button type="button" class="secondary pdf-save">▣ '+tr('Save PDF to…','Guardar PDF en…')+'</button>';
   bar.appendChild(actions);
   if(!isDailyJha)actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
   actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
