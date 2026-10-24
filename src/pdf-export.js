@@ -4,11 +4,38 @@ import {jsPDF} from 'jspdf';
 // 200 DPI keeps text, signatures and photos clear while holding each letter page
 // below the app's 4 MP canvas budget on iPads. JPEG avoids huge lossless PDFs.
 const pdfRenderScale=200/96;
+// A JHA produced by html2pdf can begin with an all-white raster slice when
+// its report starts after a CSS page-break/overlay offset. Inspect only the
+// first page with a tiny downscaled raster, never the full-size iPad canvas.
+// This does not alter pages containing text, logos, signatures or evidence.
+export function pdfCanvasPageIsBlank(canvas,{documentRef=globalThis.document}={}){
+ if(!canvas?.width||!canvas?.height||!documentRef?.createElement)return false;
+ let sample;
+ try{
+  sample=documentRef.createElement('canvas');
+  sample.width=64;sample.height=80;
+  const context=sample.getContext?.('2d',{willReadFrequently:true});
+  if(!context?.drawImage||!context?.getImageData)return false;
+  context.drawImage(canvas,0,0,sample.width,sample.height);
+  const data=context.getImageData(0,0,sample.width,sample.height).data;
+  let dark=0;
+  for(let i=0;i<data.length;i+=4){
+   const alpha=data[i+3]/255;
+   if(alpha>0.15&&Math.min(data[i],data[i+1],data[i+2])<235)dark++;
+  }
+  // A legitimate title/logo/header occupies more than 0.2% of this sample.
+  // A pale watermark alone is not considered sufficient report content.
+  return dark<10;
+ }catch{return false}
+ finally{if(sample){sample.width=0;sample.height=0}}
+}
+
 export async function renderPaginatedPdf(container,pageSize,options,render=html2canvas,Pdf=jsPDF){
   const width=pageSize.inner.width*96;
   const pageHeight=pageSize.inner.px.height;
   const totalHeight=Math.max(1,container.scrollHeight);
   const pdf=new Pdf({...options.jsPDF,compress:true});
+  let pagesAdded=0;
   for(let top=0,index=0;top<totalHeight;top+=pageHeight,index++){
     const height=Math.min(pageHeight,totalHeight-top);
     let canvas;
@@ -16,9 +43,15 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
       canvas=await render(container,{...options.html2canvas,scale:pdfRenderScale,
         x:0,y:top,width,height,scrollX:0,scrollY:0});
       if(!canvas.width||!canvas.height)throw new Error('Unable to render PDF page '+(index+1));
-      if(index)pdf.addPage();
-      pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',options.margin[1],options.margin[0],
-        pageSize.inner.width,height/96,undefined,'FAST');
+      // Only JHA opts into removing an empty FIRST slice; all other
+      // documents keep their approved pagination byte-for-byte.
+      if(!(options.skipBlankLeadingPage&&pagesAdded===0&&
+          pdfCanvasPageIsBlank(canvas))){
+        if(pagesAdded)pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',options.margin[1],options.margin[0],
+          pageSize.inner.width,height/96,undefined,'FAST');
+        pagesAdded++;
+      }
     }finally{
       if(canvas){canvas.width=0;canvas.height=0}
     }
@@ -29,6 +62,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
     else if(top+pageHeight<totalHeight&&typeof document!=='undefined'&&document.visibilityState==='visible')
       await new Promise(resolve=>setTimeout(resolve,0));
   }
+  if(!pagesAdded)throw new Error('JHA PDF has no visible page content');
   return pdf.output('blob');
 }
 
