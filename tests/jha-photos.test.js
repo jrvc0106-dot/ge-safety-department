@@ -64,7 +64,7 @@ test('other photo modules continue to block failed draft evidence until user ret
   Object.defineProperty(input,'files',{configurable:true,value:[new dom.window.File(['img'],'site.jpg',{type:'image/jpeg'})]});
   input.dispatchEvent(new dom.window.Event('change'));
   // Non-JHA modules retain existing behavior (their upload integrity is unchanged).
-  await controller.files('photos_0');
+  await assert.rejects(controller.files('photos_0'),/Cloud sync failed/);
   await Promise.resolve();
   assert.equal(errors.length,1);
   assert.equal(form.querySelector('.jha-photo-local-warning'),null);
