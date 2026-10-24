@@ -61,8 +61,14 @@ Deno.serve(async req=>{
    const result=await token(record.provider,params,{appKey:record.app_key||null});if(!result.refresh_token||!result.access_token)throw Error("Offline access was not granted.");
    const account=record.provider==="google_drive"?await request("https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)",{headers:{Authorization:"Bearer "+result.access_token}}):await request("https://api.dropboxapi.com/2/users/get_current_account",{method:"POST",headers:{Authorization:"Bearer "+result.access_token}});
    const label=record.provider==="google_drive"?(account.user?.emailAddress||account.user?.displayName||"Google Drive"):(account.email||account.name?.display_name||"Dropbox");
-   must(await admin.from("backup_cloud_connections").upsert({id:crypto.randomUUID(),project_id:record.project_id,provider:record.provider,encrypted_token:await encrypt(result.refresh_token),app_key:record.app_key||null,account_label:label,connected_by:record.user_id,connected_at:new Date().toISOString()},{onConflict:"project_id,provider"}));
-   message="Account connected successfully. Close this window and return to Cloud Backup Center, then refresh the connection status.";status=200;
+   const existingConnection=must(await admin.from("backup_cloud_connections").select("id").eq("project_id",record.project_id).eq("provider",record.provider).maybeSingle());
+   const connected=must(await admin.from("backup_cloud_connections").upsert({id:existingConnection?.id||crypto.randomUUID(),project_id:record.project_id,provider:record.provider,encrypted_token:await encrypt(result.refresh_token),app_key:record.app_key||null,account_label:label,connected_by:record.user_id,connected_at:new Date().toISOString()},{onConflict:"project_id,provider"}).select("id").single());
+   if(record.provider==="dropbox"){
+    // Dropbox approval authorizes automatic copies of all finalized G&E project PDFs.
+    // No report is uploaded before the user approves Dropbox authorization.
+    must(await admin.from("dropbox_auto_control").upsert({id:1,enabled:true,connection_id:connected.id,updated_by:record.user_id,updated_at:new Date().toISOString()},{onConflict:"id"}));
+   }
+   message="Account connected successfully. Final PDF reports will copy to Dropbox automatically, including existing completed PDFs. Return to GE ONE.";status=200;
   }catch{}
   const nonce=hex(crypto.getRandomValues(new Uint8Array(16)));
   const html="<!doctype html><html><meta name=viewport content='width=device-width,initial-scale=1'><title>G&E Cloud Backup</title><body><h1>G&E Cloud Backup</h1><p>"+message+"</p><p><a href='https://ge-safety-department.vercel.app'>Return to GE ONE / Volver a GE ONE</a></p><script nonce='"+nonce+"'>try{if(window.opener){window.opener.postMessage({type:'ge-cloud-backup-oauth',success:"+String(status===200)+"},'*');if("+String(status===200)+")window.close()}}catch(e){}</script></body></html>";
@@ -83,7 +89,10 @@ Deno.serve(async req=>{
    const connections=must(await admin.from("backup_cloud_connections").select("provider,account_label,connected_at").eq("project_id",project));
    const backups=must(await admin.from("cloud_backups").select("id").eq("project_id",project).order("created_at",{ascending:false}).limit(30));
    const exports=backups.length?must(await admin.from("backup_cloud_exports").select("backup_id,provider,status,total_files,copied,error_message,completed_at").in("backup_id",backups.map(x=>x.id))):[];
-   return json({provider:settings?.provider||"supabase",providers:providers.map(provider=>({provider,configured:provider==="dropbox"?Boolean(settings?.dropbox_app_key||(credentials(provider).id&&credentials(provider).secret)):Boolean(credentials(provider).id&&credentials(provider).secret),connection:connections.find(x=>x.provider===provider)||null})),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback()});
+   const auto=must(await admin.from("dropbox_auto_control").select("enabled,updated_at").eq("id",1).maybeSingle());
+   const automaticRows=must(await admin.from("dropbox_automatic_reports").select("status").limit(10000));
+   const counts=automaticRows.reduce((result,item)=>(result[item.status]=(result[item.status]||0)+1,result),{pending:0,sending:0,completed:0,failed:0});
+   return json({provider:settings?.provider||"supabase",providers:providers.map(provider=>({provider,configured:provider==="dropbox"?Boolean(settings?.dropbox_app_key||(credentials(provider).id&&credentials(provider).secret)):Boolean(credentials(provider).id&&credentials(provider).secret),connection:connections.find(x=>x.provider===provider)||null})),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback(),automatic_reports:{enabled:Boolean(auto?.enabled),counts}});
   }
 
   if(body.action==="local_download"){
@@ -101,6 +110,16 @@ Deno.serve(async req=>{
    const links=[];
    for(let i=0;i<files.length;i+=100){const signed=await admin.storage.from("cloud-backups").createSignedUrls(files.slice(i,i+100).map(file=>file.path),900);if(signed.error||signed.data?.some(file=>file.error||!file.signedUrl))throw Error("Backup download could not be prepared.");links.push(...signed.data);}
    return json({backup_number:backup.backup_number,total_bytes:files.reduce((sum,file)=>sum+file.size,0),files:files.map((file,i)=>({...file,url:links[i].signedUrl}))});
+  }
+  if(body.action==="automatic_reports"){
+   const enabled=body.enabled===true;
+   if(enabled){
+    const control=must(await admin.from("dropbox_auto_control").select("connection_id").eq("id",1).maybeSingle());
+    if(!control?.connection_id)return json({error:"Connect Dropbox before enabling automatic PDF reports."},409);
+   }
+   const result=must(await admin.from("dropbox_auto_control").update({enabled,updated_by:auth.data.user.id,updated_at:new Date().toISOString()}).eq("id",1).select("enabled").maybeSingle());
+   if(!result)return json({error:"Connect Dropbox first."},409);
+   return json({ok:true,enabled:result.enabled});
   }
   if(body.action==="setup_dropbox"){
    const appKey=String(body.app_key||"").trim();
@@ -137,6 +156,10 @@ Deno.serve(async req=>{
    must(await admin.from("backup_cloud_settings").upsert({project_id:project,provider:p,updated_by:auth.data.user.id,updated_at:new Date().toISOString()}));return json({ok:true});
   }
   if(body.action==="disconnect"){
+   if(p==="dropbox"){
+    const activeConnection=must(await admin.from("backup_cloud_connections").select("id").eq("project_id",project).eq("provider","dropbox").maybeSingle());
+    if(activeConnection)must(await admin.from("dropbox_auto_control").update({enabled:false,connection_id:null,updated_by:auth.data.user.id,updated_at:new Date().toISOString()}).eq("connection_id",activeConnection.id));
+   }
    must(await admin.from("backup_cloud_connections").delete().eq("project_id",project).eq("provider",p));
    must(await admin.from("backup_cloud_settings").update({provider:"supabase",updated_by:auth.data.user.id}).eq("project_id",project).eq("provider",p));return json({ok:true});
   }

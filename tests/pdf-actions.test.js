@@ -12,7 +12,7 @@ function setup({archiveFails=false,canShare=false,userAgent='test-browser'}={}){
  const blob=mockValidPdf('JHA');
  const canvas={width:800,height:9000};
  const worker={set(){return this},from(){return this},toContainer(){return this},toCanvas(){return this},get(key){return Promise.resolve(key==='container'?{scrollWidth:800,scrollHeight:9000}:key==='overlay'?{remove(){}}:canvas)},outputPdf(){return Promise.resolve(blob)}};
- const context=vm.createContext({nativeReportArchiveAvailable:()=>false,isValidPdfBlob,protectPdfReportLogos,Blob,File,reservePdfDestination,savePdfToDevice,fileShareSupported,openLocalReport:async()=>true,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{userAgent,canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:selector==='.pdf-save'?null:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
+ const context=vm.createContext({nativeReportArchiveAvailable:()=>false,isValidPdfBlob,protectPdfReportLogos,Blob,File,reservePdfDestination,savePdfToDevice,fileShareSupported,openLocalReport:async()=>true,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{userAgent,canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:selector==='.pdf-save'?null:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{functions:{invoke:async()=>({data:{enabled:false}})}},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
  const helpers=source.slice(source.indexOf('const preparedReportPdfs='),source.indexOf('async function normalizeReportImage'));
  const actions=source.slice(source.indexOf('async function buildReportPdf('),source.indexOf('function installReportDocumentActions()')).replace("await import('./pdf-export.js')",'({renderPaginatedPdf:mockRenderPdf})');
  vm.runInContext(helpers+'\n'+actions,context);
@@ -23,7 +23,7 @@ function setup({archiveFails=false,canShare=false,userAgent='test-browser'}={}){
  return {context,report,button,messages,downloads,shares,metrics};
 }
 
-test('installed iPad saves one local PDF reference and skips a second cloud PDF upload',async()=>{
+test('installed iPad keeps local PDF and does not upload unless Dropbox is authorized',async()=>{
  const t=setup(),localWrites=[];
  t.context.nativeReportArchiveAvailable=()=>true;
  t.context.state.projects=[{id:'original',name:'Rivage Bal Harbour'}];
@@ -35,6 +35,24 @@ test('installed iPad saves one local PDF reference and skips a second cloud PDF 
  assert.equal(localWrites[0].userId,'user-1');
  assert.equal(result.localArchive.path,'G&E Reports/Rivage/Disciplinary Actions/test.pdf');
  assert.equal(t.downloads.length,0);
+ assert.equal(t.messages.length,0);
+});
+
+test('installed iPad keeps its original PDF and queues a separate cloud copy only after Dropbox opt-in',async()=>{
+ const t=setup(),localWrites=[],cloudWrites=[];
+ t.context.nativeReportArchiveAvailable=()=>true;
+ t.context.state.projects=[{id:'original',name:'Miramar Cove'}];
+ t.context.saveLocalReport=async args=>{localWrites.push(args);return {path:'G&E Reports/Miramar Cove/Report.pdf'}};
+ t.context.db.functions.invoke=async(_name,params)=>{
+  assert.equal(params.body.action,'enabled');return {data:{enabled:true}};
+ };
+ t.context.registerFinalReport=async(blob,_report,meta)=>cloudWrites.push({blob,meta});
+ const result=await t.context.buildReportPdf(true);
+ await Promise.resolve();await Promise.resolve();
+ assert.equal(localWrites.length,1);
+ assert.equal(cloudWrites.length,1);
+ assert.strictEqual(localWrites[0].blob,result.blob);
+ assert.strictEqual(cloudWrites[0].blob,result.blob);
  assert.equal(t.messages.length,0);
 });
 
