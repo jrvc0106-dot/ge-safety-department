@@ -6,6 +6,7 @@ import {JSDOM} from 'jsdom';
 import {parseAst} from 'rollup/parseAst';
 import {reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,confirmAdminTrashPermanentDeletion} from '../src/report-center-trash.js';
 import {groupFinalWalkReportsByCreator} from '../src/report-groups.js';
+import {indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf} from '../src/finalized-pdf-direct.js';
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const node=parseAst(source).body.find(x=>x.type==='FunctionDeclaration'&&x.id.name==='reportCenter');
 assert.ok(node,'reportCenter function must exist');
@@ -81,7 +82,7 @@ async function setup(role='admin'){
   fmt:()=> 'Oct 14',localDateKey:()=> '2026-10-14',captureView:()=>()=>true,
   toolsHomeMarkup:()=>'',safetyTools:{bindHome(){}},nativeReportArchiveAvailable:()=>false,
   reportCenterHidden,reportCenterVisible,reportCenterTrashRows,changeReportCenterTrash,permanentlyPurgeReportFromSupabase,reportCenterDeleteMessage,reportCenterPermanentMessage,confirmPermanentReportDeletion,confirmAdminTrashPermanentDeletion,
-  groupFinalWalkReportsByCreator,effectiveWalkStatus:()=> 'safe',disciplinaryActionLabel:()=> 'Coaching',
+  groupFinalWalkReportsByCreator,indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf,effectiveWalkStatus:()=> 'safe',disciplinaryActionLabel:()=> 'Coaching',
   confirmAction:msg=>messages.push(msg),error:e=>messages.push('ERROR: '+e.message),
   navigate:(...args)=>navigation.push(args),Date,console
  });
