@@ -90,3 +90,53 @@ test('a completely blank JHA document is rejected instead of being saved',async(
    /no visible page content/);
  }finally{globalThis.document=previous}
 });
+
+
+test('JHA rejects a leading white page with only faint gray frame artifacts',async()=>{
+ const original=globalThis.document;let count=0;
+ globalThis.document={createElement:()=>({
+  width:0,height:0,getContext(){return{
+   drawImage(canvas){this.page=canvas},
+   getImageData(){
+    const data=new Uint8ClampedArray(128*160*4).fill(255);
+    if(this.page?.backgroundArtifact)for(let i=0;i<180;i++){
+     const p=(i+128*80)*4;
+     data[p]=226;data[p+1]=226;data[p+2]=226;data[p+3]=255;
+    }
+    if(this.page?.hasHeader)for(let y=7;y<17;y++)for(let x=8;x<90;x++){
+     const p=(y*128+x)*4;data[p]=33;data[p+1]=43;data[p+2]=55;data[p+3]=255;
+    }
+    return {data};
+   }
+  }}
+ })};
+ class Pdf{addPage(){}addImage(){count++}output(){return new Blob(['pdf'])}}
+ try{
+  await renderPaginatedPdf({scrollHeight:2006},pageSize,{...options,skipBlankLeadingPage:true},
+   async(_,opts)=>({width:1600,height:2000,backgroundArtifact:opts.y===0,hasHeader:opts.y>0,toDataURL:()=>''}),Pdf);
+  assert.equal(count,1,'A visually blank first page should not precede the report');
+ }finally{globalThis.document=original}
+});
+
+test('JHA must retain a genuine opening page with its report title/header',async()=>{
+ const original=globalThis.document;let count=0,pages=1;
+ globalThis.document={createElement:()=>({
+  width:0,height:0,getContext(){return{
+   drawImage(canvas){this.page=canvas},
+   getImageData(){
+    const data=new Uint8ClampedArray(128*160*4).fill(255);
+    if(this.page?.hasHeader)for(let y=5;y<20;y++)for(let x=9;x<95;x++){
+     const p=(y*128+x)*4;data[p]=30;data[p+1]=49;data[p+2]=61;data[p+3]=255;
+    }
+    return {data};
+   }
+  }}
+ })};
+ class Pdf{addPage(){pages++}addImage(){count++}output(){return new Blob(['pdf'])}}
+ try{
+  await renderPaginatedPdf({scrollHeight:2006},pageSize,{...options,skipBlankLeadingPage:true},
+   async()=>({width:1600,height:2000,hasHeader:true,toDataURL:()=>''}),Pdf);
+  assert.equal(count,2,'No real report heading or signatures may be dropped');
+  assert.equal(pages,2);
+ }finally{globalThis.document=original}
+});
