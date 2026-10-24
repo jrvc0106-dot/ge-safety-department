@@ -7,6 +7,11 @@ const admin=createClient(env("SUPABASE_URL"),env("SUPABASE_SERVICE_ROLE_KEY"),{a
 const callback=()=>env("SUPABASE_URL")+"/functions/v1/backup-cloud?callback=1";
 const credentials=p=>p==="google_drive"?{id:env("GOOGLE_BACKUP_CLIENT_ID"),secret:env("GOOGLE_BACKUP_CLIENT_SECRET")}:{id:env("DROPBOX_BACKUP_APP_KEY"),secret:env("DROPBOX_BACKUP_APP_SECRET")};
 const must=r=>{if(r.error)throw Error("Cloud connection storage is unavailable.");return r.data};
+const validDropboxAppKey=value=>/^[A-Za-z0-9]{6,64}$/.test(value);
+async function pkceChallenge(verifier){
+ const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(verifier)));
+ return btoa(String.fromCharCode(...digest)).replaceAll("+","-").replaceAll("/","_").replace(/=+$/,"");
+}
 async function request(url,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);try{const response=await fetch(url,{...options,signal:controller.signal});const text=await response.text();if(!response.ok)throw Error(response.status===401?"Cloud authorization expired. Reconnect the account.":response.status===429?"Cloud provider limit reached. Try again later.":"Cloud provider could not complete the request.");return text?JSON.parse(text):{}}finally{clearTimeout(timer)}}
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
 async function cryptKey(){const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(env("SUPABASE_SERVICE_ROLE_KEY")));return crypto.subtle.importKey("raw",digest,"AES-GCM",false,["encrypt","decrypt"])}
@@ -18,8 +23,17 @@ async function authorizeUser(id,project){
  const found=must(await admin.from("projects").select("id").eq("id",project).maybeSingle());if(!found)throw Error("Project access denied.");
  if(profile.role!=="admin"){const member=must(await admin.from("project_members").select("user_id").eq("project_id",project).eq("user_id",id).maybeSingle());if(!member)throw Error("Project access denied.")}
 }
-async function token(p,params){const c=credentials(p);if(!c.id||!c.secret)throw Error("Configure the cloud provider credentials first.");return request(p==="google_drive"?"https://oauth2.googleapis.com/token":"https://api.dropboxapi.com/oauth2/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:c.id,client_secret:c.secret,...params})})}
-async function access(connection){const result=await token(connection.provider,{grant_type:"refresh_token",refresh_token:await decrypt(connection.encrypted_token)});if(!result.access_token)throw Error("Reconnect the cloud account.");return result.access_token}
+async function token(p,params,{appKey=null}={}){
+ const c=credentials(p),id=p==="dropbox"&&appKey?appKey:c.id;
+ // PKCE requires only a public App Key. Keep old Google/legacy Dropbox server secret support.
+ if(!id||(p==="google_drive"&&!c.secret))throw Error("Configure the cloud provider credentials first.");
+ const secret=appKey&&p==="dropbox"?null:c.secret;
+ return request(p==="google_drive"?"https://oauth2.googleapis.com/token":"https://api.dropboxapi.com/oauth2/token",{
+  method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+  body:new URLSearchParams({client_id:id,...(secret?{client_secret:secret}:{}),...params})
+ });
+}
+async function access(connection){const result=await token(connection.provider,{grant_type:"refresh_token",refresh_token:await decrypt(connection.encrypted_token)},{appKey:connection.app_key||null});if(!result.access_token)throw Error("Reconnect the cloud account.");return result.access_token}
 async function folder(p,accessToken,name){
  if(p==="dropbox"){const row=await request("https://api.dropboxapi.com/2/files/create_folder_v2",{method:"POST",headers:{Authorization:"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({path:"/"+name,autorename:false})});if(!row.metadata?.path_lower)throw Error("Could not create the backup folder.");return row.metadata.path_lower;}
  const row=await request("https://www.googleapis.com/drive/v3/files?fields=id",{method:"POST",headers:{Authorization:"Bearer "+accessToken,"Content-Type":"application/json"},body:JSON.stringify({name,mimeType:"application/vnd.google-apps.folder"})});if(!row.id)throw Error("Could not create the backup folder.");return row.id;
@@ -42,13 +56,18 @@ Deno.serve(async req=>{
    if(!record||query.get("error"))throw Error("Authorization canceled or expired.");
    await authorizeUser(record.user_id,record.project_id);
    const code=query.get("code");if(!code)throw Error("Missing authorization code.");
-   const result=await token(record.provider,{grant_type:"authorization_code",code,redirect_uri:callback()});if(!result.refresh_token||!result.access_token)throw Error("Offline access was not granted.");
+   const params={grant_type:"authorization_code",code,redirect_uri:callback()};
+   if(record.provider==="dropbox"&&record.code_verifier)params.code_verifier=record.code_verifier;
+   const result=await token(record.provider,params,{appKey:record.app_key||null});if(!result.refresh_token||!result.access_token)throw Error("Offline access was not granted.");
    const account=record.provider==="google_drive"?await request("https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)",{headers:{Authorization:"Bearer "+result.access_token}}):await request("https://api.dropboxapi.com/2/users/get_current_account",{method:"POST",headers:{Authorization:"Bearer "+result.access_token}});
    const label=record.provider==="google_drive"?(account.user?.emailAddress||account.user?.displayName||"Google Drive"):(account.email||account.name?.display_name||"Dropbox");
-   must(await admin.from("backup_cloud_connections").upsert({id:crypto.randomUUID(),project_id:record.project_id,provider:record.provider,encrypted_token:await encrypt(result.refresh_token),account_label:label,connected_by:record.user_id,connected_at:new Date().toISOString()},{onConflict:"project_id,provider"}));
+   must(await admin.from("backup_cloud_connections").upsert({id:crypto.randomUUID(),project_id:record.project_id,provider:record.provider,encrypted_token:await encrypt(result.refresh_token),app_key:record.app_key||null,account_label:label,connected_by:record.user_id,connected_at:new Date().toISOString()},{onConflict:"project_id,provider"}));
    message="Account connected successfully. Close this window and return to Cloud Backup Center, then refresh the connection status.";status=200;
   }catch{}
-  return new Response("<!doctype html><html><meta name=viewport content='width=device-width,initial-scale=1'><title>G&E Cloud Backup</title><body><h1>G&E Cloud Backup</h1><p>"+message+"</p><p>Cierra esta ventana y vuelve a Cloud Backup Center.</p></body></html>",{status,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","Content-Security-Policy":"default-src 'none'; frame-ancestors 'none'"}});
+  const nonce=hex(crypto.getRandomValues(new Uint8Array(16)));
+  const html="<!doctype html><html><meta name=viewport content='width=device-width,initial-scale=1'><title>G&E Cloud Backup</title><body><h1>G&E Cloud Backup</h1><p>"+message+"</p><p><a href='https://ge-safety-department.vercel.app'>Return to GE ONE / Volver a GE ONE</a></p><script nonce='"+nonce+"'>try{if(window.opener){window.opener.postMessage({type:'ge-cloud-backup-oauth',success:"+String(status===200)+"},'*');if("+String(status===200)+")window.close()}}catch(e){}</script></body></html>";
+  return new Response(html,{status,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","Content-Security-Policy":"default-src 'none'; script-src 'nonce-"+nonce+"'; frame-ancestors 'none'; navigate-to https://ge-safety-department.vercel.app"}});
+
  }
  if(req.method!=="POST")return json({error:"Method not allowed"},405);
  let lease=null;
@@ -60,11 +79,11 @@ Deno.serve(async req=>{
   if(typeof project!=="string"||!/^[0-9a-f-]{36}$/i.test(project))return json({error:"Select a valid project."},400);
   await authorizeUser(auth.data.user.id,project);
   if(body.action==="status"){
-   const settings=must(await admin.from("backup_cloud_settings").select("provider").eq("project_id",project).maybeSingle());
+   const settings=must(await admin.from("backup_cloud_settings").select("provider,dropbox_app_key").eq("project_id",project).maybeSingle());
    const connections=must(await admin.from("backup_cloud_connections").select("provider,account_label,connected_at").eq("project_id",project));
    const backups=must(await admin.from("cloud_backups").select("id").eq("project_id",project).order("created_at",{ascending:false}).limit(30));
    const exports=backups.length?must(await admin.from("backup_cloud_exports").select("backup_id,provider,status,total_files,copied,error_message,completed_at").in("backup_id",backups.map(x=>x.id))):[];
-   return json({provider:settings?.provider||"supabase",providers:providers.map(provider=>({provider,configured:Boolean(credentials(provider).id&&credentials(provider).secret),connection:connections.find(x=>x.provider===provider)||null})),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback()});
+   return json({provider:settings?.provider||"supabase",providers:providers.map(provider=>({provider,configured:provider==="dropbox"?Boolean(settings?.dropbox_app_key||(credentials(provider).id&&credentials(provider).secret)):Boolean(credentials(provider).id&&credentials(provider).secret),connection:connections.find(x=>x.provider===provider)||null})),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback()});
   }
 
   if(body.action==="local_download"){
@@ -83,16 +102,33 @@ Deno.serve(async req=>{
    for(let i=0;i<files.length;i+=100){const signed=await admin.storage.from("cloud-backups").createSignedUrls(files.slice(i,i+100).map(file=>file.path),900);if(signed.error||signed.data?.some(file=>file.error||!file.signedUrl))throw Error("Backup download could not be prepared.");links.push(...signed.data);}
    return json({backup_number:backup.backup_number,total_bytes:files.reduce((sum,file)=>sum+file.size,0),files:files.map((file,i)=>({...file,url:links[i].signedUrl}))});
   }
+  if(body.action==="setup_dropbox"){
+   const appKey=String(body.app_key||"").trim();
+   if(!validDropboxAppKey(appKey))return json({error:"Enter a valid Dropbox App Key (letters and numbers only)."},400);
+   const linked=must(await admin.from("backup_cloud_connections").select("app_key").eq("project_id",project).eq("provider","dropbox").maybeSingle());
+   if(linked&&linked.app_key!==appKey)return json({error:"Disconnect the current Dropbox account before changing its App Key."},409);
+   const existing=must(await admin.from("backup_cloud_settings").select("provider").eq("project_id",project).maybeSingle());
+   must(await admin.from("backup_cloud_settings").upsert({project_id:project,provider:existing?.provider||"supabase",dropbox_app_key:appKey,updated_by:auth.data.user.id,updated_at:new Date().toISOString()},{onConflict:"project_id"}));
+   return json({ok:true});
+  }
   if(!["supabase",...providers].includes(p))return json({error:"Select a supported provider."},400);
   if(body.action==="connect"){
    if(!providers.includes(p))return json({error:"Supabase is already available."},400);
-   const c=credentials(p);if(!c.id||!c.secret)return json({error:"Provider setup is pending. An administrator must configure "+(p==="google_drive"?"GOOGLE_BACKUP_CLIENT_ID and GOOGLE_BACKUP_CLIENT_SECRET":"DROPBOX_BACKUP_APP_KEY and DROPBOX_BACKUP_APP_SECRET")+" in Supabase Secrets.",code:"NOT_CONFIGURED"},503);
+   const c=credentials(p);
+   const settings=must(await admin.from("backup_cloud_settings").select("dropbox_app_key").eq("project_id",project).maybeSingle());
+   const appKey=p==="dropbox"?(settings?.dropbox_app_key||c.id):c.id;
+   if(!appKey||(p==="google_drive"&&!c.secret))return json({error:p==="dropbox"?"Set your Dropbox App Key first.":"Google Drive provider setup is pending.",code:"NOT_CONFIGURED"},503);
+   const pkce=p==="dropbox"&&Boolean(settings?.dropbox_app_key||!c.secret);
+   const verifier=pkce?hex(crypto.getRandomValues(new Uint8Array(32))):null;
    const state=crypto.randomUUID();must(await admin.from("backup_cloud_oauth_states").delete().lt("expires_at",new Date().toISOString()));
-   must(await admin.from("backup_cloud_oauth_states").insert({state,project_id:project,provider:p,user_id:auth.data.user.id,expires_at:new Date(Date.now()+600000).toISOString()}));
+   must(await admin.from("backup_cloud_oauth_states").insert({state,project_id:project,provider:p,user_id:auth.data.user.id,app_key:pkce?appKey:null,code_verifier:verifier,expires_at:new Date(Date.now()+600000).toISOString()}));
    const url=new URL(p==="google_drive"?"https://accounts.google.com/o/oauth2/v2/auth":"https://www.dropbox.com/oauth2/authorize");
-   for(const [k,v] of Object.entries({client_id:c.id,redirect_uri:callback(),response_type:"code",state}))url.searchParams.set(k,v);
+   for(const [k,v] of Object.entries({client_id:appKey,redirect_uri:callback(),response_type:"code",state}))url.searchParams.set(k,v);
    if(p==="google_drive"){url.searchParams.set("scope","https://www.googleapis.com/auth/drive.file");url.searchParams.set("access_type","offline");url.searchParams.set("prompt","consent");}
-   else{url.searchParams.set("token_access_type","offline");url.searchParams.set("scope","files.content.write files.metadata.read account_info.read");}
+   else{
+    url.searchParams.set("token_access_type","offline");url.searchParams.set("scope","files.content.write files.metadata.read account_info.read");
+    if(pkce){url.searchParams.set("code_challenge_method","S256");url.searchParams.set("code_challenge",await pkceChallenge(verifier));}
+   }
    return json({authorization_url:url.toString()});
   }
   const connection=providers.includes(p)?must(await admin.from("backup_cloud_connections").select("*").eq("project_id",project).eq("provider",p).maybeSingle()):null;
