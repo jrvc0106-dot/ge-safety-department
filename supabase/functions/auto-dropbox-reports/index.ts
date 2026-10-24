@@ -114,15 +114,66 @@ async function sendOne(row:any,connection:any,access:string){
  if(!saved.id||Number(saved.size)!==blob.size)throw Error("Dropbox did not confirm the file's complete size.");
  return {remoteId:String(saved.id),remotePath};
 }
+async function sendMedical(row:any,access:string){
+ const medical=must(await admin.from("employee_medical_followups")
+  .select("id,project_id,followup_number,event_date")
+  .eq("id",row.followup_id).eq("project_id",row.project_id).single());
+ // No employee names, diagnoses or medical details are added to Dropbox folder metadata.
+ const project=must(await admin.from("projects").select("name").eq("id",row.project_id).single());
+ const expectedPrefix=row.project_id+"/";
+ if(!row.pdf_path.startsWith(expectedPrefix)||!row.pdf_path.endsWith("/"+row.followup_id+"/final.pdf"))
+  throw Error("Invalid confidential PDF storage path.");
+ const downloaded=await admin.storage.from("medical-final-pdfs").download(row.pdf_path);
+ if(downloaded.error||!downloaded.data||!(await pdfIsComplete(downloaded.data)))
+  throw Error("Confidential medical PDF is missing or incomplete.");
+ const blob=downloaded.data;
+ if(blob.size>40*1024*1024)throw Error("Confidential medical PDF exceeds its storage limit.");
+ const root="/GE ONE Reports";
+ const jobsite=root+"/"+safe(project.name,"Project")+" "+row.project_id.slice(0,8);
+ const confidential=jobsite+"/Medical Reports - Confidential";
+ const item=confidential+"/"+safe(medical.followup_number,"Medical Report")+" "+row.followup_id.slice(0,8);
+ for(const part of [root,jobsite,confidential,item])await ensureFolder(access,part);
+ const remotePath=item+"/Medical Follow Up "+dateLabel(medical.event_date)+" By G&E.pdf";
+ const response=await providerCall("https://content.dropboxapi.com/2/files/upload",{
+  method:"POST",headers:{Authorization:"Bearer "+access,"Content-Type":"application/octet-stream",
+   "Dropbox-API-Arg":JSON.stringify({path:remotePath,mode:"overwrite",autorename:false,mute:true})},body:blob
+ });
+ if(!response.id||Number(response.size)!==blob.size)throw Error("Dropbox did not confirm confidential PDF size.");
+ return {remoteId:String(response.id),remotePath};
+}
+async function archiveMedical(body:any,userId:string,role:string){
+ if(!["admin","safety_director"].includes(role))return json({error:"Medical PDF permission required."},403);
+ const project=String(body.project_id||""),followupId=String(body.followup_id||"");
+ if(!/^[a-f0-9-]{36}$/i.test(project)||!/^[a-f0-9-]{36}$/i.test(followupId))
+  return json({error:"Invalid medical report identifiers."},400);
+ const member=must(await admin.from("project_members").select("user_id").eq("project_id",project).eq("user_id",userId).maybeSingle());
+ if(!member)return json({error:"Jobsite access denied."},403);
+ const control=must(await admin.from("dropbox_auto_control").select("enabled,connection_id").eq("id",1).maybeSingle());
+ if(!control?.enabled||!control.connection_id)return json({enabled:false,queued:false});
+ const existing=must(await admin.from("dropbox_automatic_medical_reports").select("followup_id").eq("followup_id",followupId).maybeSingle());
+ if(existing)return json({enabled:true,queued:true,already_queued:true});
+ const followup=must(await admin.from("employee_medical_followups").select("id").eq("id",followupId).eq("project_id",project).maybeSingle());
+ if(!followup)return json({error:"Medical follow-up was not found in this jobsite."},404);
+ const path=project+"/"+userId+"/"+followupId+"/final.pdf";
+ const downloaded=await admin.storage.from("medical-final-pdfs").download(path);
+ if(downloaded.error||!downloaded.data||!(await pdfIsComplete(downloaded.data)))
+  return json({error:"Verified confidential PDF upload is required before queueing."},409);
+ must(await admin.from("dropbox_automatic_medical_reports").insert({
+  followup_id:followupId,project_id:project,pdf_path:path
+ }));
+ return json({enabled:true,queued:true});
+}
+
 async function runWorker(){
  const control=must(await admin.from("dropbox_auto_control").select("enabled,connection_id").eq("id",1).maybeSingle());
  if(!control?.enabled||!control.connection_id)return {enabled:false,sent:0,failed:0};
  const connection=must(await admin.from("backup_cloud_connections").select("id,provider,encrypted_token,app_key")
   .eq("id",control.connection_id).eq("provider","dropbox").maybeSingle());
  if(!connection)return {enabled:false,reason:"Dropbox authorization removed",sent:0,failed:0};
- const claimed=must(await admin.rpc("claim_dropbox_automatic_reports",{p_limit:3}));
- let sent=0,failed=0;
- if(!claimed.length)return {enabled:true,sent,failed};
+ const claimed=must(await admin.rpc("claim_dropbox_automatic_reports",{p_limit:2}));
+ const medicalClaims=must(await admin.rpc("claim_dropbox_automatic_medical_reports",{p_limit:1}));
+ let sent=0,failed=0,medicalSent=0,medicalFailed=0;
+ if(!claimed.length&&!medicalClaims.length)return {enabled:true,sent,failed,medicalSent,medicalFailed};
  let token:string|null=null;
  try{token=await accessToken(connection)}catch{token=null}
  for(const job of claimed){
@@ -147,7 +198,27 @@ async function runWorker(){
     .eq("report_id",job.report_id).eq("lock_token",job.lock_token);
   }
  }
- return {enabled:true,sent,failed};
+ for(const job of medicalClaims){
+  try{
+   if(!token)throw Error("Reconnect Dropbox account.");
+   const result=await sendMedical(job,token);
+   const update=await admin.from("dropbox_automatic_medical_reports").update({
+    status:"completed",remote_id:result.remoteId,remote_path:result.remotePath,
+    completed_at:new Date().toISOString(),lock_token:null,lock_until:null,last_error:null,updated_at:new Date().toISOString()
+   }).eq("followup_id",job.followup_id).eq("lock_token",job.lock_token);
+   if(update.error)throw Error("Confidential PDF delivery could not be confirmed.");
+   medicalSent++;
+  }catch(error:any){
+   medicalFailed++;
+   const wait=Math.min(86400,60*2**Math.min(Number(job.attempts||1),9));
+   await admin.from("dropbox_automatic_medical_reports").update({
+    status:"failed",last_error:String(error?.message||"Medical PDF transfer failed").slice(0,160),
+    next_attempt_at:new Date(Date.now()+wait*1000).toISOString(),
+    lock_token:null,lock_until:null,updated_at:new Date().toISOString()
+   }).eq("followup_id",job.followup_id).eq("lock_token",job.lock_token);
+  }
+ }
+ return {enabled:true,sent,failed,medicalSent,medicalFailed};
 }
 Deno.serve(async req=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
@@ -157,6 +228,15 @@ Deno.serve(async req=>{
   if(body.action==="process"){
    if(!await authorizeWorker(req.headers.get("x-ge-dropbox-worker")||""))return json({error:"Unauthorized"},401);
    return json(await runWorker());
+  }
+  if(body.action==="queue_medical"){
+   const authorization=req.headers.get("Authorization")||"";
+   const client=createClient(env("SUPABASE_URL"),env("SUPABASE_ANON_KEY"),
+    {global:{headers:{Authorization:authorization}},auth:{persistSession:false}});
+   const auth=await client.auth.getUser();
+   if(auth.error||!auth.data?.user)return json({error:"Sign in again."},401);
+   const profile=must(await admin.from("profiles").select("role").eq("id",auth.data.user.id).single());
+   return await archiveMedical(body,auth.data.user.id,profile.role);
   }
   if(body.action==="enabled"){
    const authorization=req.headers.get("Authorization")||"";
@@ -173,7 +253,15 @@ Deno.serve(async req=>{
     if(!member)return json({error:"Project access denied."},403);
    }
    const control=must(await admin.from("dropbox_auto_control").select("enabled").eq("id",1).maybeSingle());
-   return json({enabled:Boolean(control?.enabled)});
+   let medical_queued=false;
+   if(["admin","safety_director"].includes(profile.role)&&body.followup_id){
+    const existing=must(await admin.from("dropbox_automatic_medical_reports").select("followup_id")
+     .eq("project_id",body.project_id).eq("followup_id",body.followup_id).maybeSingle());
+    const member=must(await admin.from("project_members").select("user_id")
+     .eq("project_id",body.project_id).eq("user_id",auth.data.user.id).maybeSingle());
+    medical_queued=Boolean(member&&existing);
+   }
+   return json({enabled:Boolean(control?.enabled),medical_queued});
   }
   return json({error:"Unknown action"},400);
  }catch{return json({error:"Automatic report synchronization failed."},500)}
