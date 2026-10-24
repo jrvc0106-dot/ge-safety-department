@@ -7,7 +7,7 @@ export function alignCriticalReportPdfBlocks(container,pageHeight){
  const isJha=report.classList.contains('ge-reference-jha');
  const selectors=isJha
   ?'.ewr-section, .ewr-section-title, .ewr-tr, .ewr-signatures, .ewr-footer, [data-jha-pdf-page]'
-  :'section, .eq-signatures, footer, [data-equipment-pdf-page]';
+  :'section, .eq-table tr, .eq-corrective, .eq-signatures, footer, [data-equipment-pdf-page]';
  const nodes=[...report.querySelectorAll(selectors)];
  const doc=container.ownerDocument||report.ownerDocument;
  if(!doc?.createElement||!container.getBoundingClientRect)return 0;
@@ -25,10 +25,23 @@ export function alignCriticalReportPdfBlocks(container,pageHeight){
   // that fit on one sheet. Photo sheets retain their established start alignment.
   if(remainder<2||(!photoPage&&height>pageHeight-12))continue;
   if(!photoPage&&remainder+height<=pageHeight-8)continue;
-  const spacer=doc.createElement('div');
+  const gap=pageHeight-remainder;
+  // A spacer DIV is invalid inside <tbody>/<thead> and can be hoisted out
+  // of the table by a browser, making the PDF page split unpredictable.
+  // Keep equipment checklist spacers as legitimate, non-printing table rows.
+  const isTableRow=node.tagName?.toUpperCase()==='TR';
+  const spacer=doc.createElement(isTableRow?'tr':'div');
   spacer.className='ge-pdf-page-alignment-spacer';
   spacer.setAttribute('aria-hidden','true');
-  spacer.style.cssText='display:block;box-sizing:border-box;margin:0;padding:0;border:0;width:100%;height:'+(pageHeight-remainder)+'px;';
+  if(isTableRow){
+   spacer.style.cssText='height:'+gap+'px;border:0;background:transparent;';
+   const cell=doc.createElement('td');
+   cell.colSpan=4;
+   cell.style.cssText='height:'+gap+'px;padding:0;border:0;line-height:0;font-size:0;';
+   spacer.appendChild(cell);
+  }else{
+   spacer.style.cssText='display:block;box-sizing:border-box;margin:0;padding:0;border:0;width:100%;height:'+gap+'px;';
+  }
   parent.insertBefore(spacer,node);
   added++;
  }
