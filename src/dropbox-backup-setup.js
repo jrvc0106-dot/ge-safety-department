@@ -1,5 +1,5 @@
 // Admin-only Cloud Backup Center convenience view. No Dropbox passwords or app secrets.
-export const isValidDropboxAppKey=value=>/^[A-Za-z0-9]{6,64}$/.test(String(value||"").trim());
+export const isValidDropboxAppKey=value=>typeof value==='string'&&/^[A-Za-z0-9]{6,64}$/.test(value.trim());
 export function dropboxSetupMarkup(callbackUrl,tr=(en)=>en,esc=value=>String(value)){
  const url=String(callbackUrl||"");
  return '<div class="backup-dropbox-setup">'+
