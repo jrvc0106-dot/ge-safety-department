@@ -2003,7 +2003,7 @@ async function reportCenter(){
   db.from('daily_safety_walks').select('id,created_at,overall_status,created_by,notes,creator:profiles!daily_safety_walks_created_by_fkey(name),items:daily_safety_walk_items!daily_safety_walk_items_walk_id_fkey(status,correction)').eq('project_id',state.project).order('created_at',{ascending:false}),
   db.from('safety_discipline').select('id,employee_name,violation_type,action_level,incident_date,created_by,issuer:profiles!safety_discipline_created_by_fkey(name)').eq('project_id',state.project).order('incident_date',{ascending:false}),
   db.from('corrective_actions').select('id,observation_id,comment,created_at,created_by,author:profiles!corrective_actions_created_by_fkey(name),observation:observations!inner(id,project_id,area,category,status,priority,description)').eq('observation.project_id',state.project).order('created_at',{ascending:false}),
-  db.from('report_documents').select('id,project_id,report_type,source_id,report_number,title,document_status,version,pdf_path,created_at,finalized_at').eq('project_id',state.project).order('created_at',{ascending:false}),
+  db.from('report_documents').select('id,project_id,report_type,source_id,report_number,title,document_status,version,pdf_path,created_at,finalized_at,snapshot').eq('project_id',state.project).order('created_at',{ascending:false}),
   db.from('incident_reports').select('id,report_number,incident_type,incident_at,employee_name,exact_location,severity,status,created_at').eq('project_id',state.project).order('incident_at',{ascending:false}),
   db.from('equipment_inspections').select('id,report_number,equipment_name,equipment_type,inspector_name,inspection_at,overall_status,created_at').eq('project_id',state.project).order('inspection_at',{ascending:false}),
   db.from('inventory_items').select('id,item_name,quantity').eq('project_id',state.project),
@@ -2027,7 +2027,22 @@ async function reportCenter(){
   {key:'equipment',icon:'⚙',title:tr('Equipment Inspections','Inspecciones de Equipo'),desc:tr('Equipment checklists, inspection results and corrective status.','Listas de verificación, resultados y estado correctivo del equipo.'),count:visible('equipment',equipmentRows).length,cls:'reports-equipment'},
   {key:'inventory',icon:'▦',title:tr('Inventory Reports','Reportes de Inventario'),desc:tr('Current project inventory with quantities and item condition.','Inventario actual del proyecto con cantidades y condición de artículos.'),count:inventoryRows.length&&!hidden('inventory',inventoryReportId)?inventoryRows.length:0,cls:'reports-inventory'}
  ];
- const registered=docs.data||[],archivedPdfs=indexFinalPdfDocuments(registered,state.project),finalCount=registered.filter(d=>d.document_status==='final').length,reviewCount=registered.filter(d=>['submitted','under_review'].includes(d.document_status)).length;
+ // An old PDF's archive creation time is not necessarily its report date.
+ // Prefer original source-record dates, then the immutable document snapshot.
+ const sourceDates=new Map();
+ for(const row of walks.data||[])sourceDates.set('daily_safety_walk:'+row.id,row.created_at);
+ for(const row of disc.data||[])sourceDates.set('disciplinary_action:'+row.id,row.incident_date||row.created_at);
+ for(const row of incidentRows){
+  sourceDates.set('incident:'+row.id,row.incident_at||row.created_at);
+  sourceDates.set('near_miss:'+row.id,row.incident_at||row.created_at);
+ }
+ for(const row of equipmentRows)sourceDates.set('equipment_inspection:'+row.id,row.inspection_at||row.created_at);
+ for(const row of obs)sourceDates.set('observation:'+row.id,row.created_at);
+ const registered=(docs.data||[]).map(d=>({...d,original_report_date:
+  sourceDates.get(d.report_type+':'+d.source_id)||d.snapshot?.original_report_date||d.created_at})),
+  archivedPdfs=indexFinalPdfDocuments(registered,state.project),
+  finalCount=registered.filter(d=>d.document_status==='final').length,
+  reviewCount=registered.filter(d=>['submitted','under_review'].includes(d.document_status)).length;
  if(!viewCurrent())return;
  frame('<section class="observations-shell report-center"><div class="report-center-hero"><div><small>'+tr('G&E SAFETY DOCUMENT CONTROL','CONTROL DOCUMENTAL G&E SAFETY')+'</small><h1>'+tr('Report Center','Centro de Reportes')+'</h1><p>'+esc(project.name||'—')+' · '+tr('Select a category, choose a record and open its professional PDF-ready report.','Seleccione una categoría, elija un registro y abra su reporte profesional listo para PDF.')+'</p></div><div class="report-center-project"><span>'+tr('CURRENT PROJECT','PROYECTO ACTUAL')+'</span><strong>'+esc(project.name||'—')+'</strong><small>'+esc(project.general_contractor||'')+'</small></div></div><div class="document-control-strip"><div><strong>'+registered.length+'</strong><span>'+tr('Registered Documents','Documentos Registrados')+'</span></div><div><strong>'+finalCount+'</strong><span>'+tr('Final / Locked','Finales / Bloqueados')+'</span></div><div><strong>'+reviewCount+'</strong><span>'+tr('Under Review','En Revisión')+'</span></div><div><strong>v1+</strong><span>'+tr('Version Controlled','Control de Versiones')+'</span></div></div><div class="report-category-grid report-category-nine">'+cats.map(x=>'<button class="report-category '+x.cls+'" data-category="'+x.key+'"><span class="report-category-icon">'+x.icon+'</span><div><h2>'+esc(x.title)+'</h2><p>'+esc(x.desc)+'</p></div><strong>'+x.count+'</strong><small>'+tr('OPEN CATEGORY','ABRIR CATEGORÍA')+' →</small></button>').join('')+'</div><section class="report-library card"><div class="report-library-head"><div><small>'+tr('REPORT LIBRARY','BIBLIOTECA DE REPORTES')+'</small><h2 id="report-library-title"></h2></div></div><div class="report-filter-bar"><input id="report-search" type="search" placeholder="'+tr('Search report, area, employee, category…','Buscar reporte, área, empleado, categoría…')+'"><select id="report-date-filter"><option value="all">'+tr('All dates','Todas las fechas')+'</option><option value="today">'+tr('Today','Hoy')+'</option><option value="week">'+tr('Last 7 days','Últimos 7 días')+'</option><option value="month">'+tr('Last 30 days','Últimos 30 días')+'</option></select></div><div id="report-library-list"></div></section></section>');
  if(nativeReportArchiveAvailable()){
