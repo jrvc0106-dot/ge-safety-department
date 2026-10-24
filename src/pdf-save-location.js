@@ -9,7 +9,7 @@
 export function pdfSafeFilename(filename){
   const base=String(filename||'GE-ONE-Report.pdf')
     .replace(/[\\/:*?"<>|\u0000-\u001f]+/g,'-')
-    .replace(/^[.\s]+|[.\s]+$/g,'')
+    .replace(/^[-.\s]+|[.\s]+$/g,'')
     .slice(0,145);
   return (/\.pdf$/i.test(base)?base:base+'.pdf')||'GE-ONE-Report.pdf';
 }
