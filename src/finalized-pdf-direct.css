@@ -1,0 +1,25 @@
+/* Optional shortcuts to the ORIGINAL stored PDFs: only inside Report Center.
+   The existing report opener, module layout, and print/PDF CSS remain unchanged. */
+@media screen{
+ .report-center .final-pdf-shortcuts{
+  display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+  padding:6px 10px 10px;background:transparent;max-width:100%;
+ }
+ .report-center .final-pdf-shortcut{
+  border:1px solid var(--appearance-border,#bbc7d0);border-radius:9px;
+  background:var(--appearance-subtle,#eff3f6);color:var(--appearance-text,#243541);
+  font-size:12px;font-weight:750;min-height:42px;padding:8px 12px;
+  cursor:pointer;touch-action:manipulation;
+ }
+ .report-center .final-pdf-shortcut:disabled{opacity:.7;cursor:wait}
+ .report-center .final-pdf-shortcut:focus-visible{outline:3px solid #2471ac;outline-offset:2px}
+ .report-center .report-record[style*="display: none"]+.final-pdf-shortcuts{display:none}
+ html[data-ge-theme="dark"] .report-center .final-pdf-shortcut{
+  background:#273746;color:#f4f8fc;border-color:#536879;
+ }
+ @media(max-width:460px){
+  .report-center .final-pdf-shortcuts{gap:6px}
+  .report-center .final-pdf-shortcut{flex:1 1 145px}
+ }
+}
+@media print{.final-pdf-shortcuts{display:none!important}}
