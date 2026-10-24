@@ -59,7 +59,7 @@ test('a nonblank JHA first page and all non-JHA page layouts stay unchanged',asy
  globalThis.document={createElement:()=>({
   width:0,height:0,getContext(){return {
    drawImage(){},
-   getImageData(){return{data:new Uint8ClampedArray(64*80*4).fill(30)}}
+   getImageData(){const data=new Uint8ClampedArray(64*80*4).fill(30);for(let i=3;i<data.length;i+=4)data[i]=255;return{data}}
   }}
  })};
  class Pdf{addPage(){pages++}addImage(){count++}output(){return new Blob(['pdf'])}}
