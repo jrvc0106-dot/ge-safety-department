@@ -68,3 +68,44 @@ test('Only high quality paginated PDF exporter receives the new alignment guard'
  assert.match(source,/alignCriticalReportPdfBlocks\(container,pageHeight\);/);
  assert.match(source,/const totalHeight=Math.max\(1,container.scrollHeight\)/);
 });
+
+
+test('real equipment HTML keeps page-alignment spacers inside tbody as valid rows',async()=>{
+ const {JSDOM}=await import('jsdom');
+ const dom=new JSDOM('<div id="pdf"><article class="equipment-pdf"><section><h2>Equipment checklist</h2><table class="eq-table"><thead><tr><th>Item</th><th>Status</th><th>Note</th><th>Result</th></tr></thead><tbody><tr id="late"><td>Hydraulic lines</td><td>PASS</td><td>Checked</td><td>PASS</td></tr></tbody></table></section></article></div>');
+ const document=dom.window.document,container=document.querySelector('#pdf');
+ const section=document.querySelector('section'),row=document.querySelector('#late'),header=document.querySelector('thead tr');
+ container.getBoundingClientRect=()=>({top:0,bottom:3200,height:3200});
+ section.getBoundingClientRect=()=>({top:0,bottom:1900,height:1900}); // Oversized checklist
+ header.getBoundingClientRect=()=>({top:200,bottom:235,height:35});
+ row.getBoundingClientRect=()=>({top:977,bottom:1040,height:63});
+ try{
+  assert.equal(alignCriticalReportPdfBlocks(container,1003),1);
+  const spacer=row.previousElementSibling;
+  assert.equal(spacer.tagName,'TR');
+  assert.equal(spacer.parentElement.tagName,'TBODY');
+  assert.equal(spacer.getAttribute('aria-hidden'),'true');
+  assert.equal(spacer.firstElementChild.tagName,'TD');
+  assert.equal(spacer.firstElementChild.colSpan,4);
+  assert.equal(spacer.firstElementChild.style.padding,'0px');
+  assert.equal(spacer.style.height,'26px');
+  assert.equal(row.cells[0].textContent,'Hydraulic lines');
+ }finally{dom.window.close()}
+});
+
+test('equipment short corrective-action section still moves intact to next page',async()=>{
+ const {JSDOM}=await import('jsdom');
+ const dom=new JSDOM('<div id="pdf"><article class="equipment-pdf"><section id="corrective"><h2>03 DEFECTS & CORRECTIVE ACTION</h2><div class="eq-corrective"><div>Defects</div><div>Assigned To</div></div></section></article></div>');
+ const document=dom.window.document,container=document.querySelector('#pdf');
+ container.getBoundingClientRect=()=>({top:0});
+ const section=document.querySelector('#corrective'),corrective=document.querySelector('.eq-corrective');
+ section.getBoundingClientRect=()=>({top:880,bottom:1180,height:300});
+ corrective.getBoundingClientRect=()=>({top:910,bottom:1170,height:260});
+ try{
+  assert.equal(alignCriticalReportPdfBlocks(container,1003),1);
+  const spacer=section.previousElementSibling;
+  assert.equal(spacer.tagName,'DIV');
+  assert.equal(spacer.style.height,'123px');
+  assert.equal(section.querySelector('.eq-corrective').children.length,2);
+ }finally{dom.window.close()}
+});
