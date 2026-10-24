@@ -57,7 +57,7 @@ html[data-ge-theme="mix"]{
   border-radius:9px;border:1px solid #a7b3bd;overflow:hidden;position:relative;
   background:#fff;color:#202a32;box-shadow:inset 0 1px 3px #101a2011;
  }
- .ge-theme-thumbnail-dark{background:#202a32;color:#f1f4f6;border-color:#5c6872;}
+ .ge-theme-thumbnail-dark{background:linear-gradient(155deg,#0a1628,#1e3650);color:#f4f8fc;border-color:#375673;}
  .ge-theme-thumbnail-gray{background:#dfe3e6;color:#29333b;border-color:#bac3c9;}
  .ge-theme-thumbnail-mix{background:#f3f7fc;color:#1b426e;border-color:#b9d1e5;}
  .ge-preview-brand{width:56%;height:7px;border-radius:3px;background:currentColor;}
@@ -65,7 +65,7 @@ html[data-ge-theme="mix"]{
  .ge-preview-line.ge-preview-long{width:92%;}
  .ge-preview-tiles{height:18px;width:100%;border-radius:4px;
   background:linear-gradient(90deg,#d6dce1 0 23%,transparent 23% 27%,#d6dce1 27% 49%,transparent 49% 53%,#d6dce1 53% 75%,transparent 75% 79%,#c92433 79% 100%);}
- .ge-theme-thumbnail-dark .ge-preview-tiles{background:linear-gradient(90deg,#46545f 0 23%,transparent 23% 27%,#46545f 27% 49%,transparent 49% 53%,#46545f 53% 75%,transparent 75% 79%,#c92433 79% 100%);}
+ .ge-theme-thumbnail-dark .ge-preview-tiles{background:linear-gradient(90deg,#0b5cb9 0 23%,transparent 23% 27%,#076f7e 27% 49%,transparent 49% 53%,#086b53 53% 75%,transparent 75% 79%,#b52236 79% 100%);}
  .ge-theme-thumbnail-gray .ge-preview-tiles{background:linear-gradient(90deg,#aeb8c0 0 23%,transparent 23% 27%,#bfc8cf 27% 49%,transparent 49% 53%,#aeb8c0 53% 75%,transparent 75% 79%,#c92433 79% 100%);}
  .ge-theme-thumbnail-mix .ge-preview-tiles{background:linear-gradient(90deg,#174f87 0 23%,transparent 23% 27%,#0a6874 27% 49%,transparent 49% 53%,#176942 53% 75%,transparent 75% 79%,#bd2534 79% 100%);}
  .ge-theme-live-preview{margin-top:18px;border-top:1px solid var(--appearance-border,#d6dde2);padding-top:15px;}
@@ -351,18 +351,18 @@ html[data-ge-theme="mix"]{
    Pure visual overrides. No sizing, layout, data, permission or PDF changes.
    Original and Gray are intentionally untouched. ===== */
 html[data-ge-theme="dark"]{
- --appearance-bg:#0e151c;
- --appearance-surface:#1c2833;
- --appearance-subtle:#273746;
+ --appearance-bg:#0a1628;
+ --appearance-surface:#13243a;
+ --appearance-subtle:#1e3650;
  --appearance-text:#f4f8fc;
- --appearance-muted:#c0d0dd;
- --appearance-border:#536879;
- --appearance-accent:#acdbff;
- --appearance-primary:#235b85;
+ --appearance-muted:#b6cee3;
+ --appearance-border:#375673;
+ --appearance-accent:#a8d4ff;
+ --appearance-primary:#2461b3;
  --appearance-on-primary:#fff;
- --appearance-header:#15222e;
- --appearance-welcome:linear-gradient(135deg,#243745,#334e5e);
- --appearance-shadow:0 6px 20px rgba(0,0,0,.20);
+ --appearance-header:#0e1e34;
+ --appearance-welcome:linear-gradient(135deg,#142e4e,#1c4369);
+ --appearance-shadow:0 6px 18px rgba(0,7,25,.24);
  --appearance-danger:#b52236;
  --appearance-danger-text:#fff;
 }
@@ -437,7 +437,7 @@ html[data-ge-theme="dark"]{
  html[data-ge-theme="dark"] #app > main :is(
   input:not([type="hidden"]),select,textarea,button
  ):focus-visible{
-  outline:2px solid #acdbff!important;
+  outline:2px solid #a8d4ff!important;
   outline-offset:2px;
  }
  html[data-ge-theme="dark"] #app > main :is(
@@ -462,10 +462,10 @@ html[data-ge-theme="dark"]{
   color:var(--appearance-text)!important;
  }
  html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action:not(.incident-action){
-  background:linear-gradient(150deg,#273846,#1b2935)!important;
+  background:linear-gradient(150deg,#254366,#163251)!important;
   color:var(--appearance-text)!important;
   border-color:var(--appearance-border)!important;
-  box-shadow:0 5px 14px rgba(0,0,0,.18)!important;
+  box-shadow:0 5px 14px rgba(0,7,25,.24)!important;
  }
  html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action:not(.incident-action) :is(.action-icon,span,small,.admin-only-lock){
   color:var(--appearance-text)!important;
@@ -482,7 +482,7 @@ html[data-ge-theme="dark"]{
  html[data-ge-theme="dark"] #app > main .home-shell .command-alert.high :is(strong,span,small){color:#fff!important}
  html[data-ge-theme="dark"] #app > main .mobile-bottom,
  html[data-ge-theme="dark"] body:has(.home-shell) .mobile-bottom{
-  background:rgba(21,34,46,.96)!important;border-color:var(--appearance-border)!important;
+  background:rgba(10,22,40,.97)!important;border-color:var(--appearance-border)!important;
   box-shadow:0 -4px 15px rgba(0,0,0,.2)!important;
  }
  html[data-ge-theme="dark"] .mobile-bottom :is(button,span,small){
@@ -579,4 +579,66 @@ html[data-ge-theme="dark"]{
   outline:3px solid #1d5e9b!important;
   outline-offset:2px;
  }
+}
+
+
+/* MIDNIGHT BLUE PREMIUM replaces the previous Dark appearance.
+   Saved preference ID stays "dark". Original, Gray and Color Mix are untouched.
+   Screen styles never change final printable reports or PDF templates. */
+@media screen{
+ html[data-ge-theme="dark"] #app > main .home-shell{
+  background:radial-gradient(ellipse at 18% 0%,rgba(22,76,130,.20),transparent 46%),var(--appearance-bg)!important;
+ }
+ html[data-ge-theme="dark"] #app > header{
+  background:linear-gradient(120deg,#0e1e34,#142b46)!important;
+  border-color:#375673!important;
+ }
+ html[data-ge-theme="dark"] #app > main .home-shell .home-welcome{
+  background:linear-gradient(122deg,#162d4a,#234a74)!important;
+  border-color:#375673!important;box-shadow:0 5px 18px rgba(0,7,25,.28)!important;
+ }
+ /* Distinct, high-contrast accents preserve Incident red and role-based ordering. */
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-new{--ge-midnight-tile:#0B5CB9;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-incident{--ge-midnight-tile:#B52236;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-safety-walk{--ge-midnight-tile:#076F7E;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-observations{--ge-midnight-tile:#086B53;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-corrections{--ge-midnight-tile:#945400;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-equipment{--ge-midnight-tile:#077482;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-report{--ge-midnight-tile:#6638A8;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-discipline{--ge-midnight-tile:#A0500C;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-inventory{--ge-midnight-tile:#155B91;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-team{--ge-midnight-tile:#087544;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-cloud-backup{--ge-midnight-tile:#444A95;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-settings{--ge-midnight-tile:#375477;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="safety_notes"]{--ge-midnight-tile:#7B4A39;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="toolbox"]{--ge-midnight-tile:#0B6779;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="training"]{--ge-midnight-tile:#2559A4;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="safety_net"]{--ge-midnight-tile:#66621C;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="emergency"]{--ge-midnight-tile:#963E4D;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="director"]{--ge-midnight-tile:#165B7B;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="confined_space"]{--ge-midnight-tile:#85510C;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="medical_followup"]{--ge-midnight-tile:#45578F;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action[data-safety-tool="hazard"]{--ge-midnight-tile:#964225;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-manage-projects{--ge-midnight-tile:#174DA8;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-team-access-activity{--ge-midnight-tile:#4C4CA0;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action#home-help-center{--ge-midnight-tile:#5337A1;}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action{
+  background:var(--ge-midnight-tile,#254366)!important;
+  background:linear-gradient(155deg,color-mix(in srgb,var(--ge-midnight-tile,#254366) 96%,#fff),var(--ge-midnight-tile,#254366) 44%,color-mix(in srgb,var(--ge-midnight-tile,#254366) 85%,#001125))!important;
+  border:1px solid color-mix(in srgb,var(--ge-midnight-tile,#254366) 72%,#c5e5ff)!important;
+  color:#fff!important;
+  box-shadow:0 5px 16px rgba(0,7,25,.30),inset 0 1px 0 rgba(255,255,255,.15)!important;
+ }
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action :is(.action-icon,.action-icon svg,span,small,strong,.admin-only-lock){color:#fff!important;opacity:1!important}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action.incident-action{
+  --ge-midnight-tile:#b52236;
+  background:linear-gradient(150deg,#bc2c41,#9b172c)!important;
+  border-color:#db6271!important;color:#fff!important;
+ }
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action:hover{filter:brightness(1.06)}
+ html[data-ge-theme="dark"] #app > main .home-shell .home-actions > .home-action:focus-visible{outline:3px solid #a8d4ff!important;outline-offset:2px}
+ html[data-ge-theme="dark"] #app > main .ge-theme-preview-stat-0{background:#0b5cb9!important;color:#fff!important;border-color:#2f86dc!important}
+ html[data-ge-theme="dark"] #app > main .ge-theme-preview-stat-1{background:#076f7e!important;color:#fff!important;border-color:#51b4c0!important}
+ html[data-ge-theme="dark"] #app > main .ge-theme-preview-stat-3{background:#087544!important;color:#fff!important;border-color:#50b989!important}
+ html[data-ge-theme="dark"] #app > main .ge-theme-preview-stat :is(span,strong){color:#fff!important}
 }
