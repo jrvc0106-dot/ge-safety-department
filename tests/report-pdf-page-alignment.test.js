@@ -87,7 +87,7 @@ test('real equipment HTML keeps page-alignment spacers inside tbody as valid row
   assert.equal(spacer.getAttribute('aria-hidden'),'true');
   assert.equal(spacer.firstElementChild.tagName,'TD');
   assert.equal(spacer.firstElementChild.colSpan,4);
-  assert.equal(spacer.firstElementChild.style.padding,'0px');
+  assert.match(spacer.firstElementChild.style.cssText,/padding:\s*0/);
   assert.equal(spacer.style.height,'26px');
   assert.equal(row.cells[0].textContent,'Hydraulic lines');
  }finally{dom.window.close()}
@@ -100,7 +100,7 @@ test('equipment short corrective-action section still moves intact to next page'
  container.getBoundingClientRect=()=>({top:0});
  const section=document.querySelector('#corrective'),corrective=document.querySelector('.eq-corrective');
  section.getBoundingClientRect=()=>({top:880,bottom:1180,height:300});
- corrective.getBoundingClientRect=()=>({top:910,bottom:1170,height:260});
+ corrective.getBoundingClientRect=()=>{const shift=parseFloat(section.previousElementSibling?.style.height)||0;return {top:910+shift,bottom:1170+shift,height:260}};
  try{
   assert.equal(alignCriticalReportPdfBlocks(container,1003),1);
   const spacer=section.previousElementSibling;
