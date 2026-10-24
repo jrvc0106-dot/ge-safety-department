@@ -420,6 +420,8 @@ async function ensurePdfExporter(){
   catch{throw new Error(tr('PDF tools could not load. Check your connection and try again.','No se pudieron cargar las herramientas PDF. Revise su conexión e intente nuevamente.'))}
 }
 const preparedReportPdfs=new WeakMap();
+// Share one expensive PDF rendering task when automatic archiving and a user action overlap.
+const pendingReportPdfs=new WeakMap();
 const jhaReportImageUrls=new WeakMap();
 let activeJhaPdfReport=null;
 function releaseJhaPdfResources(report){
@@ -457,10 +459,19 @@ async function waitForReportImages(report){
   const failed=[];
   const wait=img=>new Promise(resolve=>{
     if(img.complete)return resolve(img.naturalWidth>0);
-    let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);resolve(ok&&img.naturalWidth>0)};
-    const timer=setTimeout(()=>finish(false),12000);
-    img.addEventListener('load',()=>finish(true),{once:true});
-    img.addEventListener('error',()=>finish(false),{once:true});
+    let done=false,timer;
+    const onLoad=()=>finish(true),onError=()=>finish(false);
+    const finish=ok=>{
+      if(done)return;
+      done=true;clearTimeout(timer);
+      // Always remove both event handlers: failed images may never emit the other event.
+      img.removeEventListener?.('load',onLoad);
+      img.removeEventListener?.('error',onError);
+      resolve(ok&&img.naturalWidth>0);
+    };
+    timer=setTimeout(()=>finish(false),12000);
+    img.addEventListener('load',onLoad,{once:true});
+    img.addEventListener('error',onError,{once:true});
   });
   await Promise.all(imgs.map(async(img,index)=>{
     if(await wait(img))return;
@@ -468,14 +479,22 @@ async function waitForReportImages(report){
     // failed request. Fetching once as a local blob removes that cache/CORS race
     // without changing the report markup or its visual layout.
     try{
-      const response=await fetch(img.currentSrc||img.src,{cache:'no-store'});
-      if(!response.ok)throw new Error('image fetch failed');
-      const blob=await response.blob();
+      const controller=typeof AbortController==='function'?new AbortController():null;
+      const deadline=controller?setTimeout(()=>controller.abort(),12000):null;
+      let blob;
+      try{
+        const response=await fetch(img.currentSrc||img.src,{
+          cache:'no-store',...(controller?{signal:controller.signal}:{})
+        });
+        if(!response.ok)throw new Error('image fetch failed');
+        blob=await response.blob();
+      }finally{if(deadline)clearTimeout(deadline)}
       if(!blob.size)throw new Error('empty image');
-      const isJha=report.dataset?.pdfViewMode==='single-click';
-      if(isJha&&document.querySelector('article.report')!==report)return;
+      if(typeof document!=='undefined'&&document.querySelector('article.report')!==report)return;
       const url=URL.createObjectURL(blob);
-      if(isJha){
+      // All report types (not just JHA) must release recovered blob URLs
+      // after navigating away to prevent retained high-resolution photo memory.
+      if(typeof jhaReportImageUrls!=='undefined'){
         let urls=jhaReportImageUrls.get(report);
         if(!urls){urls=new Set();jhaReportImageUrls.set(report,urls)}
         urls.add(url);
@@ -539,6 +558,19 @@ async function registerFinalReport(blob,report,meta=currentReportIdentity(report
 function alignJhaPhotoPageStarts(container,pageHeight){if(!container.querySelector('.ge-reference-jha'))return;const rootTop=container.getBoundingClientRect().top;for(const page of container.querySelectorAll('[data-jha-pdf-page]')){const top=page.getBoundingClientRect().top-rootTop+container.scrollTop;const remainder=((top%pageHeight)+pageHeight)%pageHeight;if(remainder>2){const spacer=document.createElement('div');spacer.setAttribute('aria-hidden','true');spacer.style.height=(pageHeight-remainder)+'px';page.parentNode.insertBefore(spacer,page)}}}
 function alignEquipmentPhotoPageStarts(container,pageHeight){if(!container.querySelector('.equipment-pdf'))return;const rootTop=container.getBoundingClientRect().top;for(const page of container.querySelectorAll('[data-equipment-pdf-page]')){const top=page.getBoundingClientRect().top-rootTop+container.scrollTop;const remainder=((top%pageHeight)+pageHeight)%pageHeight;if(remainder>2){const spacer=document.createElement('div');spacer.setAttribute('aria-hidden','true');spacer.style.height=(pageHeight-remainder)+'px';page.parentNode.insertBefore(spacer,page)}}}
 async function buildReportPdf(highQuality=false){
+  const report=document.querySelector('article.report');
+  if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
+  // A stale preview must never bypass a pending/failed document readiness guard.
+  if(report.dataset?.loading==='true')throw new Error(tr('The report is still loading. Please wait before exporting.','El reporte sigue cargando. Espere antes de exportar.'));
+  if(report.dataset?.loading==='error')throw new Error(tr('The report could not finish loading. Reopen it before exporting.','El reporte no terminó de cargar. Vuelva a abrirlo antes de exportar.'));
+  const cached=preparedReportPdf(report,highQuality);
+  if(cached)return cached;
+  const running=pendingReportPdfs.get(report);
+  if(running&&(running.highQuality||!highQuality))return running.promise;
+  // The generator retains the existing fonts, image, signature, pagination, PDF
+  // integrity checks and archival behavior, but runs only once for each quality.
+  const generate=async()=>{
+
   const report=document.querySelector('article.report');
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
   if(report.dataset?.loading==='true')throw new Error(tr('The report is still loading. Please wait before exporting.','El reporte sigue cargando. Espere antes de exportar.'));
@@ -615,6 +647,11 @@ async function buildReportPdf(highQuality=false){
     });
   }
   return prepared;
+  };
+  const promise=generate();
+  pendingReportPdfs.set(report,{highQuality,promise});
+  try{return await promise}
+  finally{if(pendingReportPdfs.get(report)?.promise===promise)pendingReportPdfs.delete(report)}
 }
 async function auditMedicalPdfAction(action,report){
  if(report?.dataset?.toolKind!=='medical_followup'||!['download','share'].includes(action))return;
