@@ -1,3 +1,4 @@
+import {reportExportFilename} from './report-export-filename.js';
 const safetyTrendTotal=entries=>Object.values(entries||{}).reduce((total,x)=>total+(Number(x?.count)||0),0);
 const safetyTrendDelta=(current,previous)=>current-previous;
 
@@ -24,9 +25,15 @@ export function fullPageGeWatermarkLayout(imageWidth,imageHeight,pageWidth=612,p
 }
 
 export const safetyPdfFilename=(project,run)=>{
- const slug=clean(project,100).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').slice(0,48)||'Project';
- const date=/^\d{4}-\d{2}-\d{2}/.exec(String(run?.period_end||''))?.[0]||'Report';
- return 'GE-Reporte-'+(run?.cadence==='monthly'?'Mensual':'Semanal')+'-'+slug+'-'+date+'.pdf';
+ // Older analytics snapshots may omit period_end; use their saved computation
+ // date as the best available historical date, never today's download date.
+ const period=String(run?.period_end||run?.computed_at||run?.created_at||'').slice(0,10);
+ const cadence=run?.cadence==='monthly'?'Monthly':'Weekly';
+ return reportExportFilename({
+  title:cadence+' Safety Trends Report '+clean(project,80),
+  originalDate:period,
+  reportType:'tool_safety_trends'
+ });
 };
 export function safetyReportSnapshot(run,project){
  const m=run?.metrics||{},current=m.current||{},previous=m.previous||{};

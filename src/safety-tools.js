@@ -272,6 +272,7 @@ export function createSafetyTools(ctx){
   const photos=[...(r.photos||[]).map(x=>({...x,bucket:r.kind==='medical_followup'?'employee-medical-documents':bucket})),...(r.payload.lookup_evidence||[])];
   for(let n=0;n<photos.length;n+=4){if(!current())return;const batch=await Promise.all(photos.slice(n,n+4).map(async photo=>{const url=await signedDisplayImage(photo.bucket,photo.path,r.kind==='medical_followup'?600:3600);if(!url)throw Error(tr('Evidence failed to load. Please retry.','No se pudo cargar la evidencia. Reintente.'));return {...photo,url:url||''}}));images.push(...batch)}if(!current())return;
   frame(`<div class="report-actions"><button id="st-back" class="secondary">← ${tr('Saved reports','Reportes guardados')}</button><button id="st-another">＋ ${tr('New report','Nuevo reporte')}</button></div>`+toolReportHtml(r,state.projects.find(p=>p.id===project)||{},images,r.kind==='toolbox'?(en,es)=>r.payload?.language==='es'?es:en:tr));
+  const exported=document.querySelector('article.report');if(exported)exported.dataset.geReportDate=r.payload?.report_date||r.payload?.inspection_date||r.payload?.date||r.created_at;
   document.querySelector('#st-back').onclick=()=>navigate('safetyTool',r.kind);const another=document.querySelector('#st-another');another.hidden=!canCreateTool(r.kind,state.profile.role);another.onclick=()=>navigate('safetyToolForm',r.kind);
  }
  return {list,form,report,bindHome,stop};

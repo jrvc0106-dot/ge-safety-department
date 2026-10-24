@@ -121,3 +121,31 @@ test('the fast action is limited to Report Center; original report opening and P
  assert.match(css,/@media print/);
  assert.doesNotMatch(css,/report\.pdf\s*\{/);
 });
+
+
+test('historical stored PDFs use original source date and title rather than archive date and version',()=>{
+ const source=row({title:'Forklift',report_type:'equipment_inspection',
+  original_report_date:'2026-10-23T14:00:00Z',
+  created_at:'2026-10-24T16:00:00Z',version:9,report_number:'EQ-00023'});
+ assert.equal(archivedPdfFilename(source),'Forklift Daily Report 10.23.2026 By G&E.pdf');
+ const walk=row({title:'Daily Safety Walk Report',original_report_date:'2026-10-09',
+  created_at:'2026-10-24T16:00:00Z'});
+ assert.equal(archivedPdfFilename(walk),'Daily Safety Walk Report 10.09.2026 By G&E.pdf');
+});
+
+test('stored PDF download sends canonical original-date name in signed URL disposition and anchor',async()=>{
+ const {storage,calls}=mockStorage();
+ const doc=new JSDOM('<body></body>',{url:'https://ge-one.example/'}).window.document;
+ const element=doc.createElement,clicked=[];
+ doc.createElement=(tag)=>{
+  const el=element.call(doc,tag);
+  if(tag==='a')el.click=()=>clicked.push({name:el.download,href:el.href});
+  return el;
+ };
+ const entry=row({title:'Forklift',report_type:'equipment_inspection',
+  original_report_date:'2026-10-23',version:3,created_at:'2026-10-24T16:00:00Z'});
+ await downloadArchivedPdf(storage,entry,{doc});
+ assert.equal(clicked[0].name,'Forklift Daily Report 10.23.2026 By G&E.pdf');
+ assert.equal(calls.find(x=>x[0]==='signed')[3].download,clicked[0].name);
+ doc.defaultView.close();
+});
