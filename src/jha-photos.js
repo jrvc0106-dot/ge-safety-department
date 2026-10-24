@@ -23,6 +23,13 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
   function draw(){
    if(!form.isConnected)return;
    gallery.replaceChildren();
+   if(allowLocalFinalUpload&&entries.some(entry=>entry.localOnly&&entry.file)){
+    const status=document.createElement('p');
+    status.className='jha-photo-local-warning';
+    status.setAttribute('role','status');
+    status.textContent=tr('Photo retained on this device. Complete the report to attach it; do not reload this page.','Foto conservada en este dispositivo. Complete el reporte para adjuntarla; no recargue la página.');
+    gallery.append(status);
+   }
    for(const entry of entries){
     const card=document.createElement('div');card.className='jha-photo-card';
     const image=document.createElement('img');image.alt=entry.file?.name||entry.item?.name||tr('Attached photo','Foto adjunta');
@@ -40,18 +47,15 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
   input.addEventListener('change',()=>{
    if(form.dataset.submitting==='true')return;
    const selected=[...input.files].map(file=>({file}));if(!selected.length)return;input.value='';entries.push(...selected);draw();
-   enqueue(async()=>{try{const saved=await add(input.name,selected.map(entry=>entry.file));saved.forEach((item,i)=>{selected[i].item=item;selected[i].error=null});draw()}catch(err){
+   enqueue(async()=>{try{const saved=await add(input.name,selected.map(entry=>entry.file));
+    if(!Array.isArray(saved)||saved.length!==selected.length||saved.some(item=>!item?.path&&!item?.localId))throw Error('JHA draft photo sync returned incomplete evidence');
+    saved.forEach((item,i)=>{selected[i].item=item;selected[i].error=null;selected[i].localOnly=false});draw()}catch(err){
     // A draft-storage failure must not permanently reject a selected JHA photo.
     // Its original File is still in memory and is uploaded with the final report.
     // Restored draft items without local files retain strict integrity checks.
     if(allowLocalFinalUpload){
      selected.forEach(entry=>{entry.error=null;entry.localOnly=true});
      draw();
-     const status=document.createElement('p');
-     status.className='jha-photo-local-warning';
-     status.setAttribute('role','status');
-     status.textContent=tr('Photo retained on this device. Complete the report to attach it; do not reload this page.','Foto conservada en este dispositivo. Complete el reporte para adjuntarla; no recargue la página.');
-     gallery.append(status);
      return;
     }
     selected.forEach(entry=>entry.error=err);throw err
