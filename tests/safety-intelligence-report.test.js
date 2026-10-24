@@ -27,8 +27,8 @@ test('PDF summary uses only the selected saved project snapshot and correctly co
  assert.equal(p.highPriority,2);
 });
 test('filename is stable, human-readable, period-qualified and sanitized',()=>{
- assert.equal(safetyPdfFilename('Miramar Cove',run),'GE-Reporte-Semanal-Miramar-Cove-2026-10-18.pdf');
- assert.equal(safetyPdfFilename('Miramar Cove',{...run,cadence:'monthly'}),'GE-Reporte-Mensual-Miramar-Cove-2026-10-18.pdf');
+ assert.equal(safetyPdfFilename('Miramar Cove',run),'Weekly Safety Trends Report Miramar Cove 10.18.2026 By G&E.pdf');
+ assert.equal(safetyPdfFilename('Miramar Cove',{...run,cadence:'monthly'}),'Monthly Safety Trends Report Miramar Cove 10.18.2026 By G&E.pdf');
  assert.ok(!safetyPdfFilename('../@Danger 🤖', {...run,cadence:'monthly'}).includes('..'));
 });
 test('PDF headings follow the saved weekly or monthly cadence and show the requested author',()=>{
