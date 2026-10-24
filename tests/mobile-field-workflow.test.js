@@ -10,6 +10,7 @@ test('JHA progress follows radio answers, without changing any form values', () 
   assert.equal(attachMobileFieldGuide({doc}),true);
   assert.equal(attachMobileFieldGuide({doc}),false);
   assert.equal(doc.querySelectorAll('.ge-mobile-field-guide').length,1);
+  assert.equal(form.querySelectorAll('.ge-mobile-field-guide').length,0);
   assert.equal(doc.querySelector('progress').value,0);
   assert.equal(form.querySelectorAll('input[type=radio]:checked').length,0);
   const unsafe=form.querySelector('input[value=unsafe]');unsafe.checked=true;unsafe.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
@@ -17,6 +18,7 @@ test('JHA progress follows radio answers, without changing any form values', () 
   assert.equal(form.querySelector('input[name=status_0]:checked').value,'unsafe');
   assert.equal(doc.querySelectorAll('button[type=submit]').length,1);
   assert.equal(doc.querySelectorAll('.ge-mobile-guide-button[type=button]').length,2);
+  assert.equal(form.elements.length,5);
   dom.window.close();
 });
 
@@ -28,7 +30,7 @@ test('observation guide never removes required controls, evidence, or submit but
   assert.deepEqual([...form.elements].map(x=>x.name).filter(Boolean),controls);
   assert.equal(form.querySelector('[name=photo]').multiple,true);
   assert.equal(form.querySelector('textarea').required,true);
-  assert.equal(form.querySelectorAll('.ge-mobile-guide-button').length,3);
+  assert.equal(doc.querySelectorAll('.ge-mobile-guide-button').length,3);
   dom.window.close();
 });
 
@@ -39,7 +41,7 @@ test('orientation field guide leaves face camera input, sticker, photos, and sig
   assert.equal(form.querySelector('input[name=sticker_number]').getAttribute('name'),'sticker_number');
   assert.equal(form.querySelector('#quick-face-camera').getAttribute('capture'),'user');
   assert.equal(form.querySelector('input[name=jha_employee_signature]').name,'jha_employee_signature');
-  assert.equal(form.querySelectorAll('.ge-mobile-guide-button').length,4);
+  assert.equal(doc.querySelectorAll('.ge-mobile-guide-button').length,4);
   assert.equal(form.querySelectorAll('button[type=submit]').length,1);
   assert.match(doc.querySelector('.ge-mobile-field-guide').textContent,/Herramientas de campo/);
   dom.window.close();
