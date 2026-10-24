@@ -160,15 +160,29 @@ async function persistDraft(form,type,key='default'){
  const context=formDraftKey(form,type,key),userId=owner.user,projectId=owner.project;
  clearTimeout(draftLocalTimers.get(context));draftLocalTimers.delete(context);
  const payload=serializeDraftForm(form,type,key),localKey='ge_draft_v1:'+formDraftKey(form,type,key),record={payload,updated_at:new Date().toISOString()};
- try{localStorage.setItem(localKey,JSON.stringify(record))}catch{}
+ let localSaved=false;
+ try{localStorage.setItem(localKey,JSON.stringify(record));localSaved=true}catch{}
  setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
  const previous=draftWrites.get(context)||Promise.resolve();
  const write=previous.catch(()=>{}).then(async()=>{
   if(form.dataset.autoDraft==='false')return;
-  if(globalThis.navigator?.onLine===false){if(form.isConnected&&form.dataset.autoDraft!=='false')setDraftStatus(form,tr('Saved on this device · waiting to sync','Guardado en este dispositivo · pendiente de sincronizar'),'local');return}
+  if(globalThis.navigator?.onLine===false){
+   if(!localSaved){
+    setDraftStatus(form,tr('Draft NOT saved. Device storage is full or unavailable.','Borrador NO guardado. El almacenamiento del dispositivo está lleno o no disponible.'),'error');
+    throw Error('Offline draft could not be stored on this device.');
+   }
+   if(form.isConnected&&form.dataset.autoDraft!=='false')setDraftStatus(form,tr('Saved on this device · waiting to sync','Guardado en este dispositivo · pendiente de sincronizar'),'local');
+   return;
+  }
   let result;try{result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'})}catch{result={error:true}}
   if(!form.isConnected||form.dataset.autoDraft==='false')return;
-  if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
+  if(result.error){
+   if(!localSaved){
+    setDraftStatus(form,tr('Draft NOT saved. Reconnect or free device storage.','Borrador NO guardado. Reconecte o libere espacio en el dispositivo.'),'error');
+    throw Error('Draft could not be saved locally or in the cloud.');
+   }
+   setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return;
+  }
   setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
  });
  draftWrites.set(context,write);
