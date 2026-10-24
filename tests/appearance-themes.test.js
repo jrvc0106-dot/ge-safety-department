@@ -103,7 +103,7 @@ test('screen-only overrides explicitly exclude paper reports and the original de
 });
 
 
-test('refined Dark uses readable graphite palette with 4.5:1+ text contrast',()=>{
+test('Midnight Blue uses readable navy palette with 4.5:1+ text contrast',()=>{
  const dark=APPEARANCE_THEMES.dark;
  for(const surface of [dark.bg,dark.surface,dark.subtle,dark.bar]){
   assert.ok(contrastRatio(dark.text,surface)>=4.5,'Dark main text unreadable on '+surface);
@@ -112,7 +112,7 @@ test('refined Dark uses readable graphite palette with 4.5:1+ text contrast',()=
  const css=readFileSync(new URL('../src/appearance-themes.css',import.meta.url),'utf8');
  const refinement=css.split('/* ===== GE ONE REFINED PALETTE')[1];
  assert.ok(refinement,'Dark/Color Mix polish stylesheet must exist');
- for(const color of ['#0e151c','#1c2833','#273746','#f4f8fc','#c0d0dd']){
+ for(const color of ['#0a1628','#13243a','#1e3650','#f4f8fc','#b6cee3']){
   assert.ok(refinement.includes(color),'Missing Dark shade '+color);
  }
  for(const key of ['.quick-employee-field','.section-heading p','.home-open-description b','.ge-theme-choice small','input:not([type="checkbox"])']){
@@ -146,4 +146,64 @@ test('Color Mix assigns 24 unique WCAG-accessible module colors, including safet
  assert.doesNotMatch(refinement,/html\[data-ge-theme="gray"\][^{]*\{/);
  // Layout and functionality remain unchanged: only visual properties may be added.
  assert.doesNotMatch(refinement,/(?:grid-template-columns|grid-template-rows|padding|margin|font-size|position|width|height)\s*:/);
+});
+
+
+test('existing Dark user preference upgrades in place to Midnight Blue without data migration',()=>{
+ const {dom,doc,tr}=fixture();
+ dom.window.localStorage.setItem(APPEARANCE_KEY,'dark');
+ const appearance=installAppearanceTheme({win:dom.window,doc});
+ assert.equal(appearance.getTheme(),'dark');
+ assert.equal(doc.documentElement.dataset.geTheme,'dark');
+ assert.equal(APPEARANCE_THEMES.dark.name,'Midnight Blue');
+ assert.equal(APPEARANCE_THEMES.dark.nameEs,'Azul Medianoche');
+ assert.equal(doc.querySelector('meta[name="theme-color"]').content,'#0a1628');
+ mountAppearanceSettings({doc,appearance,tr});
+ assert.match(doc.querySelector('[data-theme="dark"]').textContent,/Midnight Blue/);
+ assert.equal(doc.querySelector('[data-theme="dark"]').getAttribute('aria-pressed'),'true');
+ // This theme replacement does not affect the other three options.
+ for(const id of ['original','gray','mix'])
+  assert.ok(doc.querySelector('[data-theme="'+id+'"]'));
+ dom.window.close();
+});
+
+test('Midnight Blue secondary text, focus accents, and every module card meet WCAG AA',()=>{
+ const css=readFileSync(new URL('../src/appearance-themes.css',import.meta.url),'utf8');
+ const midnight=css.slice(css.indexOf('/* MIDNIGHT BLUE PREMIUM'));
+ assert.ok(midnight.includes('MIDNIGHT BLUE PREMIUM'));
+ assert.ok(midnight.includes('--ge-midnight-tile'));
+ const dark=APPEARANCE_THEMES.dark;
+ for(const bg of [dark.bg,dark.surface,dark.subtle,dark.bar,dark.border]){
+  assert.ok(contrastRatio(dark.text,bg)>=4.5,'Midnight title too dim '+bg);
+  assert.ok(contrastRatio(dark.muted,bg)>=4.5,'Midnight secondary labels too dim '+bg);
+ }
+ assert.ok(contrastRatio('#ffffff','#2461b3')>=4.5,'Midnight primary button illegible');
+ const matches=[...midnight.matchAll(/html\[data-ge-theme="dark"\] #app > main \.home-shell \.home-actions > \.home-action(#[a-z0-9-]+|\[data-safety-tool="[a-z_]+"\])\{--ge-midnight-tile:(#[0-9A-Fa-f]{6});\}/g)];
+ const mapped=new Map(matches.map(m=>[m[1],m[2]]));
+ assert.equal(mapped.size,24,'Midnight Blue should tint every known Home tile');
+ assert.equal(new Set(mapped.values()).size,24,'Each module uses an individual harmonious color');
+ for(const [selector,bg] of mapped){
+  assert.ok(contrastRatio('#ffffff',bg)>=4.5,'Unreadable white label on '+selector);
+  // The gradient only lightens the top edge by 4%; check that too.
+  const channel=i=>parseInt(bg.slice(i,i+2),16);
+  const top='#'+[1,3,5].map(i=>Math.round(channel(i)*.96+255*.04).toString(16).padStart(2,'0')).join('');
+  assert.ok(contrastRatio('#ffffff',top)>=4.5,'Unreadable bright gradient at '+selector+' '+top);
+ }
+ assert.equal(mapped.get('#home-incident').toLowerCase(),'#b52236');
+ for(const id of ['#home-new','#home-safety-walk','#home-report','#home-equipment','#home-inventory','#home-team','#home-settings'])
+  assert.ok(mapped.has(id),'Missing Midnight Blue card '+id);
+ assert.match(midnight,/\.home-action :is\(\.action-icon,\.action-icon svg,span,small,strong,\.admin-only-lock\)/);
+ assert.match(midnight,/data-ge-theme="dark".*ge-theme-preview-stat-0/);
+});
+
+test('Midnight Blue customization changes no other theme, layout, print, or PDF template',()=>{
+ const css=readFileSync(new URL('../src/appearance-themes.css',import.meta.url),'utf8');
+ const midnight=css.slice(css.indexOf('/* MIDNIGHT BLUE PREMIUM'));
+ assert.doesNotMatch(midnight,/html\[data-ge-theme="(original|gray|mix)"\]/);
+ assert.doesNotMatch(midnight,/(?:padding|margin|grid-template-columns|grid-template-rows|font-size|width|height)\s*:/);
+ assert.doesNotMatch(midnight,/(?:article\.report|\.print-report|\.professional-report)[^}]*\{/);
+ assert.ok(css.includes('@media print'));
+ assert.match(css,/article\.report,.professional-report,.print-report/);
+ const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ assert.match(main,/installAppearanceTheme\(\{win:window,doc:document\}\)/);
 });
