@@ -935,6 +935,7 @@ button:focus-visible{outline:3px solid rgba(88,105,116,.22)!important;outline-of
   .report-actions{align-items:stretch!important}
   .pdf-document-actions{display:grid;grid-template-columns:1fr 1fr;width:100%;margin-left:0}
   .pdf-document-actions .pdf-share{grid-column:1/-1}
+  .pdf-document-actions .pdf-save{grid-column:1/-1}
   .pdf-document-actions button{width:100%}
 }
 

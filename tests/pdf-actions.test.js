@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {isValidPdfBlob,protectPdfReportLogos} from '../src/report-pdf-quality.js';
+import {reservePdfDestination,savePdfToDevice,fileShareSupported} from '../src/pdf-save-location.js';
 const mockValidPdf=body=>new Blob(['%PDF-1.4\n',String(body||'test').padEnd(48,' '),'\n%%EOF\n'],{type:'application/pdf'});
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 function setup({archiveFails=false,canShare=false,userAgent='test-browser'}={}){
@@ -11,7 +12,7 @@ function setup({archiveFails=false,canShare=false,userAgent='test-browser'}={}){
  const blob=mockValidPdf('JHA');
  const canvas={width:800,height:9000};
  const worker={set(){return this},from(){return this},toContainer(){return this},toCanvas(){return this},get(key){return Promise.resolve(key==='container'?{scrollWidth:800,scrollHeight:9000}:key==='overlay'?{remove(){}}:canvas)},outputPdf(){return Promise.resolve(blob)}};
- const context=vm.createContext({nativeReportArchiveAvailable:()=>false,isValidPdfBlob,protectPdfReportLogos,Blob,File,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{userAgent,canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
+ const context=vm.createContext({nativeReportArchiveAvailable:()=>false,isValidPdfBlob,protectPdfReportLogos,Blob,File,reservePdfDestination,savePdfToDevice,fileShareSupported,openLocalReport:async()=>true,console:{warn(){}},URL:{createObjectURL:()=> 'blob:pdf',revokeObjectURL(){}},setTimeout(){},window:{open:()=>null},navigator:{userAgent,canShare:()=>canShare,share:input=>{shares.push(input);return Promise.resolve()}},document:{querySelector:selector=>selector==='article.report'?report:selector==='.pdf-save'?null:button,createElement:()=>({click(){downloads.push(true)},remove(){}}),body:{appendChild(){}}},tr:en=>en,db:{},recordPerformanceMetric:(_db,event)=>{metrics.push(event);return Promise.resolve()},performance:{now:()=>100},confirmAction:(...args)=>messages.push(args),error:err=>messages.push([err.message,'error']),currentReportIdentity:()=>({projectId:'original'}),reportPdfFilename:()=> 'JHA.pdf',waitForReportImages:async()=>{},mockRenderPdf:async()=>blob,registerFinalReport:async()=>{if(archiveFails)throw Error('Cloud offline')}});
  const helpers=source.slice(source.indexOf('const preparedReportPdfs='),source.indexOf('async function normalizeReportImage'));
  const actions=source.slice(source.indexOf('async function buildReportPdf('),source.indexOf('function installReportDocumentActions()')).replace("await import('./pdf-export.js')",'({renderPaginatedPdf:mockRenderPdf})');
  vm.runInContext(helpers+'\n'+actions,context);
@@ -248,4 +249,41 @@ test('Samsung Android browser downloads the PDF when file sharing is unavailable
  assert.equal(t.shares.length,0);
  assert.equal(t.downloads.length,1);
  assert.ok(t.messages.some(m=>m[0].includes('Attach this file')));
+});
+
+
+test('Save PDF on iPad prepares once then opens the native share sheet on a fresh tap',async()=>{
+ const t=setup({canShare:true});
+ await t.context.runPdfAction('save',t.button);
+ assert.equal(t.shares.length,0,'sharing must not use expired activation after PDF generation');
+ assert.ok(t.messages.some(x=>/Save PDF now/.test(x[0])));
+ assert.equal(t.downloads.length,0,'do not silently download without asking for a location');
+ const task=t.context.runPdfAction('save',t.button);
+ assert.equal(t.shares.length,1,'native file share starts immediately during the second click');
+ await task;
+ assert.equal(t.shares[0].files[0].type,'application/pdf');
+ assert.equal(t.shares[0].files[0].name,'JHA.pdf');
+});
+test('Save PDF offers desktop save picker before generating the final report',async()=>{
+ const t=setup({canShare:false}),writes=[];
+ t.context.window.showSaveFilePicker=options=>{
+  writes.push(['picker',options.suggestedName]);
+  return Promise.resolve({createWritable:async()=>({write:async b=>writes.push(['write',b.size]),close:async()=>writes.push(['close'])})});
+ };
+ await t.context.runPdfAction('save',t.button);
+ assert.equal(writes[0][0],'picker');
+ assert.equal(writes[1][0],'write');
+ assert.equal(writes[2][0],'close');
+ assert.equal(t.downloads.length,0);
+});
+test('a previously archived iPad PDF uses the native Files action to choose a different folder',async()=>{
+ const t=setup(),called=[];
+ t.context.nativeReportArchiveAvailable=()=>true;
+ t.context.state.projects=[{id:'original',name:'Rivage'}];
+ t.context.saveLocalReport=async()=>({path:'G&E Reports/2026/report.pdf',filename:'report.pdf'});
+ t.context.openLocalReport=async record=>{called.push(record);return true};
+ await t.context.runPdfAction('save',t.button);
+ assert.equal(called.length,1);
+ assert.equal(called[0].filename,'report.pdf');
+ assert.equal(t.downloads.length,0);
 });
