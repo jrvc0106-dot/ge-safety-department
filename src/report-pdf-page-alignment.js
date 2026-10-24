@@ -6,7 +6,7 @@ export function alignCriticalReportPdfBlocks(container,pageHeight){
  if(!report)return 0;
  const isJha=report.classList.contains('ge-reference-jha');
  const selectors=isJha
-  ?'.ewr-section, .ewr-section-title, .ewr-tr, .ewr-signatures, .ewr-footer, [data-jha-pdf-page]'
+  ?'.ewr-section, .ewr-section-title, .ewr-tr, .ewr-signatures, .ge-pdf-photo-note, .ewr-footer, [data-jha-pdf-page]'
   :'section, .eq-table tr, .eq-corrective, .eq-signatures, footer, [data-equipment-pdf-page]';
  const nodes=[...report.querySelectorAll(selectors)];
  const doc=container.ownerDocument||report.ownerDocument;
