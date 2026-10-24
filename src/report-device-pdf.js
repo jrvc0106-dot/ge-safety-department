@@ -43,7 +43,10 @@ const pdfRules=[
  'article.report.ge-reference-jha .ewr-photo-page figcaption,article.report.equipment-pdf .eq-photo-page figcaption{height:auto!important;min-height:0!important;white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere!important}',
  'article.report.ge-reference-jha .ewr-photo-page .ewr-photo-card p,article.report.ge-reference-jha .ewr-photo-page .ewr-photo-card figcaption,article.report.equipment-pdf .eq-photo-page figcaption{font-size:8px!important;line-height:1.3!important}',
  'article.report.ge-reference-jha .ewr-photo-page .ewr-photo-card p{overflow-wrap:anywhere!important;white-space:pre-wrap!important}',
- 'article.report.ge-reference-jha .ewr-photo-page .ewr-section-title{margin:0 0 8px!important;padding:5px 8px!important}'
+ 'article.report.ge-reference-jha .ewr-photo-page .ewr-section-title{margin:0 0 8px!important;padding:5px 8px!important}' ,
+ 'article.report.ge-reference-jha .ge-pdf-photo-notes{padding:12px 18px!important;overflow:visible!important}',
+ 'article.report.ge-reference-jha .ge-pdf-photo-note{padding:10px 0!important;border-bottom:1px solid #e6ebed!important;overflow-wrap:anywhere!important}',
+ 'article.report.ge-reference-jha .ge-pdf-photo-note p{white-space:pre-wrap!important;overflow-wrap:anywhere!important;font-size:9px!important;line-height:1.5!important}'
 ].join('\n');
 export function applyAdaptiveReportPdfLayout(container,pageSize,{sourceDevice='desktop'}={}){
  const report=container?.querySelector?.('article.report.ge-reference-jha,article.report.equipment-pdf');
@@ -72,6 +75,31 @@ export function applyAdaptiveReportPdfLayout(container,pageSize,{sourceDevice='d
     const height=page.getBoundingClientRect().height;
     if(!height||height<=pageHeight-20)break;
     page.style.setProperty('--ge-pdf-photo-height',Math.max(88,current-12)+'px');
+   }
+  }
+  // On exceptionally text-heavy JHA photo cards, keep all six images on their
+  // photographic sheet and move unabridged findings/actions to a continuation.
+  // The temporary PDF copy is the only document modified.
+  const measured=page.getBoundingClientRect?.().height||0;
+  if(!isEquipment&&measured>pageHeight-20){
+   const notes=[];
+   for(let i=0;i<figures.length;i++){
+    const detail=figures[i].querySelector(':scope > p');
+    if(!detail)continue;
+    const item=doc.createElement('div');
+    item.className='ge-pdf-photo-note';
+    const title=doc.createElement('strong');
+    title.textContent='Photo '+(i+1)+' · '+(figures[i].querySelector('figcaption')?.textContent||'Evidence');
+    item.append(title,detail);
+    notes.push(item);
+   }
+   if(notes.length){
+    const continuation=doc.createElement('section');
+    continuation.className='ewr-section ge-pdf-photo-notes';
+    const title=doc.createElement('h2');
+    title.textContent='Photo findings & corrective actions · continued';
+    continuation.append(title,...notes);
+    page.after(continuation);
    }
   }
  }
