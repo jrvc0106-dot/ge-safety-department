@@ -101,3 +101,49 @@ test('screen-only overrides explicitly exclude paper reports and the original de
  assert.match(main,/mountAppearanceSettings\(\{doc:document,appearance:appearanceTheme/);
  assert.match(main,/installAppearanceTheme\(\{win:window,doc:document\}\)/);
 });
+
+
+test('refined Dark uses readable graphite palette with 4.5:1+ text contrast',()=>{
+ const dark=APPEARANCE_THEMES.dark;
+ for(const surface of [dark.bg,dark.surface,dark.subtle,dark.bar]){
+  assert.ok(contrastRatio(dark.text,surface)>=4.5,'Dark main text unreadable on '+surface);
+  assert.ok(contrastRatio(dark.muted,surface)>=4.5,'Dark secondary text unreadable on '+surface);
+ }
+ const css=readFileSync(new URL('../src/appearance-themes.css',import.meta.url),'utf8');
+ const refinement=css.split('/* ===== GE ONE REFINED PALETTE')[1];
+ assert.ok(refinement,'Dark/Color Mix polish stylesheet must exist');
+ for(const color of ['#0e151c','#1c2833','#273746','#f4f8fc','#c0d0dd']){
+  assert.ok(refinement.includes(color),'Missing Dark shade '+color);
+ }
+ for(const key of ['.quick-employee-field','.section-heading p','.home-open-description b','.ge-theme-choice small','input:not([type="checkbox"])']){
+  assert.ok(refinement.includes(key),'Dark readability scope missing: '+key);
+ }
+});
+
+test('Color Mix assigns 24 unique WCAG-accessible module colors, including safety tools',()=>{
+ const css=readFileSync(new URL('../src/appearance-themes.css',import.meta.url),'utf8');
+ const refinement=css.split('/* ===== GE ONE REFINED PALETTE')[1];
+ assert.ok(refinement,'Appearance refinement missing');
+ const matches=[...refinement.matchAll(/html\[data-ge-theme="mix"\] #app \.home-shell \.home-actions > \.home-action(#[a-z0-9-]+|\[data-safety-tool="[a-z_]+"\])\{--ge-mix-tile:(#[0-9A-Fa-f]{6});\}/g)];
+ const colors=new Map(matches.map(([,selector,color])=>[selector,color.toLowerCase()]));
+ assert.equal(colors.size,24,'No Home card should share a generic or accidental color');
+ assert.equal(new Set(colors.values()).size,24,'Each module must have a distinct assigned HEX color');
+ for(const [selector,color] of colors){
+  assert.ok(contrastRatio('#ffffff',color)>=4.5,'White module label loses contrast on '+selector+' '+color);
+ }
+ const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ for(const selector of colors.keys()){
+  if(selector.startsWith('#'))assert.ok(main.includes('id="'+selector.slice(1)+'"')||
+    ['#home-manage-projects','#home-team-access-activity','#home-help-center'].includes(selector),
+    'Missing Home module '+selector);
+ }
+ assert.equal(colors.get('#home-incident'),'#b52236','Incidents must remain visibly red');
+ for(const kind of ['safety_notes','toolbox','training','safety_net','emergency','director','confined_space','medical_followup','hazard']){
+  assert.ok(colors.has('[data-safety-tool="'+kind+'"]'),'Missing Safety tool '+kind);
+ }
+ // This polish only introduces Dark and Mix overrides; Original and Gray are not restyled.
+ assert.doesNotMatch(refinement,/html\[data-ge-theme="original"\][^{]*\{/);
+ assert.doesNotMatch(refinement,/html\[data-ge-theme="gray"\][^{]*\{/);
+ // Layout and functionality remain unchanged: only visual properties may be added.
+ assert.doesNotMatch(refinement,/(?:grid-template-columns|grid-template-rows|padding|margin|font-size|position|width|height)\s*:/);
+});
