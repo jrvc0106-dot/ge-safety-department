@@ -18,7 +18,7 @@ const folders={
 
 function safePart(value,fallback='Other'){
  const v=String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
-  .replace(/[^a-z0-9 _.-]/gi,'-').replace(/\.+/g,'.')
+  .replace(/[^a-z0-9 &_.()-]/gi,'-').replace(/\.+/g,'.')
   .replace(/^\.+|[. ]+$/g,'').replace(/\s+/g,' ').slice(0,70).trim();
  return v&&v!=='.'&&v!=='..'?v:fallback;
 }
@@ -70,7 +70,7 @@ export async function saveLocalReport({blob,filename,projectId,projectName,repor
  const category=safePart(folders[reportType]||reportType);
  const month=new Date().toISOString().slice(0,7);
  const scopeKey=[projectId,reportType,sourceId||reportNumber||filename].join('|');
- const key=fingerprintKey(scopeKey),fileName=safePart(String(filename||'GE-Report.pdf').replace(/\.pdf$/i,''),'GE-Report')+'-'+key+'.pdf';
+ const key=fingerprintKey(scopeKey),fileName=safePart(String(filename||'GE-Report.pdf').replace(/\.pdf$/i,''),'GE-Report')+'.pdf';
  const storage=storageFor(env),index=getIndex(storage,userId);
  // Persist a short hash only. Never save report HTML or employee data in the
  // shortcut index: those belong exclusively inside the actual PDF.
@@ -78,8 +78,8 @@ export async function saveLocalReport({blob,filename,projectId,projectName,repor
  const recordFromIndex=index.find(x=>x.key===key&&x.projectId===projectId&&x.reportType===reportType);
  const previous=recordFromIndex&&recordFromIndex.path.startsWith(ROOT+'/')&&
   !recordFromIndex.path.split('/').includes('..')&&
-  recordFromIndex.filename===recordFromIndex.path.split('/').at(-1)?recordFromIndex:null;
- const folder=previous?.path?.includes('/')?previous.path.slice(0,previous.path.lastIndexOf('/')):ROOT+'/'+projectDir+'/'+category+'/'+month;
+  recordFromIndex.filename===recordFromIndex.path.split('/').at(-1)&&recordFromIndex.filename===fileName?recordFromIndex:null;
+ const folder=previous?.path?.includes('/')?previous.path.slice(0,previous.path.lastIndexOf('/')):ROOT+'/'+projectDir+'/'+category+'/'+month+'/'+key;
  const path=folder+'/'+(previous?.filename||fileName);
  if(previous&&previous.fingerprint===reportFingerprint){
   try{
