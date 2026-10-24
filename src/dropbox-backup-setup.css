@@ -1,0 +1,13 @@
+/* Isolated to the Admin Cloud Backup Center Dropbox setup card. */
+.backup-shell .backup-dropbox-setup{padding:12px 0 0;border-top:1px solid #d5dee3;display:grid;gap:10px;min-width:0}
+.backup-shell .backup-dropbox-setup p{margin:0}
+.backup-shell .backup-dropbox-setup ol{padding-left:21px;margin:0;line-height:1.5}
+.backup-shell .backup-dropbox-setup li{margin:7px 0;overflow-wrap:anywhere}
+.backup-shell .backup-dropbox-setup a{color:#215c80;text-decoration:underline}
+.backup-shell .backup-dropbox-setup code{font-size:11px;overflow-wrap:anywhere;word-break:break-word}
+.backup-shell .backup-dropbox-callback{display:block;background:#f2f5f7;padding:8px;border-radius:6px;margin:5px 0}
+.backup-shell .backup-dropbox-setup label{font-size:12px;font-weight:700}
+.backup-shell .backup-dropbox-setup input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #aab9c2;border-radius:7px;padding:10px;color:#233642;background:#fff;font-size:16px}
+.backup-shell .backup-dropbox-setup small{display:block;color:#5d6b75}
+.backup-shell #backup-dropbox-setup-connect{width:100%;min-height:42px}
+.backup-shell #backup-dropbox-copy-callback{margin-top:5px;padding:7px 10px;font-size:12px}
