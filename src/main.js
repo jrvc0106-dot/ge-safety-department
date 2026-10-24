@@ -543,6 +543,9 @@ function alignEquipmentPhotoPageStarts(container,pageHeight){if(!container.query
 async function buildReportPdf(highQuality=false){
   const report=document.querySelector('article.report');
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
+  // A stale preview must never bypass a pending/failed document readiness guard.
+  if(report.dataset?.loading==='true')throw new Error(tr('The report is still loading. Please wait before exporting.','El reporte sigue cargando. Espere antes de exportar.'));
+  if(report.dataset?.loading==='error')throw new Error(tr('The report could not finish loading. Reopen it before exporting.','El reporte no terminó de cargar. Vuelva a abrirlo antes de exportar.'));
   const cached=preparedReportPdf(report,highQuality);
   if(cached)return cached;
   const running=pendingReportPdfs.get(report);
