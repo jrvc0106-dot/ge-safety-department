@@ -1,25 +1,215 @@
-/* Optional shortcuts to the ORIGINAL stored PDFs: only inside Report Center.
-   The existing report opener, module layout, and print/PDF CSS remain unchanged. */
+/* Report Center — organized actions for the original finalized PDF.
+   Presentation only. Source document, viewer, download, save, and permissions
+   are intentionally unchanged. Responsive on iPad, phones, and laptops. */
 @media screen{
- .report-center .final-pdf-shortcuts{
-  display:flex;align-items:center;flex-wrap:wrap;gap:8px;
-  padding:6px 10px 10px;background:transparent;max-width:100%;
- }
- .report-center .final-pdf-shortcut{
-  border:1px solid var(--appearance-border,#bbc7d0);border-radius:9px;
-  background:var(--appearance-subtle,#eff3f6);color:var(--appearance-text,#243541);
-  font-size:12px;font-weight:750;min-height:42px;padding:8px 12px;
-  cursor:pointer;touch-action:manipulation;
- }
- .report-center .final-pdf-shortcut:disabled{opacity:.7;cursor:wait}
- .report-center .final-pdf-shortcut:focus-visible{outline:3px solid #2471ac;outline-offset:2px}
- .report-center .report-record[style*="display: none"]+.final-pdf-shortcuts{display:none}
- html[data-ge-theme="dark"] .report-center .final-pdf-shortcut{
-  background:#273746;color:#f4f8fc;border-color:#536879;
- }
- @media(max-width:460px){
-  .report-center .final-pdf-shortcuts{gap:6px}
-  .report-center .final-pdf-shortcut{flex:1 1 145px}
- }
+  #app > main .report-center .report-record:has(+ .final-pdf-shortcuts){
+    border:1px solid #dae3ed;
+    border-bottom:0;
+    border-radius:13px 13px 0 0;
+    padding:14px 15px;
+    background:var(--appearance-surface,#fff);
+  }
+  #app > main .report-center .report-record:has(+ .final-pdf-shortcuts):hover{
+    background:var(--appearance-subtle,#f6f9fc);
+  }
+  #app > main .report-center .final-pdf-shortcuts{
+    --pdf-panel:var(--appearance-surface,#fff);
+    --pdf-soft:var(--appearance-subtle,#f2f6fa);
+    --pdf-border:var(--appearance-border,#dae3ed);
+    --pdf-text:var(--appearance-text,#223449);
+    --pdf-muted:var(--appearance-muted,#566b7e);
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:12px;
+    margin:0 0 13px;
+    padding:12px 14px 14px;
+    max-width:100%;
+    border:1px solid var(--pdf-border);
+    border-top:1px solid var(--pdf-border);
+    border-radius:0 0 13px 13px;
+    background:var(--pdf-panel);
+    box-shadow:0 6px 14px rgba(22,42,64,.055);
+  }
+  #app > main .report-center .final-pdf-shortcuts-heading{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:4px 12px;
+    min-width:0;
+  }
+  #app > main .report-center .final-pdf-shortcuts-title{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    color:var(--pdf-text)!important;
+    font-size:10.5px;
+    font-weight:850;
+    letter-spacing:.08em;
+    line-height:1.4;
+  }
+  #app > main .report-center .final-pdf-shortcuts-title::before{
+    content:'';
+    display:inline-block;
+    height:7px;
+    width:7px;
+    flex:none;
+    border-radius:50%;
+    background:#16785c;
+    box-shadow:0 0 0 3px rgba(22,120,92,.12);
+  }
+  #app > main .report-center .final-pdf-shortcuts-hint{
+    color:var(--pdf-muted)!important;
+    font-size:11px;
+    font-weight:550;
+    line-height:1.5;
+    text-align:left;
+  }
+  #app > main .report-center .final-pdf-actions-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    align-items:stretch;
+    gap:9px;
+    width:100%;
+    min-width:0;
+  }
+  html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut{
+    appearance:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+    width:100%;
+    min-width:0;
+    min-height:49px;
+    margin:0;
+    padding:10px 11px;
+    border:1px solid var(--pdf-border)!important;
+    border-radius:10px;
+    background:var(--pdf-soft)!important;
+    color:var(--pdf-text)!important;
+    font-size:12px;
+    font-weight:750;
+    line-height:1.3;
+    text-align:center;
+    white-space:normal;
+    box-shadow:none;
+    cursor:pointer;
+    touch-action:manipulation;
+    transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease;
+  }
+  html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut--view{
+    background:#1d548c!important;
+    border-color:#1d548c!important;
+    color:#fff!important;
+    box-shadow:0 3px 9px rgba(25,71,117,.17);
+  }
+  html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut--save{
+    background:var(--pdf-soft)!important;
+    border-color:var(--pdf-border)!important;
+  }
+  #app > main .report-center .final-pdf-shortcut-icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 23px;
+    width:23px;
+    height:23px;
+    border-radius:7px;
+    background:rgba(29,84,140,.10);
+    color:#1d548c;
+    font-size:17px;
+    font-weight:750;
+    line-height:1;
+  }
+  #app > main .report-center .final-pdf-shortcut--view .final-pdf-shortcut-icon{
+    background:rgba(255,255,255,.17);
+    color:#fff;
+  }
+  #app > main .report-center .final-pdf-shortcut-label{
+    min-width:0;
+    overflow-wrap:break-word;
+    color:inherit!important;
+  }
+  html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut:hover:not(:disabled){
+    transform:translateY(-1px);
+    box-shadow:0 4px 11px rgba(23,49,76,.13);
+    border-color:#719bc3!important;
+  }
+  html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut--view:hover:not(:disabled){
+    background:#174679!important;
+    border-color:#174679!important;
+  }
+  html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut:disabled{
+    opacity:.64;
+    cursor:wait;
+    transform:none;
+  }
+  html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut:focus-visible{
+    outline:3px solid #58a8f1!important;
+    outline-offset:2px;
+  }
+  /* Dark is the Midnight Blue corporate palette. Keep labels and outlines
+     legible on dark surfaces without touching other modules or PDF paper. */
+  html[data-ge-theme="dark"] #app > main .report-center .final-pdf-shortcuts{
+    background:#13243a!important;
+    border-color:#375673!important;
+    box-shadow:0 6px 18px rgba(0,7,25,.22);
+  }
+  html[data-ge-theme="dark"] #app > main .report-center .report-record:has(+ .final-pdf-shortcuts){
+    background:#13243a!important;
+    border-color:#375673!important;
+  }
+  html[data-ge-theme="dark"] #app > main .report-center .final-pdf-shortcut-icon{
+    background:rgba(168,212,255,.13);
+    color:#b6cee3;
+  }
+  html[data-ge-theme="dark"] #app > main .report-center .final-pdf-shortcut--view .final-pdf-shortcut-icon{
+    background:rgba(255,255,255,.17);
+    color:#fff;
+  }
+  html[data-ge-theme="dark"] #app > main .report-center .final-pdf-shortcuts-title::before{
+    background:#5bcfa8;
+  }
+  /* Preserve the report library's existing search/date filter semantics. */
+  #app > main .report-center .report-record[style*="display: none"]+.final-pdf-shortcuts{
+    display:none!important;
+  }
+  @media(max-width:700px){
+    #app > main .report-center .final-pdf-actions-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+    #app > main .report-center .final-pdf-shortcut--save{
+      grid-column:1/-1;
+    }
+    #app > main .report-center .final-pdf-shortcuts-heading{
+      flex-direction:column;
+      align-items:flex-start;
+    }
+  }
+  @media(max-width:390px){
+    #app > main .report-center .final-pdf-actions-grid{
+      grid-template-columns:minmax(0,1fr);
+      gap:8px;
+    }
+    #app > main .report-center .final-pdf-shortcut--save{
+      grid-column:auto;
+    }
+    html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut{
+      justify-content:flex-start;
+      text-align:left;
+      min-height:48px;
+    }
+  }
+  @media(prefers-reduced-motion:reduce){
+    html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut{
+      transition:none;
+    }
+    html[data-ge-theme] #app > main .report-center .final-pdf-actions-grid button.final-pdf-shortcut:hover{
+      transform:none;
+    }
+  }
 }
-@media print{.final-pdf-shortcuts{display:none!important}}
+@media print{
+  .final-pdf-shortcuts{display:none!important}
+}
