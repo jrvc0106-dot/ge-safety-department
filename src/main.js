@@ -2060,6 +2060,7 @@ async function reportCenter(){
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}
  function row(kind,id,name,meta,status='',type='',timestamp=new Date().toISOString()){return '<button class="report-record" data-time="'+new Date(timestamp).getTime()+'" data-kind="'+esc(kind)+'" data-id="'+esc(id)+'"><div class="report-record-main"><strong>'+esc(name)+'</strong>'+docMeta(type,id)+'<span>'+esc(meta)+'</span></div>'+(status?'<span class="report-record-status">'+esc(status)+'</span>':'')+'<span class="report-open-pdf">PDF / '+tr('VIEW','VER')+' ›</span></button>'}
  function bind(){list.querySelectorAll('.report-record').forEach(el=>el.onclick=()=>{const k=el.dataset.kind,id=el.dataset.id;if(k==='daily')navigate('report');else if(k==='walk')navigate('safetyWalkReport',id);else if(k==='discipline')navigate('disciplineReport',id);else if(k==='incident')navigate('incidentReport',id);else if(k==='equipment')navigate('equipmentInspectionReport',id);else if(k==='inventory')navigate('inventoryReport');else if(k==='correction'){const c=corrections.data.find(x=>x.id===id);if(c)navigate('observationReport',c.observation_id)}else navigate('observationReport',id)})}
+ let readyArchivedPdf=null; // At most one prepared cloud PDF in report-center memory.
  function decorateFinalPdfShortcuts(){
   for(const record of list.querySelectorAll('.report-record')){
    if(record.nextElementSibling?.classList?.contains('final-pdf-shortcuts'))continue;
@@ -2077,26 +2078,59 @@ async function reportCenter(){
    const add=(mode)=>{
     const button=document.createElement('button');button.type='button';
     button.className='secondary final-pdf-shortcut';
-    const label=mode==='view'?tr('View saved PDF','Ver PDF guardado'):tr('Download saved PDF','Descargar PDF guardado');
-    button.textContent=(mode==='view'?'◉ ':'⇩ ')+label;
+    const label=mode==='view'?tr('View saved PDF','Ver PDF guardado'):
+      mode==='download'?tr('Download saved PDF','Descargar PDF guardado'):
+      tr('Save saved PDF to…','Guardar PDF guardado en…');
+    button.textContent=(mode==='view'?'◉ ':mode==='download'?'⇩ ':'▣ ')+label;
     button.onclick=async()=>{
-     if(button.disabled||!viewCurrent())return;
+     if(button.disabled||!viewCurrent()||state.project!==entry.project_id)return;
+     // Begin an available folder picker synchronously in the original click.
+     const destination=mode==='save'?reservePdfDestination(archivedPdfFilename(entry),{win:window}):null;
      button.disabled=true;
      const original=button.textContent;
-     button.textContent=mode==='view'?tr('Opening saved PDF…','Abriendo PDF guardado…'):tr('Starting download…','Iniciando descarga…');
+     button.textContent=mode==='view'?tr('Opening saved PDF…','Abriendo PDF guardado…'):
+       mode==='download'?tr('Starting download…','Iniciando descarga…'):
+       tr('Preparing saved PDF…','Preparando PDF guardado…');
      try{
       if(mode==='view')await openArchivedPdf(db.storage,entry,{win:window,isCurrent:viewCurrent});
-      else await downloadArchivedPdf(db.storage,entry,{doc:document,win:window,isCurrent:viewCurrent});
+      else if(mode==='download')await downloadArchivedPdf(db.storage,entry,{doc:document,win:window,isCurrent:viewCurrent});
+      else{
+       if(destination?.kind==='picker'){
+        const selected=await destination.result;
+        if(selected.error)throw selected.error;
+       }
+       let ready=readyArchivedPdf?.entryId===entry.id?readyArchivedPdf:null;
+       if(!ready){
+        // Verify authorized signed Storage metadata before fetching private bytes.
+        await archivedPdfLink(db.storage,entry);
+        const received=await db.storage.from('final-reports').download(entry.pdf_path);
+        if(received.error)throw received.error;
+        if(!(await isValidPdfBlob(received.data)))throw Error(tr('The saved PDF failed integrity validation.','El PDF guardado no pasó la verificación de integridad.'));
+        if(!viewCurrent()||state.project!==entry.project_id)return;
+        ready={entryId:entry.id,blob:received.data,filename:archivedPdfFilename(entry)};
+        readyArchivedPdf=ready;
+        if(destination?.kind!=='picker'&&fileShareSupported(ready.blob,ready.filename,{nav:navigator,FileClass:File})){
+         confirmAction(tr('PDF ready. Tap “Save PDF now” on this report to choose its destination.','PDF listo. Pulse “Guardar PDF ahora” en este reporte para elegir su destino.'));
+         return;
+        }
+       }
+       const saved=await savePdfToDevice(ready.blob,ready.filename,{
+        destination,win:window,nav:navigator,doc:document,download:downloadReportPdf
+       });
+       if(viewCurrent())confirmAction(saved.kind==='saved'?tr('PDF saved in selected folder.','PDF guardado en carpeta seleccionada.'):
+         saved.kind==='shared'?tr('Choose Save to Files and your folder.','Seleccione Guardar en Archivos y su carpeta.'):
+         tr('PDF download started. Folder depends on browser settings.','Descarga iniciada. La carpeta depende de su navegador.'));
+      }
       if(mode==='download'&&viewCurrent())confirmAction(tr('Download requested for the saved PDF.','Se solicitó la descarga del PDF guardado.'));
      }catch(err){
       if(viewCurrent())error(new Error(tr('Could not access the saved PDF. Open the original report to review or regenerate it. Details: ','No se pudo acceder al PDF guardado. Abra el reporte original para revisarlo o regenerarlo. Detalle: ')+(err?.message||String(err))));
      }finally{
-      if(button.isConnected){button.disabled=false;button.textContent=original}
+      if(button.isConnected){button.disabled=false;button.textContent=mode==='save'&&readyArchivedPdf?.entryId===entry.id?'▣ '+tr('Save PDF now','Guardar PDF ahora'):original}
      }
     };
     return button;
    };
-   bar.append(add('view'),add('download'));
+   bar.append(add('view'),add('download'),add('save'));
    record.after(bar);
   }
  }
