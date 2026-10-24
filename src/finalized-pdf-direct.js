@@ -45,12 +45,13 @@ export async function archivedPdfLink(storage,entry,{download=false}={}){
  return url.href;
 }
 
-export async function openArchivedPdf(storage,entry,{win=window}={}){
+export async function openArchivedPdf(storage,entry,{win=window,isCurrent=()=>true}={}){
  // Must reserve the viewer in the original click, before awaiting a network request.
  let viewer;
  try{viewer=win.open?.('about:blank','_blank');if(viewer)viewer.opener=null}catch{}
  try{
   const link=await archivedPdfLink(storage,entry);
+  if(!isCurrent())throw Error('The active report/project changed while preparing the PDF.');
   if(viewer&&!viewer.closed)viewer.location.href=link;
   else win.location.assign(link); // Popup blockers: show the original PDF in this tab.
   return true;
@@ -60,8 +61,9 @@ export async function openArchivedPdf(storage,entry,{win=window}={}){
  }
 }
 
-export async function downloadArchivedPdf(storage,entry,{doc=document,win=window}={}){
+export async function downloadArchivedPdf(storage,entry,{doc=document,isCurrent=()=>true}={}){
  const link=await archivedPdfLink(storage,entry,{download:true});
+ if(!isCurrent())throw Error('The active report/project changed while preparing the PDF.');
  const a=doc.createElement('a');
  a.href=link;a.rel='noopener noreferrer';a.download=archivedPdfFilename(entry);
  a.style.display='none';doc.body.appendChild(a);
