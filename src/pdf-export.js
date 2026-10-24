@@ -22,8 +22,12 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
     }finally{
       if(canvas){canvas.width=0;canvas.height=0}
     }
-    // Release each page canvas before rendering the next, keeping tablet controls responsive.
+    // Release each page canvas before rendering the next. For automatic iPad
+    // archives (no progress callback), yield the visible UI between pages so
+    // touching a control or scrolling is not frozen by a long report export.
     if(options.onPageRendered)await options.onPageRendered(index+1,Math.ceil(totalHeight/pageHeight));
+    else if(top+pageHeight<totalHeight&&typeof document!=='undefined'&&document.visibilityState==='visible')
+      await new Promise(resolve=>setTimeout(resolve,0));
   }
   return pdf.output('blob');
 }
