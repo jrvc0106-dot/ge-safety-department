@@ -61,7 +61,8 @@ Deno.serve(async req=>{
    const result=await token(record.provider,params,{appKey:record.app_key||null});if(!result.refresh_token||!result.access_token)throw Error("Offline access was not granted.");
    const account=record.provider==="google_drive"?await request("https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)",{headers:{Authorization:"Bearer "+result.access_token}}):await request("https://api.dropboxapi.com/2/users/get_current_account",{method:"POST",headers:{Authorization:"Bearer "+result.access_token}});
    const label=record.provider==="google_drive"?(account.user?.emailAddress||account.user?.displayName||"Google Drive"):(account.email||account.name?.display_name||"Dropbox");
-   const connected=must(await admin.from("backup_cloud_connections").upsert({id:crypto.randomUUID(),project_id:record.project_id,provider:record.provider,encrypted_token:await encrypt(result.refresh_token),app_key:record.app_key||null,account_label:label,connected_by:record.user_id,connected_at:new Date().toISOString()},{onConflict:"project_id,provider"}).select("id").single());
+   const existingConnection=must(await admin.from("backup_cloud_connections").select("id").eq("project_id",record.project_id).eq("provider",record.provider).maybeSingle());
+   const connected=must(await admin.from("backup_cloud_connections").upsert({id:existingConnection?.id||crypto.randomUUID(),project_id:record.project_id,provider:record.provider,encrypted_token:await encrypt(result.refresh_token),app_key:record.app_key||null,account_label:label,connected_by:record.user_id,connected_at:new Date().toISOString()},{onConflict:"project_id,provider"}).select("id").single());
    if(record.provider==="dropbox"){
     // Dropbox approval authorizes automatic copies of all finalized G&E project PDFs.
     // No report is uploaded before the user approves Dropbox authorization.
