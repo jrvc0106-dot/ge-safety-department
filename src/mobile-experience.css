@@ -1,4 +1,5 @@
 /* G&E ONE mobile presentation. No report/PDF or desktop styles are changed. */
+.ge-mobile-project-note {display:none;}
 @media screen {
   html[data-ge-display-mode="mobile"] body:has(.home-shell) { background:#f1f2f3 !important; }
   html[data-ge-display-mode="mobile"] body:has(.home-shell) #app > header {
@@ -45,7 +46,7 @@
     padding:11px 13px!important;margin-bottom:0!important;font-size:16px!important;
   }
   html[data-ge-display-mode="mobile"] .home-shell .ge-mobile-project-note {
-    margin:6px 4px 10px;font-size:11px;color:#69737b;line-height:1.35;
+    display:block;margin:6px 4px 10px;font-size:11px;color:#69737b;line-height:1.35;
   }
   html[data-ge-display-mode="mobile"] .home-shell .today-line {margin:7px 2px 12px!important;font-size:11px!important;}
   html[data-ge-display-mode="mobile"] .home-shell .command-center {
