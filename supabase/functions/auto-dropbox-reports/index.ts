@@ -147,7 +147,7 @@ async function archiveMedical(body:any,userId:string,role:string){
  if(!/^[a-f0-9-]{36}$/i.test(project)||!/^[a-f0-9-]{36}$/i.test(followupId))
   return json({error:"Invalid medical report identifiers."},400);
  const member=must(await admin.from("project_members").select("user_id").eq("project_id",project).eq("user_id",userId).maybeSingle());
- if(role!=="admin"&&!member)return json({error:"Jobsite access denied."},403);
+ if(!member)return json({error:"Jobsite access denied."},403);
  const control=must(await admin.from("dropbox_auto_control").select("enabled,connection_id").eq("id",1).maybeSingle());
  if(!control?.enabled||!control.connection_id)return json({enabled:false,queued:false});
  const existing=must(await admin.from("dropbox_automatic_medical_reports").select("followup_id").eq("followup_id",followupId).maybeSingle());
@@ -257,7 +257,9 @@ Deno.serve(async req=>{
    if(["admin","safety_director"].includes(profile.role)&&body.followup_id){
     const existing=must(await admin.from("dropbox_automatic_medical_reports").select("followup_id")
      .eq("project_id",body.project_id).eq("followup_id",body.followup_id).maybeSingle());
-    medical_queued=Boolean(existing);
+    const member=must(await admin.from("project_members").select("user_id")
+     .eq("project_id",body.project_id).eq("user_id",auth.data.user.id).maybeSingle());
+    medical_queued=Boolean(member&&existing);
    }
    return json({enabled:Boolean(control?.enabled),medical_queued});
   }
