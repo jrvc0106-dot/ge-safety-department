@@ -614,7 +614,11 @@ async function buildReportPdf(highQuality=false){
   }else if(highQuality){
     try{
       if(document.fonts?.ready)await document.fonts.ready;
-      const pageSize=await worker.get('pageSize');if(report.classList?.contains?.('ge-reference-jha')&&typeof alignJhaPhotoPageStarts==='function')alignJhaPhotoPageStarts(container,pageSize.inner.px.height);if(report.classList?.contains?.('equipment-pdf'))alignEquipmentPhotoPageStarts(container,pageSize.inner.px.height);blob=await renderPaginatedPdf(container,pageSize,report.classList?.contains?.('ge-reference-jha')?{...options,skipBlankLeadingPage:true}:options);
+      const pageSize=await worker.get('pageSize');
+       // The device-independent PDF renderer aligns photo pages once, after
+       // applying the final Letter layout. Pre-alignment would leave stale gaps
+       // when Safari switches from phone columns to six-photo sheets.
+       blob=await renderPaginatedPdf(container,pageSize,report.classList?.contains?.('ge-reference-jha')?{...options,skipBlankLeadingPage:true}:options);
     }finally{
       const overlay=await worker.get('overlay');overlay?.remove();
     }
