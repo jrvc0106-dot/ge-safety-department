@@ -141,6 +141,15 @@
   html[data-ge-display-mode="mobile"] .device-back-bar {bottom:calc(10px + env(safe-area-inset-bottom));}
 }
 @media screen and (max-width:599px) {
+  /* Desktop override must remain reversible on a phone, even without the bottom bar. */
+  html[data-ge-display-mode="desktop"] #app > header nav #password-menu {
+    display:grid!important;place-items:center;width:44px;min-width:44px;min-height:44px;
+    padding:5px!important;font-size:0!important;background:#eef0f2!important;
+    color:#303b43!important;border-radius:10px;
+  }
+  html[data-ge-display-mode="desktop"] #app > header nav #password-menu::after {
+    content:"⚙";font-size:21px;line-height:1;
+  }
   /* Manual desktop view intentionally permits horizontal scrolling of the full-width Home. */
   html[data-ge-display-mode="desktop"] body:has(.home-shell) main {min-width:980px!important;max-width:none!important;}
   html[data-ge-display-mode="desktop"] body:has(.home-shell) .home-shell {max-width:1180px!important;}
