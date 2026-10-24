@@ -1,5 +1,6 @@
 import html2canvas from 'html2canvas';
 import {jsPDF} from 'jspdf';
+import {alignCriticalReportPdfBlocks} from './report-pdf-page-alignment.js';
 
 // 200 DPI keeps text, signatures and photos clear while holding each letter page
 // below the app's 4 MP canvas budget on iPads. JPEG avoids huge lossless PDFs.
@@ -41,6 +42,10 @@ export function pdfCanvasPageIsBlank(canvas,{documentRef=globalThis.document}={}
 export async function renderPaginatedPdf(container,pageSize,options,render=html2canvas,Pdf=jsPDF){
   const width=pageSize.inner.width*96;
   const pageHeight=pageSize.inner.px.height;
+  // html2canvas slices fixed-height images; ordinary CSS page-break rules do
+  // not stop a signature or corrective-action panel from being sliced.
+  // Align intact blocks in the temporary PDF clone before measuring its height.
+  alignCriticalReportPdfBlocks(container,pageHeight);
   const totalHeight=Math.max(1,container.scrollHeight);
   const pdf=new Pdf({...options.jsPDF,compress:true});
   let pagesAdded=0;
