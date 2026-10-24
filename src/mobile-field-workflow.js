@@ -39,6 +39,7 @@ function progressNode(doc, tr, count) {
   const progress = doc.createElement('progress');
   progress.className = 'ge-mobile-progress';
   progress.max = Math.max(count.total, 1);
+  progress.setAttribute('aria-label', tr('Checklist progress', 'Progreso del checklist'));
   progress.value = count.answered;
   const status = doc.createElement('span');
   status.className = 'ge-mobile-progress-count';
@@ -58,10 +59,11 @@ function progressNode(doc, tr, count) {
 
 export function attachMobileFieldGuide({doc = document, tr = en => en} = {}) {
   const form = doc.querySelector('#walk-form,#observation,#quick-orientation-form');
-  if (!form || form.querySelector('#' + ID)) return false;
+  if (!form || form.previousElementSibling?.id === ID) return false;
   const guide = doc.createElement('div');
   guide.id = ID;
   guide.className = 'ge-mobile-field-guide';
+  guide.setAttribute('role', 'navigation');
   guide.setAttribute('aria-label', tr('Field navigation', 'Navegación de campo'));
   const top = doc.createElement('div');
   top.className = 'ge-mobile-field-guide-top';
@@ -104,6 +106,7 @@ export function attachMobileFieldGuide({doc = document, tr = en => en} = {}) {
     );
   }
   guide.append(links);
-  form.prepend(guide);
+  // Insert beside, never inside, the form to protect FormData and form.elements.
+  form.before(guide);
   return true;
 }
