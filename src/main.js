@@ -345,8 +345,18 @@ async function enableAutoDraft(form,type,key='default'){
   list:name=>(draftFileState.get(formDraftKey(form,type,key))||{})[name]||[],
   add:(name,files)=>uploadDraftFiles(form,type,key,{name,files}),
   remove:async(name,item)=>{const ctx=formDraftKey(form,type,key),all=draftFileState.get(ctx)||{},previous=all[name]||[];all[name]=previous.filter(photo=>photo.path!==item.path);draftFileState.set(ctx,all);try{await persistDraft(form,type,key)}catch(err){all[name]=previous;throw err}renderDraftFileBadges(form,all);await db.storage.from('draft-evidence').remove([item.path])},
-  preview:item=>signedDisplayImage('draft-evidence',item.path,3600),
-  download:async item=>{if(type==='observation'&&item.localId){const local=await getOfflineDraftFile(item.localId);if(local)return local}const result=await db.storage.from('draft-evidence').download(item.path);if(result.error)throw result.error;return new File([result.data],item.name,{type:item.type||result.data.type})},tr,onError:error
+  preview:async item=>{
+   // Offline evidence must reopen from this device, not from an unreachable URL.
+   if(item.localId){const local=await getOfflineDraftFile(item.localId);if(local)return URL.createObjectURL(local)}
+   return signedDisplayImage('draft-evidence',item.path,3600);
+  },
+  download:async item=>{
+   // All JHA, Equipment and Observation drafts use the same local-first evidence policy.
+   if(item.localId){const local=await getOfflineDraftFile(item.localId);if(local)return local}
+   const result=await db.storage.from('draft-evidence').download(item.path);
+   if(result.error)throw result.error;
+   return new File([result.data],item.name,{type:item.type||result.data.type});
+  },tr,onError:error
  });
  return restored;
 }
