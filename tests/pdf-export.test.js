@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {renderPaginatedPdf} from '../src/pdf-export.js';
+import {renderPaginatedPdf,pdfCanvasPageIsBlank} from '../src/pdf-export.js';
 const options={jsPDF:{unit:'in',format:'letter'},margin:[.25,.25,.3,.25],html2canvas:{useCORS:true}};
 const pageSize={inner:{width:8,px:{height:1003}}};
 test('long exports keep 200 DPI on every page with high-quality JPEG and release memory',async()=>{
@@ -26,4 +26,67 @@ test('real PDF encoder produces a valid two-page document with embedded JPEG ima
  const jpeg='data:image/jpeg;base64,'+'/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAAIAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9U6KKKAP/2Q==';
  const blob=await renderPaginatedPdf({scrollHeight:1103},pageSize,options,async(_,opts)=>({width:1600,height:Math.ceil(opts.height*200/96),toDataURL:()=>jpeg}));
  const text=await blob.text();assert.ok(text.startsWith('%PDF-'));assert.match(text,/\/Count 2\b/);assert.match(text,/\/Subtype \/Image/);assert.match(text,/\/DCTDecode/);
+});
+
+test('JHA first fully white canvas is not exported as a blank opening page',async()=>{
+ const previous=globalThis.document;let pages=1;
+ const images=[],rendered=[];
+ globalThis.document={createElement:()=>({
+  width:0,height:0,getContext(){return{
+   drawImage(canvas){this.source=canvas},
+   getImageData(){const data=new Uint8ClampedArray(64*80*4);data.fill(255);
+    if(this.source?.ink)for(let i=0;i<120;i++){const p=i*4;data[p]=20;data[p+1]=20;data[p+2]=20}
+    return{data};
+   }
+  }}
+ })};
+ class Pdf{addPage(){pages++}addImage(x){images.push(x)}output(){return new Blob(['pdf'])}}
+ try{
+  const img=async(_,opts)=>{rendered.push(opts.y);return {
+   width:1600,height:Math.ceil(opts.height*200/96),ink:opts.y>0,
+   toDataURL(){return'data:image/jpeg;base64,sample'}
+  }};
+  await renderPaginatedPdf({scrollHeight:2006},pageSize,
+   {...options,skipBlankLeadingPage:true},img,Pdf);
+  assert.deepEqual(rendered,[0,1003]);
+  assert.equal(pages,1,'No blank leading PDF sheet must be added');
+  assert.equal(images.length,1,'Only the actual report page is retained');
+ }finally{globalThis.document=previous}
+});
+
+test('a nonblank JHA first page and all non-JHA page layouts stay unchanged',async()=>{
+ const previous=globalThis.document;let pages=1,count=0;
+ globalThis.document={createElement:()=>({
+  width:0,height:0,getContext(){return {
+   drawImage(){},
+   getImageData(){const data=new Uint8ClampedArray(64*80*4).fill(30);for(let i=3;i<data.length;i+=4)data[i]=255;return{data}}
+  }}
+ })};
+ class Pdf{addPage(){pages++}addImage(){count++}output(){return new Blob(['pdf'])}}
+ try{
+  await renderPaginatedPdf({scrollHeight:2006},pageSize,{...options,skipBlankLeadingPage:true},
+   async(_,opts)=>({width:1600,height:Math.ceil(opts.height*200/96),toDataURL:()=>''}),Pdf);
+  assert.equal(pages,2);assert.equal(count,2);
+  pages=1;count=0;
+  globalThis.document={createElement:()=>{throw Error('Only JHA may scan blank raster')}};
+  await renderPaginatedPdf({scrollHeight:2006},pageSize,options,
+   async(_,opts)=>({width:1600,height:Math.ceil(opts.height*200/96),toDataURL:()=>''}),Pdf);
+  assert.equal(pages,2);assert.equal(count,2);
+ }finally{globalThis.document=previous}
+});
+
+test('a completely blank JHA document is rejected instead of being saved',async()=>{
+ const previous=globalThis.document;
+ globalThis.document={createElement:()=>({
+  width:0,height:0,getContext(){return {
+   drawImage(){},getImageData(){return{data:new Uint8ClampedArray(64*80*4).fill(255)}}
+  }}
+ })};
+ class Pdf{addPage(){}addImage(){throw Error('Must not include blank image')}output(){return new Blob(['pdf'])}}
+ try{
+  await assert.rejects(renderPaginatedPdf({scrollHeight:1003},pageSize,
+   {...options,skipBlankLeadingPage:true},
+   async()=>({width:1600,height:2089,toDataURL:()=>''}),Pdf),
+   /no visible page content/);
+ }finally{globalThis.document=previous}
 });
