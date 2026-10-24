@@ -6,10 +6,10 @@ export function normalizeDisplayPreference(value) {
   return VALID_PREFERENCES.has(value) ? value : 'auto';
 }
 
-export function resolveDisplayMode(preference, viewportWidth) {
+export function resolveDisplayMode(preference, viewportWidth, phoneLike = false) {
   const selected = normalizeDisplayPreference(preference);
   if (selected !== 'auto') return selected;
-  return Number.isFinite(viewportWidth) && viewportWidth < 600 ? 'mobile' : 'desktop';
+  return phoneLike || (Number.isFinite(viewportWidth) && viewportWidth < 600) ? 'mobile' : 'desktop';
 }
 
 export function installMobileExperience({win = window, doc = document} = {}) {
@@ -18,7 +18,12 @@ export function installMobileExperience({win = window, doc = document} = {}) {
   catch { /* Private browsing can prohibit storage. Keep the session usable. */ }
   const apply = () => {
     const width = Number(win.innerWidth) || Number(doc.documentElement.clientWidth) || 1024;
-    const mode = resolveDisplayMode(preference, width);
+    // Keep a phone in mobile mode after rotating to landscape; iPads stay responsive by width.
+    const screen = win.screen || {};
+    const shortestSide = Math.min(Number(screen.width) || 9999, Number(screen.height) || 9999);
+    const coarse = Boolean(win.matchMedia?.('(any-pointer: coarse)').matches);
+    const phoneLike = win.navigator?.userAgentData?.mobile === true || (coarse && shortestSide < 600);
+    const mode = resolveDisplayMode(preference, width, phoneLike);
     doc.documentElement.dataset.geDisplayPreference = preference;
     doc.documentElement.dataset.geDisplayMode = mode;
     return mode;
