@@ -53,7 +53,7 @@ export function reportName(label,{reportType,equipmentType}={}){
   };
   title=fallback[reportType]||String(reportType||'Safety Report').replace(/[_-]+/g,' ');
  }
- return title.replace(/[\\/:*?"<>|\u0000-\u001f]+/g,'-')
+ return title.replace(/[\\/:*?"<>|\u0000-\u001f]+/g,'-').replace(/\.{2,}/g,'.')
    .replace(/[^\p{L}\p{N}&() .,+'_-]/gu,'')
    .replace(/\s+/g,' ').replace(/^[-.\s]+|[-.\s]+$/g,'').slice(0,115).trim()||'Safety Report';
 }
