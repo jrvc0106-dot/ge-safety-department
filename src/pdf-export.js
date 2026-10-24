@@ -61,9 +61,15 @@ export async function renderQuickOrientationPdf(container,pageSize,options,rende
   container.style.width='1008px';
   // Explicit intrinsic dimensions also preserve aspect ratio in canvas renderers
   // whose support for object-fit differs from the browser's image rendering.
-  for(const img of report.querySelectorAll('.quick-report-photos img,.quick-report-header>img,.quick-report-employee-photo img')){
+  const reportImages=[...report.querySelectorAll('.quick-report-photos img,.quick-report-header>img,.quick-report-employee-photo img')];
+  // Image decodes are independent. Run them together instead of forcing one
+  // high-resolution employee/photo thumbnail to hold up every following image.
+  // Geometry and original PNG export stay unchanged after all decodes complete.
+  await Promise.all(reportImages.map(async img=>{
     if(img.decode)await img.decode();
     if(!img.naturalWidth||!img.naturalHeight)throw new Error('Report image could not be loaded');
+  }));
+  for(const img of reportImages){
     const box=img.getBoundingClientRect(),ratio=Math.min(box.width/img.naturalWidth,box.height/img.naturalHeight);
     img.style.setProperty('width',img.naturalWidth*ratio+'px','important');
     img.style.setProperty('height',img.naturalHeight*ratio+'px','important');
