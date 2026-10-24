@@ -3,7 +3,7 @@ import {photoDimensions} from './photo-optimizer.js';
 // Safari can decode some HEIC camera images locally even when the optional
 // heic2any CDN fails. Keep this fallback exclusively for Daily Report / JHA.
 export async function nativeJhaHeicToJpeg(file,{env=globalThis}={}){
- const heic=/image\\/hei[cf]/i.test(file?.type||'')||/\\.hei[cf]$/i.test(file?.name||'');
+ const heic=/image\/hei[cf]/i.test(file?.type||'')||/\.hei[cf]$/i.test(file?.name||'');
  if(!heic)throw Error('Not a HEIC camera image');
  let image=null,url='',surface=null;
  try{
@@ -29,7 +29,7 @@ export async function nativeJhaHeicToJpeg(file,{env=globalThis}={}){
   ctx.drawImage(image,0,0,dimensions.width,dimensions.height);
   const blob=await new Promise(resolve=>surface.toBlob(resolve,'image/jpeg',.88));
   if(!blob?.size)throw Error('iPad HEIC conversion did not create an image');
-  return new env.File([blob],String(file.name||'JHA-photo').replace(/\\.hei[cf]$/i,'')+'.jpg',
+  return new env.File([blob],String(file.name||'JHA-photo').replace(/\.hei[cf]$/i,'')+'.jpg',
     {type:'image/jpeg',lastModified:file.lastModified||Date.now()});
  }finally{
   image?.close?.();
@@ -41,7 +41,7 @@ export async function normalizeJhaPhoto(file,{normalize,fallback=nativeJhaHeicTo
  if(typeof normalize!=='function')throw Error('Photo normalizer missing');
  try{return await normalize(file)}
  catch(error){
-  if(!/\\.hei[cf]$/i.test(file?.name||'')&&!/image\\/hei[cf]/i.test(file?.type||''))throw error;
+  if(!/\.hei[cf]$/i.test(file?.name||'')&&!/image\/hei[cf]/i.test(file?.type||''))throw error;
   try{return await fallback(file)}
   catch{throw new Error('Unable to convert this iPad HEIC photo. Export it as JPEG and retry.',{cause:error})}
  }
