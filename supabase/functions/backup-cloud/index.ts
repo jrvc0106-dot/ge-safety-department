@@ -56,7 +56,7 @@ Deno.serve(async req=>{
    if(!record||query.get("error"))throw Error("Authorization canceled or expired.");
    await authorizeUser(record.user_id,record.project_id);
    const code=query.get("code");if(!code)throw Error("Missing authorization code.");
-   const params={grant_type:"authorization_code",code,redirect_uri:callback()};
+   const params: Record<string,string>={grant_type:"authorization_code",code,redirect_uri:callback()};
    if(record.provider==="dropbox"&&record.code_verifier)params.code_verifier=record.code_verifier;
    const result=await token(record.provider,params,{appKey:record.app_key||null});if(!result.refresh_token||!result.access_token)throw Error("Offline access was not granted.");
    const account=record.provider==="google_drive"?await request("https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)",{headers:{Authorization:"Bearer "+result.access_token}}):await request("https://api.dropboxapi.com/2/users/get_current_account",{method:"POST",headers:{Authorization:"Bearer "+result.access_token}});
