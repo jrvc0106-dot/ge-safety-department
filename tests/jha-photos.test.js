@@ -70,3 +70,50 @@ test('other photo modules continue to block failed draft evidence until user ret
   assert.equal(form.querySelector('.jha-photo-local-warning'),null);
  }finally{form.remove();Object.assign(globalThis,prev);dom.window.close()}
 });
+
+
+test('JHA local-only warning survives redraws and clears after removing the photo',async()=>{
+ const dom=new JSDOM('<form id="walk-form"><input type="file" name="photos_0" multiple></form>');
+ const prev={document:globalThis.document,MutationObserver:globalThis.MutationObserver,URL:globalThis.URL};
+ globalThis.document=dom.window.document;globalThis.MutationObserver=dom.window.MutationObserver;
+ globalThis.URL={createObjectURL:()=> 'blob:local-preview',revokeObjectURL:()=>{}};
+ const form=document.querySelector('form'),input=form.querySelector('input'),errors=[];
+ const controller=attachJhaPhotos(form,{
+  list:()=>[],add:async()=>{throw Error('Network unavailable')},remove:async()=>{},
+  preview:async()=>'',download:async()=>{},allowLocalFinalUpload:true,
+  tr:x=>x,onError:e=>errors.push(e)
+ });
+ const photo=Object.assign(new Blob(['sample'],{type:'image/jpeg'}),{name:'jobsite.jpg'});
+ try{
+  Object.defineProperty(input,'files',{configurable:true,value:[photo]});
+  input.dispatchEvent(new dom.window.Event('change'));
+  await controller.files('photos_0');
+  assert.equal(form.querySelectorAll('.jha-photo-local-warning').length,1);
+  assert.equal(form.querySelectorAll('.jha-photo-card').length,1);
+  form.querySelector('.jha-photo-card button').click();
+  assert.deepEqual(await controller.files('photos_0'),[]);
+  assert.equal(form.querySelectorAll('.jha-photo-local-warning').length,0);
+  assert.deepEqual(errors,[]);
+ }finally{form.remove();Object.assign(globalThis,prev);dom.window.close()}
+});
+
+test('incomplete JHA draft sync retains original photo for final save',async()=>{
+ const dom=new JSDOM('<form id="walk-form"><input type="file" name="photos_0" multiple></form>');
+ const prev={document:globalThis.document,MutationObserver:globalThis.MutationObserver,URL:globalThis.URL};
+ globalThis.document=dom.window.document;globalThis.MutationObserver=dom.window.MutationObserver;
+ globalThis.URL={createObjectURL:()=> 'blob:local-preview',revokeObjectURL:()=>{}};
+ const form=document.querySelector('form'),input=form.querySelector('input'),errors=[];
+ const controller=attachJhaPhotos(form,{
+  list:()=>[],add:async()=>[],remove:async()=>{},preview:async()=>'',download:async()=>{},
+  allowLocalFinalUpload:true,tr:x=>x,onError:e=>errors.push(e)
+ });
+ const photo=Object.assign(new Blob(['sample'],{type:'image/jpeg'}),{name:'jobsite.jpg'});
+ try{
+  Object.defineProperty(input,'files',{configurable:true,value:[photo]});
+  input.dispatchEvent(new dom.window.Event('change'));
+  const files=await controller.files('photos_0');
+  assert.strictEqual(files[0],photo);
+  assert.equal(form.querySelectorAll('.jha-photo-local-warning').length,1);
+  assert.deepEqual(errors,[]);
+ }finally{form.remove();Object.assign(globalThis,prev);dom.window.close()}
+});
