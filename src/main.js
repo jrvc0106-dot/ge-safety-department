@@ -757,25 +757,37 @@ async function syncPendingDraftEvidence(){
   let record;try{record=JSON.parse(localStorage.getItem(storageKey)||'{}')}catch{continue}
   const parts=storageKey.slice(prefix.length).split(':'),projectId=parts.shift(),type=parts.shift(),draftKey=parts.join(':');
   if(!allowed.has(projectId)||!record.payload?.__files)continue;
-  let changed=false;
-  for(const items of Object.values(record.payload.__files)){
-   for(const item of items||[]){
-    if(!item.localId)continue;
+  // Stage uploaded changes separately. Never delete local originals before BOTH
+  // cloud metadata and the updated local draft have been confirmed.
+  const updated=JSON.parse(JSON.stringify(record)),uploaded=[];
+  for(const [field,items] of Object.entries(record.payload.__files)){
+   for(let index=0;index<(items||[]).length;index++){
+    const item=items[index];if(!item?.localId)continue;
     try{
      const file=await getOfflineDraftFile(item.localId);if(!file)continue;
-     const uploadResult=await db.storage.from('draft-evidence').upload(item.path,file,{contentType:item.type||file.type,upsert:true});
-     if(uploadResult.error)continue;
-     const removedLocalId=item.localId;await deleteOfflineDraftFiles([removedLocalId]).catch(()=>{});
-     for(const localFiles of draftFileState.values())for(const group of Object.values(localFiles))for(const savedFile of group||[])if(savedFile.localId===removedLocalId)delete savedFile.localId;
-     delete item.localId;changed=true;
+     const result=await db.storage.from('draft-evidence').upload(item.path,file,{contentType:item.type||file.type,upsert:true});
+     if(result.error)continue;
+     delete updated.payload.__files[field][index].localId;
+     uploaded.push(item.localId);
     }catch{}
    }
   }
-  if(!changed)continue;
+  if(!uploaded.length)continue;
   try{
-   localStorage.setItem(storageKey,JSON.stringify(record));
-   await db.from('form_drafts').upsert({user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,payload:record.payload,status:'active',updated_at:record.updated_at||new Date().toISOString()},{onConflict:'user_id,project_id,form_type,draft_key'});
-  }catch{}
+   const result=await db.from('form_drafts').upsert({
+    user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,
+    payload:updated.payload,status:'active',updated_at:updated.updated_at||new Date().toISOString()
+   },{onConflict:'user_id,project_id,form_type,draft_key'});
+   if(result.error)continue;
+   localStorage.setItem(storageKey,JSON.stringify(updated));
+  }catch{continue}
+  // Two stores now have the uploaded evidence paths. Cleanup is safe to retry
+  // or skip; an orphaned local file is preferable to lost report evidence.
+  const synced=new Set(uploaded);
+  for(const files of draftFileState.values())for(const group of Object.values(files))for(const item of group||[]){
+   if(synced.has(item.localId))delete item.localId;
+  }
+  await deleteOfflineDraftFiles(uploaded).catch(()=>{});
  }
  for(const form of document.querySelectorAll('form[data-auto-draft="true"]'))renderDraftFileBadges(form,draftFileState.get(formDraftKey(form,DRAFT_FORMS[form.id],form.id==='correction'?(state.detail||'default'):'default'))||{});
 }
