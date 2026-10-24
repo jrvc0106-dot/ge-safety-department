@@ -459,10 +459,19 @@ async function waitForReportImages(report){
   const failed=[];
   const wait=img=>new Promise(resolve=>{
     if(img.complete)return resolve(img.naturalWidth>0);
-    let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);resolve(ok&&img.naturalWidth>0)};
-    const timer=setTimeout(()=>finish(false),12000);
-    img.addEventListener('load',()=>finish(true),{once:true});
-    img.addEventListener('error',()=>finish(false),{once:true});
+    let done=false,timer;
+    const onLoad=()=>finish(true),onError=()=>finish(false);
+    const finish=ok=>{
+      if(done)return;
+      done=true;clearTimeout(timer);
+      // Always remove both event handlers: failed images may never emit the other event.
+      img.removeEventListener?.('load',onLoad);
+      img.removeEventListener?.('error',onError);
+      resolve(ok&&img.naturalWidth>0);
+    };
+    timer=setTimeout(()=>finish(false),12000);
+    img.addEventListener('load',onLoad,{once:true});
+    img.addEventListener('error',onError,{once:true});
   });
   await Promise.all(imgs.map(async(img,index)=>{
     if(await wait(img))return;
@@ -470,14 +479,22 @@ async function waitForReportImages(report){
     // failed request. Fetching once as a local blob removes that cache/CORS race
     // without changing the report markup or its visual layout.
     try{
-      const response=await fetch(img.currentSrc||img.src,{cache:'no-store'});
-      if(!response.ok)throw new Error('image fetch failed');
-      const blob=await response.blob();
+      const controller=typeof AbortController==='function'?new AbortController():null;
+      const deadline=controller?setTimeout(()=>controller.abort(),12000):null;
+      let blob;
+      try{
+        const response=await fetch(img.currentSrc||img.src,{
+          cache:'no-store',...(controller?{signal:controller.signal}:{})
+        });
+        if(!response.ok)throw new Error('image fetch failed');
+        blob=await response.blob();
+      }finally{if(deadline)clearTimeout(deadline)}
       if(!blob.size)throw new Error('empty image');
-      const isJha=report.dataset?.pdfViewMode==='single-click';
-      if(isJha&&document.querySelector('article.report')!==report)return;
+      if(typeof document!=='undefined'&&document.querySelector('article.report')!==report)return;
       const url=URL.createObjectURL(blob);
-      if(isJha){
+      // All report types (not just JHA) must release recovered blob URLs
+      // after navigating away to prevent retained high-resolution photo memory.
+      if(typeof jhaReportImageUrls!=='undefined'){
         let urls=jhaReportImageUrls.get(report);
         if(!urls){urls=new Set();jhaReportImageUrls.set(report,urls)}
         urls.add(url);
