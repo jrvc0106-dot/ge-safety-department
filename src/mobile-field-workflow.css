@@ -213,3 +213,6 @@
   .ge-mobile-field-guide {display:none!important;}
   /* Report articles and signature/PDF layout are intentionally untouched. */
 }
+
+/* Critical: never visually confirm a draft that failed both local and cloud saving. */
+.draft-save-status[data-kind="error"]{background:#fff0f0!important;color:#a82029!important;border-color:#e6afb3!important;white-space:normal}
