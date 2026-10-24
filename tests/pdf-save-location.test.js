@@ -56,7 +56,7 @@ test('damaged or empty PDF bytes are rejected before a file can be shared or sav
  await assert.rejects(savePdfToDevice(new Blob(['bad']), 'bad.pdf',{nav:{},download:()=>{throw Error('called')}}),/incomplete/);
 });
 
-test('Save PDF is inserted in shared toolbar and archived Reports Center, with no PDF template change',()=>{
+test('Save PDF remains in report editor while Report Center shows only View and Download',()=>{
  const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
  assert.match(main,/class="secondary pdf-save"/);
  assert.match(main,/actionGrid\.append\(add\('view'\),add\('download'\),add\('save'\)\)/);
