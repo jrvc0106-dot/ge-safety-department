@@ -3,8 +3,9 @@
 export function reportCompactDate(value,language='en'){
  const date=new Date(value||'');
  if(!Number.isFinite(date.getTime()))return '—';
- return new Intl.DateTimeFormat(language==='es'?'es-US':'en-US',{month:'2-digit',day:'2-digit',year:'numeric'})
-   .format(date).replace(/\//g,'.');
+ // Keep the existing MM.DD.YYYY policy stable in either app language.
+ const mm=String(date.getMonth()+1).padStart(2,'0'),dd=String(date.getDate()).padStart(2,'0');
+ return mm+'.'+dd+'.'+date.getFullYear();
 }
 export function compactReportRow({kind,id,title,creator,createdAt,language='en'},tr=(a)=>a,esc=(s)=>String(s)){
  const date=new Date(createdAt||'');
