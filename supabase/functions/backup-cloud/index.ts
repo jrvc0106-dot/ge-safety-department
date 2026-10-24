@@ -92,7 +92,9 @@ Deno.serve(async req=>{
    const auto=must(await admin.from("dropbox_auto_control").select("enabled,updated_at").eq("id",1).maybeSingle());
    const automaticRows=must(await admin.from("dropbox_automatic_reports").select("status").limit(10000));
    const counts=automaticRows.reduce((result,item)=>(result[item.status]=(result[item.status]||0)+1,result),{pending:0,sending:0,completed:0,failed:0});
-   return json({provider:settings?.provider||"supabase",providers:providers.map(provider=>({provider,configured:provider==="dropbox"?Boolean(settings?.dropbox_app_key||(credentials(provider).id&&credentials(provider).secret)):Boolean(credentials(provider).id&&credentials(provider).secret),connection:connections.find(x=>x.provider===provider)||null})),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback(),automatic_reports:{enabled:Boolean(auto?.enabled),counts}});
+   const medicalRows=must(await admin.from("dropbox_automatic_medical_reports").select("status").limit(10000));
+   const medicalCounts=medicalRows.reduce((result,item)=>(result[item.status]=(result[item.status]||0)+1,result),{pending:0,sending:0,completed:0,failed:0});
+   return json({provider:settings?.provider||"supabase",providers:providers.map(provider=>({provider,configured:provider==="dropbox"?Boolean(settings?.dropbox_app_key||(credentials(provider).id&&credentials(provider).secret)):Boolean(credentials(provider).id&&credentials(provider).secret),connection:connections.find(x=>x.provider===provider)||null})),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback(),automatic_reports:{enabled:Boolean(auto?.enabled),counts,medical_counts:medicalCounts}});
   }
 
   if(body.action==="local_download"){
