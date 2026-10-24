@@ -10,7 +10,7 @@ const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='syncPen
 if(!node)throw Error('Pending GE ONE draft evidence sync not found');
 const syncSource=source.slice(node.start,node.end);
 
-function fixture({cloudError=false,localWriteFails=false,uploadError=false}={}){
+function fixture({cloudError=false,localWriteFails=false,uploadError=false,editDuringUpload=false}={}){
  const key='ge_draft_v1:safety:job:daily_safety_walk:default';
  const record={updated_at:'2026-10-24T10:00:00Z',payload:{
   notes:'Check fall protection before pour',
@@ -28,7 +28,11 @@ function fixture({cloudError=false,localWriteFails=false,uploadError=false}={}){
    setItem(k,v){if(localWriteFails)throw Error('Storage quota exhausted');storage.set(k,v)}
   },
   db:{
-   storage:{from:()=>({upload:async(path,file)=>{uploaded.push({path,file});return {error:uploadError?Error('No network'):null}}})},
+   storage:{from:()=>({upload:async(path,file)=>{
+    uploaded.push({path,file});
+    if(editDuringUpload){const newer=JSON.parse(storage.get(key));newer.payload.notes='Latest mobile edit';storage.set(key,JSON.stringify(newer))}
+    return {error:uploadError?Error('No network'):null}
+   }})},
    from:()=>({upsert:async value=>{cloudWrites.push(value);return {error:cloudError?Error('RLS permission rejected'):null}}})
   },
   getOfflineDraftFile:async id=>id==='local-evidence'?{name:'image.jpg',type:'image/jpeg',size:8}:null,
@@ -76,5 +80,14 @@ test('unavailable upload leaves local-only draft evidence untouched',async()=>{
  await t.context.syncPendingDraftEvidence();
  assert.equal(t.cloudWrites.length,0);
  assert.equal(t.deleted.length,0);
+ assert.equal(t.files.get('draft-key').photos_0[0].localId,'local-evidence');
+});
+
+test('online syncing never replaces a later mobile field edit with an older draft',async()=>{
+ const t=fixture({editDuringUpload:true});
+ await t.context.syncPendingDraftEvidence();
+ assert.equal(JSON.parse(t.storage.get(t.key)).payload.notes,'Latest mobile edit');
+ assert.equal(t.deleted.length,0);
+ assert.equal(t.cloudWrites.length,0);
  assert.equal(t.files.get('draft-key').photos_0[0].localId,'local-evidence');
 });
