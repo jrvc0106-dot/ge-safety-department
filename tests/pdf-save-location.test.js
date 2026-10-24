@@ -59,7 +59,8 @@ test('damaged or empty PDF bytes are rejected before a file can be shared or sav
 test('Save PDF is inserted in shared toolbar and archived Reports Center, with no PDF template change',()=>{
  const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
  assert.match(main,/class="secondary pdf-save"/);
- assert.match(main,/bar\.append\(add\('view'\),add\('download'\),add\('save'\)\)/);
+ assert.match(main,/actionGrid\.append\(add\('view'\),add\('download'\),add\('save'\)\)/);
+ assert.match(main,/bar\.append\(heading,actionGrid\)/);
  assert.match(main,/openLocalReport\(prepared\.localArchive\)/);
  assert.match(main,/PDF prepared\. Tap “Save PDF now”/);
  const hooks=readFileSync(new URL('../src/jha-pdf-actions.js',import.meta.url),'utf8');
