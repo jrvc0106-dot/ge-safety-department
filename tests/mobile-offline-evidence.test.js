@@ -58,7 +58,7 @@ test('offline restored JHA evidence shows a local preview and exports its saved 
  const dom=new JSDOM('<form id="walk-form"><input type="file" name="photos_0" multiple></form>',{url:'https://example.test'});
  const prior={document:globalThis.document,MutationObserver:globalThis.MutationObserver,URL:globalThis.URL};
  const {document:doc,window:win}=dom.window,form=doc.querySelector('form');
- const blobs=[],revoked=[],failures=[],file=new win.File(['saved offline'],'site-photo.jpg',{type:'image/jpeg'});
+ const blobs=[],revoked=[],failures=[],localDeletes=[],file=new win.File(['saved offline'],'site-photo.jpg',{type:'image/jpeg'});
  let cloudCalls=0,networkPreviews=0;
  const fakeURL={createObjectURL:()=>{const value='blob:offline-'+(blobs.length+1);blobs.push(value);return value},revokeObjectURL:value=>revoked.push(value)};
  Object.assign(globalThis,{document:doc,MutationObserver:win.MutationObserver,URL:fakeURL});
@@ -68,6 +68,7 @@ test('offline restored JHA evidence shows a local preview and exports its saved 
   draftFileState:files,draftUploads:new Map(),draftTimers:new Map(),draftLocalTimers:new Map(),
   restoreDraft:async()=>false,setDraftStatus(){},renderDraftFileBadges(){},persistDraft:async()=>{},
   getOfflineDraftFile:async(id)=>id==='local-only'?file:null,
+  deleteOfflineDraftFiles:async ids=>localDeletes.push(...ids),
   signedDisplayImage:async()=>{networkPreviews++;throw Error('Cloud unavailable')},
   db:{storage:{from(){return{download:async()=>{cloudCalls++;throw Error('Offline')}}}}},
   attachJhaPhotos,jhaPhotoController,tr:en=>en,error:e=>failures.push(e),setTimeout,clearTimeout,
@@ -86,6 +87,12 @@ test('offline restored JHA evidence shows a local preview and exports its saved 
   assert.equal(cloudCalls,0);
   assert.equal(networkPreviews,0);
   assert.equal(failures.length,0);
+  // Removing the photo while still offline updates draft metadata and IndexedDB only.
+  form.querySelector('.jha-photo-card button').click();
+  assert.deepEqual(await controller.files('photos_0'),[]);
+  assert.deepEqual(localDeletes,['local-only']);
+  assert.equal(files.get('draft-key').photos_0.length,0);
+  assert.equal(cloudCalls,0);
   form.remove();
   await new Promise(resolve=>setTimeout(resolve,10));
   assert.ok(revoked.includes(blobs[0]));
