@@ -183,10 +183,13 @@ test('irreversible deletion calls the secure Supabase Edge Function and rejects 
 test('Admin sees a direct Delete permanently button on an active report',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="discipline"]').click();
- const buttons=[...t.doc.querySelectorAll('.report-center-admin-entry button')];
- assert.equal(buttons.length,3);
- assert.match(buttons[2].textContent,/Delete permanently/);
- buttons[2].click();await tick();await tick();
+ const wrapper=t.doc.querySelector('.report-center-admin-entry');
+ const buttons=[...wrapper.querySelectorAll('button')];
+ assert.equal(buttons.length,5,'Record, two PDF buttons and two separate admin controls');
+ const permanent=wrapper.querySelector('[data-report-action="permanent"]');
+ assert.ok(permanent);
+ assert.match(permanent.textContent,/Delete permanently/);
+ permanent.click();await tick();await tick();
  assert.equal(t.rows.safety_discipline.length,0);
  assert.equal(t.rows.report_center_trash[0].state,'permanent');
  assert.equal(t.doc.querySelectorAll('.report-record').length,0);
