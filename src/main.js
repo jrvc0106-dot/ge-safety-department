@@ -1,5 +1,7 @@
 import {mountSafetyIntelligence} from './safety-intelligence.js';
 import {isValidPdfBlob,protectPdfReportLogos} from './report-pdf-quality.js';
+import {indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf} from './finalized-pdf-direct.js';
+import './finalized-pdf-direct.css';
 import './safety-intelligence.css';
 import {helpCenterPage} from './help-center.js';
 import {simplifyOrientationForm} from './orientation-ui.js';
@@ -1947,7 +1949,7 @@ async function reportCenter(){
   db.from('daily_safety_walks').select('id,created_at,overall_status,created_by,notes,creator:profiles!daily_safety_walks_created_by_fkey(name),items:daily_safety_walk_items!daily_safety_walk_items_walk_id_fkey(status,correction)').eq('project_id',state.project).order('created_at',{ascending:false}),
   db.from('safety_discipline').select('id,employee_name,violation_type,action_level,incident_date,created_by,issuer:profiles!safety_discipline_created_by_fkey(name)').eq('project_id',state.project).order('incident_date',{ascending:false}),
   db.from('corrective_actions').select('id,observation_id,comment,created_at,created_by,author:profiles!corrective_actions_created_by_fkey(name),observation:observations!inner(id,project_id,area,category,status,priority,description)').eq('observation.project_id',state.project).order('created_at',{ascending:false}),
-  db.from('report_documents').select('id,report_type,source_id,report_number,title,document_status,version,pdf_path,created_at,finalized_at').eq('project_id',state.project).order('created_at',{ascending:false}),
+  db.from('report_documents').select('id,project_id,report_type,source_id,report_number,title,document_status,version,pdf_path,created_at,finalized_at').eq('project_id',state.project).order('created_at',{ascending:false}),
   db.from('incident_reports').select('id,report_number,incident_type,incident_at,employee_name,exact_location,severity,status,created_at').eq('project_id',state.project).order('incident_at',{ascending:false}),
   db.from('equipment_inspections').select('id,report_number,equipment_name,equipment_type,inspector_name,inspection_at,overall_status,created_at').eq('project_id',state.project).order('inspection_at',{ascending:false}),
   db.from('inventory_items').select('id,item_name,quantity').eq('project_id',state.project),
@@ -1971,7 +1973,7 @@ async function reportCenter(){
   {key:'equipment',icon:'⚙',title:tr('Equipment Inspections','Inspecciones de Equipo'),desc:tr('Equipment checklists, inspection results and corrective status.','Listas de verificación, resultados y estado correctivo del equipo.'),count:visible('equipment',equipmentRows).length,cls:'reports-equipment'},
   {key:'inventory',icon:'▦',title:tr('Inventory Reports','Reportes de Inventario'),desc:tr('Current project inventory with quantities and item condition.','Inventario actual del proyecto con cantidades y condición de artículos.'),count:inventoryRows.length&&!hidden('inventory',inventoryReportId)?inventoryRows.length:0,cls:'reports-inventory'}
  ];
- const registered=docs.data||[],finalCount=registered.filter(d=>d.document_status==='final').length,reviewCount=registered.filter(d=>['submitted','under_review'].includes(d.document_status)).length;
+ const registered=docs.data||[],archivedPdfs=indexFinalPdfDocuments(registered,state.project),finalCount=registered.filter(d=>d.document_status==='final').length,reviewCount=registered.filter(d=>['submitted','under_review'].includes(d.document_status)).length;
  if(!viewCurrent())return;
  frame('<section class="observations-shell report-center"><div class="report-center-hero"><div><small>'+tr('G&E SAFETY DOCUMENT CONTROL','CONTROL DOCUMENTAL G&E SAFETY')+'</small><h1>'+tr('Report Center','Centro de Reportes')+'</h1><p>'+esc(project.name||'—')+' · '+tr('Select a category, choose a record and open its professional PDF-ready report.','Seleccione una categoría, elija un registro y abra su reporte profesional listo para PDF.')+'</p></div><div class="report-center-project"><span>'+tr('CURRENT PROJECT','PROYECTO ACTUAL')+'</span><strong>'+esc(project.name||'—')+'</strong><small>'+esc(project.general_contractor||'')+'</small></div></div><div class="document-control-strip"><div><strong>'+registered.length+'</strong><span>'+tr('Registered Documents','Documentos Registrados')+'</span></div><div><strong>'+finalCount+'</strong><span>'+tr('Final / Locked','Finales / Bloqueados')+'</span></div><div><strong>'+reviewCount+'</strong><span>'+tr('Under Review','En Revisión')+'</span></div><div><strong>v1+</strong><span>'+tr('Version Controlled','Control de Versiones')+'</span></div></div><div class="report-category-grid report-category-nine">'+cats.map(x=>'<button class="report-category '+x.cls+'" data-category="'+x.key+'"><span class="report-category-icon">'+x.icon+'</span><div><h2>'+esc(x.title)+'</h2><p>'+esc(x.desc)+'</p></div><strong>'+x.count+'</strong><small>'+tr('OPEN CATEGORY','ABRIR CATEGORÍA')+' →</small></button>').join('')+'</div><section class="report-library card"><div class="report-library-head"><div><small>'+tr('REPORT LIBRARY','BIBLIOTECA DE REPORTES')+'</small><h2 id="report-library-title"></h2></div></div><div class="report-filter-bar"><input id="report-search" type="search" placeholder="'+tr('Search report, area, employee, category…','Buscar reporte, área, empleado, categoría…')+'"><select id="report-date-filter"><option value="all">'+tr('All dates','Todas las fechas')+'</option><option value="today">'+tr('Today','Hoy')+'</option><option value="week">'+tr('Last 7 days','Últimos 7 días')+'</option><option value="month">'+tr('Last 30 days','Últimos 30 días')+'</option></select></div><div id="report-library-list"></div></section></section>');
  if(nativeReportArchiveAvailable()){
@@ -2008,6 +2010,47 @@ async function reportCenter(){
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}
  function row(kind,id,name,meta,status='',type='',timestamp=new Date().toISOString()){return '<button class="report-record" data-time="'+new Date(timestamp).getTime()+'" data-kind="'+esc(kind)+'" data-id="'+esc(id)+'"><div class="report-record-main"><strong>'+esc(name)+'</strong>'+docMeta(type,id)+'<span>'+esc(meta)+'</span></div>'+(status?'<span class="report-record-status">'+esc(status)+'</span>':'')+'<span class="report-open-pdf">PDF / '+tr('VIEW','VER')+' ›</span></button>'}
  function bind(){list.querySelectorAll('.report-record').forEach(el=>el.onclick=()=>{const k=el.dataset.kind,id=el.dataset.id;if(k==='daily')navigate('report');else if(k==='walk')navigate('safetyWalkReport',id);else if(k==='discipline')navigate('disciplineReport',id);else if(k==='incident')navigate('incidentReport',id);else if(k==='equipment')navigate('equipmentInspectionReport',id);else if(k==='inventory')navigate('inventoryReport');else if(k==='correction'){const c=corrections.data.find(x=>x.id===id);if(c)navigate('observationReport',c.observation_id)}else navigate('observationReport',id)})}
+ function decorateFinalPdfShortcuts(){
+  for(const record of list.querySelectorAll('.report-record')){
+   if(record.nextElementSibling?.classList?.contains('final-pdf-shortcuts'))continue;
+   const kind=record.dataset.kind,sourceId=record.dataset.id;
+   // Synthetic daily/inventory report IDs have no stable finalized source ID.
+   // Do not accidentally show a different project's or another record's PDF.
+   const reportType=kind==='walk'?'daily_safety_walk':kind==='discipline'?'disciplinary_action':
+    kind==='equipment'?'equipment_inspection':kind==='observation'?'observation':
+    kind==='incident'?(currentCategory==='near-misses'?'near_miss':'incident'):null;
+   if(!reportType||!sourceId)continue;
+   const entry=archivedPdfs.get(reportType+':'+sourceId);
+   if(!entry)continue;
+   const bar=document.createElement('div');bar.className='final-pdf-shortcuts';
+   bar.setAttribute('aria-label',tr('Saved finalized PDF','PDF finalizado guardado'));
+   const add=(mode)=>{
+    const button=document.createElement('button');button.type='button';
+    button.className='secondary final-pdf-shortcut';
+    const label=mode==='view'?tr('View saved PDF','Ver PDF guardado'):tr('Download saved PDF','Descargar PDF guardado');
+    button.textContent=(mode==='view'?'◉ ':'⇩ ')+label;
+    button.onclick=async()=>{
+     if(button.disabled||!viewCurrent())return;
+     button.disabled=true;
+     const original=button.textContent;
+     button.textContent=mode==='view'?tr('Opening saved PDF…','Abriendo PDF guardado…'):tr('Starting download…','Iniciando descarga…');
+     try{
+      if(mode==='view')await openArchivedPdf(db.storage,entry,{win:window,isCurrent:viewCurrent});
+      else await downloadArchivedPdf(db.storage,entry,{doc:document,win:window,isCurrent:viewCurrent});
+      if(mode==='download'&&viewCurrent())confirmAction(tr('Download requested for the saved PDF.','Se solicitó la descarga del PDF guardado.'));
+     }catch(err){
+      if(viewCurrent())error(new Error(tr('Could not access the saved PDF. Open the original report to review or regenerate it. Details: ','No se pudo acceder al PDF guardado. Abra el reporte original para revisarlo o regenerarlo. Detalle: ')+(err?.message||String(err))));
+     }finally{
+      if(button.isConnected){button.disabled=false;button.textContent=original}
+     }
+    };
+    return button;
+   };
+   bar.append(add('view'),add('download'));
+   record.after(bar);
+  }
+ }
+
  let trashOpen=false,trashToggle=null,trashPanel=null;
  function updateCenterCounts(){
   const values={
@@ -2211,7 +2254,7 @@ async function reportCenter(){
   else if(key==='near-misses')list.innerHTML=visible('incident',nearMissReports).length?visible('incident',nearMissReports).map(x=>row('incident',x.id,x.report_number||tr('Near Miss Report','Reporte Near Miss'),fmt(x.incident_at||x.created_at)+' · '+(x.employee_name||x.incident_type||'—')+' · '+(x.exact_location||'—'),(x.severity||x.status||'').replaceAll('_',' '),'incident',x.incident_at||x.created_at)).join(''):empty();
   else if(key==='equipment')list.innerHTML=visible('equipment',equipmentRows).length?visible('equipment',equipmentRows).map(x=>row('equipment',x.id,x.report_number||x.equipment_name||x.equipment_type||tr('Equipment Inspection','Inspección de Equipo'),fmt(x.inspection_at||x.created_at)+' · '+(x.equipment_name||x.equipment_type||'—')+' · '+(x.inspector_name||'—'),(x.overall_status||tr('Pending','Pendiente')).replaceAll('_',' '),'equipment_inspection',x.inspection_at||x.created_at)).join(''):empty();
   else if(key==='inventory'){const total=inventoryRows.reduce((n,x)=>n+(Number(x.quantity)||0),0);list.innerHTML=inventoryRows.length&&!hidden('inventory',inventoryReportId)?row('inventory',inventoryReportId,tr('Project Inventory Summary','Resumen de Inventario del Proyecto'),tr(inventoryRows.length+' inventory items · '+total+' units',inventoryRows.length+' artículos de inventario · '+total+' unidades'),tr('VIEW REPORT','VER REPORTE'),''):empty()}
-  bind();decorateDeleteButtons();applyFilters();updateCenterCounts()
+  bind();decorateDeleteButtons();decorateFinalPdfShortcuts();applyFilters();updateCenterCounts()
  }
  if(isAdmin){
   trashToggle=document.createElement('button');trashToggle.type='button';trashToggle.className='secondary report-center-trash-toggle';
