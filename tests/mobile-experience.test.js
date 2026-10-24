@@ -8,6 +8,8 @@ test('automatic mode responds to phone width while tablets keep the existing lay
   assert.equal(resolveDisplayMode('auto', 599), 'mobile');
   assert.equal(resolveDisplayMode('auto', 600), 'desktop');
   assert.equal(resolveDisplayMode('auto', 1024), 'desktop');
+  assert.equal(resolveDisplayMode('auto', 844, true), 'mobile'); // rotated phone
+  assert.equal(resolveDisplayMode('desktop', 375, true), 'desktop'); // manual override
   assert.equal(normalizeDisplayPreference('unknown'), 'auto');
 });
 test('manual override persists on each device, including across orientation changes', () => {
