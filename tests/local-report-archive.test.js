@@ -41,7 +41,7 @@ test('native iPad saves one PDF by project and category, indexing shortcuts with
  assert.equal(nativeReportArchiveAvailable(f.runtime),true);
  const saved=await saveLocalReport({...params,blob:smallPdf(),env:f.runtime});
  assert.equal(saved.indexed,true);
- assert.match(saved.path,/G&E Reports\/Rivage Bal Harbour-[\da-f]{8}\/Disciplinary Actions\/\d{4}-\d{2}\/Safety Report-[\da-f]{8}\.pdf/);
+ assert.match(saved.path,/G&E Reports\/Rivage Bal Harbour-[\da-f]{8}\/Disciplinary Actions\/\d{4}-\d{2}\/[\da-f]{8}\/Safety Report\.pdf/);
  assert.equal(f.events.writes,1);
  assert.ok(f.fileMap.get(saved.path).toString().startsWith('%PDF-1.7'));
  const items=listLocalReports({userId:'staff-1',projectId:'proj-1',env:f.runtime});
