@@ -8,7 +8,7 @@ export const APPEARANCE_THEMES=Object.freeze({
  original:Object.freeze({name:'Original',nameEs:'Original',description:'Original G&E corporate design',descriptionEs:'Diseño corporativo original G&E',
   bg:'#f3f4f5',surface:'#ffffff',subtle:'#f5f6f7',text:'#202b33',muted:'#50616e',border:'#d7dee3',accent:'#273c4b',accentText:'#ffffff',bar:'#f7f9fa'}),
  dark:Object.freeze({name:'Dark',nameEs:'Oscuro',description:'Soft contrast for low light',descriptionEs:'Contraste suave para poca luz',
-  bg:'#10161b',surface:'#222b32',subtle:'#2c3740',text:'#f5f7f9',muted:'#c7d1d7',border:'#53616b',accent:'#bad8f4',accentText:'#17212a',bar:'#192228'}),
+  bg:'#0e151c',surface:'#1c2833',subtle:'#273746',text:'#f4f8fc',muted:'#c0d0dd',border:'#536879',accent:'#acdbff',accentText:'#14212b',bar:'#15222e'}),
  gray:Object.freeze({name:'Gray',nameEs:'Gris',description:'Elegant neutral gray',descriptionEs:'Grises neutros y elegantes',
   bg:'#e4e7e9',surface:'#f6f7f8',subtle:'#e4e8eb',text:'#222c33',muted:'#4f606b',border:'#bec7ce',accent:'#354957',accentText:'#ffffff',bar:'#eceff1'}),
  mix:Object.freeze({name:'Color Mix',nameEs:'Colores',description:'Balanced colors by module',descriptionEs:'Colores equilibrados por módulo',
