@@ -1,3 +1,4 @@
+import {attachMobileFieldGuide} from './mobile-field-workflow.js';
 // G&E ONE: adaptive presentation layer. Data, permissions, navigation and PDFs stay in main.js.
 export const DISPLAY_MODE_STORAGE_KEY = 'ge_one_display_mode_v1';
 const VALID_PREFERENCES = new Set(['auto', 'mobile', 'desktop']);
@@ -53,6 +54,7 @@ export function installMobileExperience({win = window, doc = document} = {}) {
 
 export function decorateMobileFrame({doc = document, mobile, tr = (en) => en, invitation = false} = {}) {
   if (!mobile) return;
+  attachMobileFieldGuide({doc, tr});
   // main.js renders every page in the existing frame. Extend rather than replace the form.
   const settingsLanguage = doc.getElementById('settings-language');
   if (settingsLanguage && !invitation && !doc.getElementById('ge-display-mode')) {
