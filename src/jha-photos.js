@@ -1,6 +1,6 @@
 const controllers=new WeakMap();
 export function jhaPhotoController(form){return controllers.get(form)}
-export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onError}){
+export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onError,allowLocalFinalUpload=false}){
  if(controllers.has(form))return controllers.get(form);
  const fields=new Map();let queue=Promise.resolve();
  const enqueue=task=>{const pending=queue.then(task);queue=pending.catch(onError);return pending};
@@ -40,11 +40,26 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
   input.addEventListener('change',()=>{
    if(form.dataset.submitting==='true')return;
    const selected=[...input.files].map(file=>({file}));if(!selected.length)return;input.value='';entries.push(...selected);draw();
-   enqueue(async()=>{try{const saved=await add(input.name,selected.map(entry=>entry.file));saved.forEach((item,i)=>{selected[i].item=item;selected[i].error=null});draw()}catch(err){selected.forEach(entry=>entry.error=err);throw err}});
+   enqueue(async()=>{try{const saved=await add(input.name,selected.map(entry=>entry.file));saved.forEach((item,i)=>{selected[i].item=item;selected[i].error=null});draw()}catch(err){
+    // A draft-storage failure must not permanently reject a selected JHA photo.
+    // Its original File is still in memory and is uploaded with the final report.
+    // Restored draft items without local files retain strict integrity checks.
+    if(allowLocalFinalUpload){
+     selected.forEach(entry=>{entry.error=null;entry.localOnly=true});
+     draw();
+     const status=document.createElement('p');
+     status.className='jha-photo-local-warning';
+     status.setAttribute('role','status');
+     status.textContent=tr('Photo retained on this device. Complete the report to attach it; do not reload this page.','Foto conservada en este dispositivo. Complete el reporte para adjuntarla; no recargue la página.');
+     gallery.append(status);
+     return;
+    }
+    selected.forEach(entry=>entry.error=err);throw err
+   }});
   });
   draw();
  }
- const controller={async files(name){await queue;const entries=fields.get(name)||[];if(entries.some(entry=>entry.error))throw entries.find(entry=>entry.error).error;return Promise.all(entries.map(entry=>entry.file||download(entry.item)))}};
+ const controller={async files(name){await queue;const entries=fields.get(name)||[];if(entries.some(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)))throw entries.find(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)).error;return Promise.all(entries.map(entry=>entry.file||download(entry.item)))}};
  controllers.set(form,controller);
  const observer=new MutationObserver(()=>{if(form.isConnected)return;for(const entries of fields.values())for(const entry of entries)if(entry.url)URL.revokeObjectURL(entry.url);observer.disconnect()});observer.observe(document.body,{childList:true,subtree:true});
  return controller;

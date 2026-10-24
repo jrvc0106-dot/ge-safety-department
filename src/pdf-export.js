@@ -13,19 +13,27 @@ export function pdfCanvasPageIsBlank(canvas,{documentRef=globalThis.document}={}
  let sample;
  try{
   sample=documentRef.createElement('canvas');
-  sample.width=64;sample.height=80;
+  // Sample four times as many pixels as the old 64x80 scan: tiny PDF
+  // lettering no longer disappears into antialiasing during downscaling.
+  sample.width=128;sample.height=160;
   const context=sample.getContext?.('2d',{willReadFrequently:true});
   if(!context?.drawImage||!context?.getImageData)return false;
   context.drawImage(canvas,0,0,sample.width,sample.height);
   const data=context.getImageData(0,0,sample.width,sample.height).data;
-  let dark=0;
-  for(let i=0;i<data.length;i+=4){
+  let ink=0,headerInk=0;
+  for(let y=2;y<sample.height-2;y++)for(let x=3;x<sample.width-3;x++){
+   const i=(y*sample.width+x)*4;
    const alpha=data[i+3]/255;
-   if(alpha>0.15&&Math.min(data[i],data[i+1],data[i+2])<235)dark++;
+   // Ignore faint watermark and nearly-white page-border artifacts, but
+   // preserve actual dark text and logos at the start of the JHA.
+   if(alpha>.15&&Math.min(data[i],data[i+1],data[i+2])<205){
+    ink++;
+    if(y<sample.height*.35)headerInk++;
+   }
   }
-  // A legitimate title/logo/header occupies more than 0.2% of this sample.
-  // A pale watermark alone is not considered sufficient report content.
-  return dark<10;
+  // Only the first JHA raster may be dropped. A real cover has an inked
+  // heading in its upper third; a false blank has none or only a faint logo.
+  return ink<26||(headerInk<9&&ink<280);
  }catch{return false}
  finally{if(sample){sample.width=0;sample.height=0}}
 }

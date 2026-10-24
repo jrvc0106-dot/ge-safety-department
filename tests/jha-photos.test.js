@@ -23,3 +23,50 @@ test('removing a photo during upload waits for its storage ID and prevents it fr
  const controller=attachJhaPhotos(form,{list:()=>[],add:async()=>{await gate;return [{path:'uploaded',name:'image.jpg'}]},remove:async(_,item)=>removed.push(item.path),preview:async()=>'',download:async()=>{},tr:x=>x,onError:e=>errors.push(e)});
  try{Object.defineProperty(input,'files',{value:[Object.assign(new Blob(['image']),{name:'image.jpg'})]});input.dispatchEvent(new dom.window.Event('change'));form.querySelector('button').click();resolve();assert.deepEqual(await controller.files('photos_0'),[]);assert.deepEqual(removed,['uploaded']);assert.deepEqual(errors,[])}finally{form.remove();await Promise.resolve();Object.assign(globalThis,previous);dom.window.close()}
 });
+
+
+test('JHA camera photo remains attachable at final submit even when draft cloud sync fails',async()=>{
+ const dom=new JSDOM('<form><input type="file" name="photos_0" multiple></form>');
+ const prev={document:globalThis.document,MutationObserver:globalThis.MutationObserver};
+ globalThis.document=dom.window.document;globalThis.MutationObserver=dom.window.MutationObserver;
+ const form=document.querySelector('form'),input=form.querySelector('input'),errors=[];
+ let retries=0;
+ const controller=attachJhaPhotos(form,{
+  list:()=>[],
+  add:async()=>{retries++;throw Error('Draft evidence network unavailable')},
+  remove:async()=>{},preview:async()=>'',download:async()=>{},
+  allowLocalFinalUpload:true,tr:x=>x,onError:e=>errors.push(e)
+ });
+ const photo=Object.assign(new Blob(['ipad camera content'],{type:'image/jpeg'}),{name:'site-photo.jpg'});
+ try{
+  Object.defineProperty(input,'files',{configurable:true,value:[photo]});
+  input.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
+  const collected=await controller.files('photos_0');
+  assert.equal(retries,1);
+  assert.equal(collected.length,1);
+  assert.strictEqual(collected[0],photo,'The original camera photo is used at final submission');
+  assert.equal(errors.length,0,'Transient draft failures must not block the final JHA');
+  assert.match(form.querySelector('.jha-photo-local-warning')?.textContent||'',/Photo retained on this device/);
+  assert.equal(form.querySelectorAll('.jha-photo-card img').length,1);
+ }finally{form.remove();Object.assign(globalThis,prev);dom.window.close()}
+});
+
+test('other photo modules continue to block failed draft evidence until user retries',async()=>{
+ const dom=new JSDOM('<form><input type="file" name="photos_0"></form>');
+ const prev={document:globalThis.document,MutationObserver:globalThis.MutationObserver};
+ globalThis.document=dom.window.document;globalThis.MutationObserver=dom.window.MutationObserver;
+ const form=document.querySelector('form'),input=form.querySelector('input'),errors=[];
+ const controller=attachJhaPhotos(form,{
+  list:()=>[],add:async()=>{throw Error('Cloud sync failed')},
+  remove:async()=>{},preview:async()=>'',download:async()=>{},tr:x=>x,onError:e=>errors.push(e)
+ });
+ try{
+  Object.defineProperty(input,'files',{configurable:true,value:[Object.assign(new Blob(['img'],{type:'image/jpeg'}),{name:'site.jpg'})]});
+  input.dispatchEvent(new dom.window.Event('change'));
+  // Non-JHA modules retain existing behavior (their upload integrity is unchanged).
+  await assert.rejects(controller.files('photos_0'),/Cloud sync failed/);
+  await Promise.resolve();
+  assert.equal(errors.length,1);
+  assert.equal(form.querySelector('.jha-photo-local-warning'),null);
+ }finally{form.remove();Object.assign(globalThis,prev);dom.window.close()}
+});
