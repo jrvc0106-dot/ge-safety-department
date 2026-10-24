@@ -386,7 +386,7 @@ async function enableAutoDraft(form,type,key='default'){
    const result=await db.storage.from('draft-evidence').download(item.path);
    if(result.error)throw result.error;
    return new File([result.data],item.name,{type:item.type||result.data.type});
-  },tr,onError:error
+  },tr,onError:error,allowLocalFinalUpload:type==='daily_safety_walk'
  });
  return restored;
 }
