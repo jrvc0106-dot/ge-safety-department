@@ -1,3 +1,4 @@
+import {deviceKindFromWindow} from './report-device-pdf.js';
 import {attachMobileFieldGuide} from './mobile-field-workflow.js';
 // G&E ONE: adaptive presentation layer. Data, permissions, navigation and PDFs stay in main.js.
 export const DISPLAY_MODE_STORAGE_KEY = 'ge_one_display_mode_v1';
@@ -27,6 +28,7 @@ export function installMobileExperience({win = window, doc = document} = {}) {
     const mode = resolveDisplayMode(preference, width, phoneLike);
     doc.documentElement.dataset.geDisplayPreference = preference;
     doc.documentElement.dataset.geDisplayMode = mode;
+    doc.documentElement.dataset.geReportDevice = deviceKindFromWindow(win);
     return mode;
   };
   const onResize = () => apply();
@@ -47,6 +49,7 @@ export function installMobileExperience({win = window, doc = document} = {}) {
       win.removeEventListener('resize', onResize);
       win.removeEventListener('orientationchange', onResize);
       delete doc.documentElement.dataset.geDisplayMode;
+      delete doc.documentElement.dataset.geReportDevice;
       delete doc.documentElement.dataset.geDisplayPreference;
     }
   };
