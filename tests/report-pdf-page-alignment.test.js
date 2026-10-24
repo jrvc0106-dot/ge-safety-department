@@ -9,7 +9,7 @@ function layout(kind,blocks){
  }));
  const inserted=[];
  const parent={insertBefore(spacer,node){
-  const amount=Number(spacer.style.cssText.match(/height:([\\d.]+)px/)?.[1]||0);
+  const amount=Number(spacer.style.cssText.match(/height:([\d.]+)px/)?.[1]||0);
   inserted.push({before:node.index,height:amount});
   for(const later of nodes)if(later.index>=node.index)later.shift+=amount;
  }};
@@ -65,6 +65,6 @@ test('Non-JHA and non-equipment reports keep their existing pagination',()=>{
 test('Only high quality paginated PDF exporter receives the new alignment guard',async()=>{
  const {readFileSync}=await import('node:fs');
  const source=readFileSync(new URL('../src/pdf-export.js',import.meta.url),'utf8');
- assert.match(source,/alignCriticalReportPdfBlocks\\(container,pageHeight\\);/);
- assert.match(source,/const totalHeight=Math.max\\(1,container.scrollHeight\\)/);
+ assert.match(source,/alignCriticalReportPdfBlocks\(container,pageHeight\);/);
+ assert.match(source,/const totalHeight=Math.max\(1,container.scrollHeight\)/);
 });
