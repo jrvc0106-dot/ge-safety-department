@@ -34,8 +34,8 @@ test('JHA first fully white canvas is not exported as a blank opening page',asyn
  globalThis.document={createElement:()=>({
   width:0,height:0,getContext(){return{
    drawImage(canvas){this.source=canvas},
-   getImageData(){const data=new Uint8ClampedArray(64*80*4);data.fill(255);
-    if(this.source?.ink)for(let i=0;i<120;i++){const p=i*4;data[p]=20;data[p+1]=20;data[p+2]=20}
+   getImageData(){const data=new Uint8ClampedArray(128*160*4);data.fill(255);
+    if(this.source?.ink)for(let i=0;i<120;i++){const p=((10+Math.floor(i/90))*128+6+(i%90))*4;data[p]=20;data[p+1]=20;data[p+2]=20}
     return{data};
    }
   }}
