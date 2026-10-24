@@ -2,11 +2,27 @@ const DB_NAME='ge-offline-drafts-v1',STORE='evidence';
 let dbPromise;
 function openDb(){
  if(!('indexedDB' in globalThis))return Promise.reject(new Error('IndexedDB unavailable'));
- if(!dbPromise)dbPromise=new Promise((resolve,reject)=>{
-  const request=indexedDB.open(DB_NAME,1);
-  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'})};
-  request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||new Error('IndexedDB open failed'));
- });
+ if(!dbPromise){
+  const pending=new Promise((resolve,reject)=>{
+   let rejected=false;
+   const request=indexedDB.open(DB_NAME,1);
+   request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE,{keyPath:'id'})};
+   request.onerror=()=>{rejected=true;reject(request.error||new Error('IndexedDB open failed'))};
+   request.onblocked=()=>{rejected=true;reject(new Error('Offline storage is blocked by another tab. Close other GE ONE tabs and retry.'))};
+   request.onsuccess=()=>{
+    const db=request.result;
+    if(rejected){db.close();return}
+    db.onversionchange=()=>{
+     db.close();
+     dbPromise=null; // A new session can reopen the upgraded store.
+    };
+    resolve(db);
+   };
+  });
+  // iOS can transiently reject IndexedDB opens. Never cache a rejected promise
+  // indefinitely; allow an explicit retry without losing the draft form.
+  dbPromise=pending.catch(err=>{dbPromise=null;throw err});
+ }
  return dbPromise;
 }
 export async function putOfflineDraftFile(id,file){
