@@ -43,6 +43,9 @@ import './style.css';
 import './report-groups.css';
 import {groupFinalWalkReportsByCreator} from './report-groups.js';
 import {installTabletViewport} from './tablet-viewport.js';
+import {installMobileExperience,decorateMobileFrame} from './mobile-experience.js';
+import './mobile-experience.css';
+import './mobile-field-workflow.css';
 import {normalizeMemberEmail,matchOrientationWarnings,summarizeOrientationWarnings,isFormalOrientationWarning} from './team-identity.js';
 import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from './quick-safety-orientation.js';
 import {registeredSafetyOrientationReport} from './registered-safety-orientation-report.js';
@@ -58,6 +61,7 @@ const db=url&&key?createClient(url,key):null;
 const app=document.querySelector('#app');
 const acceptingInvitation=isTeamInviteActivation(window.location.search,window.location.hash);const state={session:null,profile:null,projects:[],project:null,projectUserId:null,observations:[],lang:localStorage.getItem('ge_lang')||'en',page:acceptingInvitation?'setPassword':'home',acceptingInvitation,inviteLink:null,detail:null,history:[]};
 const tr=(en,es)=>state.lang==='es'?es:en;
+const mobileExperience=installMobileExperience({win:window,doc:document});
 // Capture finalization before form-specific submit handlers without changing draft saving.
 const FINALIZATION_FORM_KINDS={'walk-form':'daily','inventory-form':'inventory','equipment-form':'equipment','incident-form':'incident','discipline-form':'discipline','observation':'observation','correction':'correction'};
 document.addEventListener('submit',event=>{
@@ -156,15 +160,29 @@ async function persistDraft(form,type,key='default'){
  const context=formDraftKey(form,type,key),userId=owner.user,projectId=owner.project;
  clearTimeout(draftLocalTimers.get(context));draftLocalTimers.delete(context);
  const payload=serializeDraftForm(form,type,key),localKey='ge_draft_v1:'+formDraftKey(form,type,key),record={payload,updated_at:new Date().toISOString()};
- try{localStorage.setItem(localKey,JSON.stringify(record))}catch{}
+ let localSaved=false;
+ try{localStorage.setItem(localKey,JSON.stringify(record));localSaved=true}catch{}
  setDraftStatus(form,tr('Saving draft…','Guardando borrador…'),'saving');
  const previous=draftWrites.get(context)||Promise.resolve();
  const write=previous.catch(()=>{}).then(async()=>{
   if(form.dataset.autoDraft==='false')return;
-  if(globalThis.navigator?.onLine===false){if(form.isConnected&&form.dataset.autoDraft!=='false')setDraftStatus(form,tr('Saved on this device · waiting to sync','Guardado en este dispositivo · pendiente de sincronizar'),'local');return}
+  if(globalThis.navigator?.onLine===false){
+   if(!localSaved){
+    setDraftStatus(form,tr('Draft NOT saved. Device storage is full or unavailable.','Borrador NO guardado. El almacenamiento del dispositivo está lleno o no disponible.'),'error');
+    throw Error('Offline draft could not be stored on this device.');
+   }
+   if(form.isConnected&&form.dataset.autoDraft!=='false')setDraftStatus(form,tr('Saved on this device · waiting to sync','Guardado en este dispositivo · pendiente de sincronizar'),'local');
+   return;
+  }
   let result;try{result=await db.from('form_drafts').upsert({user_id:userId,project_id:projectId,form_type:type,draft_key:key,payload,current_field:document.activeElement?.name||null,status:'active',updated_at:record.updated_at},{onConflict:'user_id,project_id,form_type,draft_key'})}catch{result={error:true}}
   if(!form.isConnected||form.dataset.autoDraft==='false')return;
-  if(result.error){setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return}
+  if(result.error){
+   if(!localSaved){
+    setDraftStatus(form,tr('Draft NOT saved. Reconnect or free device storage.','Borrador NO guardado. Reconecte o libere espacio en el dispositivo.'),'error');
+    throw Error('Draft could not be saved locally or in the cloud.');
+   }
+   setDraftStatus(form,tr('Saved on this device · Cloud sync pending','Guardado en este dispositivo · Sincronización pendiente'),'local');return;
+  }
   setDraftStatus(form,tr('Draft saved ✓','Borrador guardado ✓'),'saved');
  });
  draftWrites.set(context,write);
@@ -340,9 +358,24 @@ async function enableAutoDraft(form,type,key='default'){
  if(type==='daily_safety_walk'||type==='equipment_inspection'||type==='observation')attachJhaPhotos(form,{
   list:name=>(draftFileState.get(formDraftKey(form,type,key))||{})[name]||[],
   add:(name,files)=>uploadDraftFiles(form,type,key,{name,files}),
-  remove:async(name,item)=>{const ctx=formDraftKey(form,type,key),all=draftFileState.get(ctx)||{},previous=all[name]||[];all[name]=previous.filter(photo=>photo.path!==item.path);draftFileState.set(ctx,all);try{await persistDraft(form,type,key)}catch(err){all[name]=previous;throw err}renderDraftFileBadges(form,all);await db.storage.from('draft-evidence').remove([item.path])},
-  preview:item=>signedDisplayImage('draft-evidence',item.path,3600),
-  download:async item=>{if(type==='observation'&&item.localId){const local=await getOfflineDraftFile(item.localId);if(local)return local}const result=await db.storage.from('draft-evidence').download(item.path);if(result.error)throw result.error;return new File([result.data],item.name,{type:item.type||result.data.type})},tr,onError:error
+  remove:async(name,item)=>{const ctx=formDraftKey(form,type,key),all=draftFileState.get(ctx)||{},previous=all[name]||[];all[name]=previous.filter(photo=>photo.path!==item.path);draftFileState.set(ctx,all);try{await persistDraft(form,type,key)}catch(err){all[name]=previous;throw err}renderDraftFileBadges(form,all);
+   // Offline removal must work without a network call. Cleanup failures leave an
+   // orphaned temporary file, not a deleted photo returning to the report.
+   if(item.localId)await deleteOfflineDraftFiles([item.localId]).catch(()=>{});
+   else await db.storage.from('draft-evidence').remove([item.path]).catch(()=>{});
+  },
+  preview:async item=>{
+   // Offline evidence must reopen from this device, not from an unreachable URL.
+   if(item.localId){const local=await getOfflineDraftFile(item.localId);if(local)return URL.createObjectURL(local)}
+   return signedDisplayImage('draft-evidence',item.path,3600);
+  },
+  download:async item=>{
+   // All JHA, Equipment and Observation drafts use the same local-first evidence policy.
+   if(item.localId){const local=await getOfflineDraftFile(item.localId);if(local)return local}
+   const result=await db.storage.from('draft-evidence').download(item.path);
+   if(result.error)throw result.error;
+   return new File([result.data],item.name,{type:item.type||result.data.type});
+  },tr,onError:error
  });
  return restored;
 }
@@ -740,28 +773,44 @@ async function syncPendingDraftEvidence(){
  const allowed=new Set(state.projects.map(x=>x.id)),prefix='ge_draft_v1:'+state.profile.id+':';
  for(let i=0;i<localStorage.length;i++){
   const storageKey=localStorage.key(i);if(!storageKey?.startsWith(prefix))continue;
-  let record;try{record=JSON.parse(localStorage.getItem(storageKey)||'{}')}catch{continue}
+  const originalDraft=localStorage.getItem(storageKey);
+  let record;try{record=JSON.parse(originalDraft||'{}')}catch{continue}
   const parts=storageKey.slice(prefix.length).split(':'),projectId=parts.shift(),type=parts.shift(),draftKey=parts.join(':');
   if(!allowed.has(projectId)||!record.payload?.__files)continue;
-  let changed=false;
-  for(const items of Object.values(record.payload.__files)){
-   for(const item of items||[]){
-    if(!item.localId)continue;
+  // Stage uploaded changes separately. Never delete local originals before BOTH
+  // cloud metadata and the updated local draft have been confirmed.
+  const updated=JSON.parse(JSON.stringify(record)),uploaded=[];
+  for(const [field,items] of Object.entries(record.payload.__files)){
+   for(let index=0;index<(items||[]).length;index++){
+    const item=items[index];if(!item?.localId)continue;
     try{
      const file=await getOfflineDraftFile(item.localId);if(!file)continue;
-     const uploadResult=await db.storage.from('draft-evidence').upload(item.path,file,{contentType:item.type||file.type,upsert:true});
-     if(uploadResult.error)continue;
-     const removedLocalId=item.localId;await deleteOfflineDraftFiles([removedLocalId]).catch(()=>{});
-     for(const localFiles of draftFileState.values())for(const group of Object.values(localFiles))for(const savedFile of group||[])if(savedFile.localId===removedLocalId)delete savedFile.localId;
-     delete item.localId;changed=true;
+     const result=await db.storage.from('draft-evidence').upload(item.path,file,{contentType:item.type||file.type,upsert:true});
+     if(result.error)continue;
+     delete updated.payload.__files[field][index].localId;
+     uploaded.push(item.localId);
     }catch{}
    }
   }
-  if(!changed)continue;
+  if(!uploaded.length)continue;
+  // Do not overwrite edits made while photo uploads were in flight.
+  if(localStorage.getItem(storageKey)!==originalDraft)continue;
   try{
-   localStorage.setItem(storageKey,JSON.stringify(record));
-   await db.from('form_drafts').upsert({user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,payload:record.payload,status:'active',updated_at:record.updated_at||new Date().toISOString()},{onConflict:'user_id,project_id,form_type,draft_key'});
-  }catch{}
+   const result=await db.from('form_drafts').upsert({
+    user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,
+    payload:updated.payload,status:'active',updated_at:updated.updated_at||new Date().toISOString()
+   },{onConflict:'user_id,project_id,form_type,draft_key'});
+   if(result.error)continue;
+   if(localStorage.getItem(storageKey)!==originalDraft)continue;
+   localStorage.setItem(storageKey,JSON.stringify(updated));
+  }catch{continue}
+  // Two stores now have the uploaded evidence paths. Cleanup is safe to retry
+  // or skip; an orphaned local file is preferable to lost report evidence.
+  const synced=new Set(uploaded);
+  for(const files of draftFileState.values())for(const group of Object.values(files))for(const item of group||[]){
+   if(synced.has(item.localId))delete item.localId;
+  }
+  await deleteOfflineDraftFiles(uploaded).catch(()=>{});
  }
  for(const form of document.querySelectorAll('form[data-auto-draft="true"]'))renderDraftFileBadges(form,draftFileState.get(formDraftKey(form,DRAFT_FORMS[form.id],form.id==='correction'?(state.detail||'default'):'default'))||{});
 }
@@ -871,7 +920,7 @@ function installFormSubmissionGuards(){
   };
  }
 }
-function frame(body){app.innerHTML=`<header><div class="brand"><img src="/ge-logo.png" alt="G&E Florida Contractors"><span>G&E ONE <small>SAFETY DEPARTMENT</small></span></div><nav>${state.session&&state.page!=='home'?'<button id="global-back" class="home-nav" aria-label="'+tr('Back','Atrás')+'">← <span>'+tr('Back','Atrás')+'</span></button><button id="global-home" class="home-nav" aria-label="'+tr('Home','Inicio')+'">⌂ <span>'+tr('Home','Inicio')+'</span></button>':''}${state.session?'<button id="notification-menu" class="notification-menu" type="button" aria-label="'+tr('Notifications','Notificaciones')+'" title="'+tr('Notifications','Notificaciones')+'"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg><span id="notification-count" aria-hidden="true"></span></button>':''}${state.session?'<button id="password-menu">'+tr('Settings','Configuración')+'</button>':''}</nav></header><div id="message" role="alert"></div><main>${body}</main>${state.session&&state.page!=='home'?'<div class="device-back-bar"><button id="mobile-global-back" class="mobile-nav-button mobile-back-button" aria-label="'+tr('Back','Atrás')+'"><span>←</span><small>'+tr('Back','Atrás')+'</small></button><button id="mobile-global-home" class="mobile-nav-button mobile-home-button" aria-label="'+tr('Home','Inicio')+'"><span>⌂</span><small>'+tr('Home','Inicio')+'</small></button></div>':''}`;const mb=document.querySelector('#mobile-global-back'),mh=document.querySelector('#mobile-global-home');if(mb)mb.onclick=back;if(mh)mh.onclick=()=>navigate('home');if(state.session){const nm=document.querySelector('#notification-menu');if(nm){nm.onclick=()=>navigate('notifications');db.from('notifications').select('id',{count:'exact',head:true}).is('read_at',null).then(({count})=>{const el=document.querySelector('#notification-count');if(el&&count){el.textContent=count>99?'99+':String(count);el.classList.add('show');const button=el.closest('#notification-menu');if(button){button.classList.add('has-unread');button.setAttribute('aria-label',tr('Notifications','Notificaciones')+' — '+count+' '+tr('unread','sin leer'))}}})}const b=document.querySelector('#global-back');if(b)b.onclick=back;const h=document.querySelector('#global-home');if(h)h.onclick=()=>navigate('home');document.querySelector('#password-menu').onclick=()=>navigate('setPassword')}queueMicrotask(()=>{displayImageCache.collect(new Set([...document.querySelectorAll('img')].map(img=>img.src)));activateOperationalDrafts();installFormSubmissionGuards();installAiWritingTools()})}
+function frame(body){app.innerHTML=`<header><div class="brand"><img src="/ge-logo.png" alt="G&E Florida Contractors"><span>G&E ONE <small>SAFETY DEPARTMENT</small></span></div><nav>${state.session&&state.page!=='home'?'<button id="global-back" class="home-nav" aria-label="'+tr('Back','Atrás')+'">← <span>'+tr('Back','Atrás')+'</span></button><button id="global-home" class="home-nav" aria-label="'+tr('Home','Inicio')+'">⌂ <span>'+tr('Home','Inicio')+'</span></button>':''}${state.session?'<button id="notification-menu" class="notification-menu" type="button" aria-label="'+tr('Notifications','Notificaciones')+'" title="'+tr('Notifications','Notificaciones')+'"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path><path d="M10 21h4"></path></svg><span id="notification-count" aria-hidden="true"></span></button>':''}${state.session?'<button id="password-menu">'+tr('Settings','Configuración')+'</button>':''}</nav></header><div id="message" role="alert"></div><main>${body}</main>${state.session&&state.page!=='home'?'<div class="device-back-bar"><button id="mobile-global-back" class="mobile-nav-button mobile-back-button" aria-label="'+tr('Back','Atrás')+'"><span>←</span><small>'+tr('Back','Atrás')+'</small></button><button id="mobile-global-home" class="mobile-nav-button mobile-home-button" aria-label="'+tr('Home','Inicio')+'"><span>⌂</span><small>'+tr('Home','Inicio')+'</small></button></div>':''}`;decorateMobileFrame({doc:document,mobile:mobileExperience,tr,invitation:state.acceptingInvitation});const mb=document.querySelector('#mobile-global-back'),mh=document.querySelector('#mobile-global-home');if(mb)mb.onclick=back;if(mh)mh.onclick=()=>navigate('home');if(state.session){const nm=document.querySelector('#notification-menu');if(nm){nm.onclick=()=>navigate('notifications');db.from('notifications').select('id',{count:'exact',head:true}).is('read_at',null).then(({count})=>{const el=document.querySelector('#notification-count');if(el&&count){el.textContent=count>99?'99+':String(count);el.classList.add('show');const button=el.closest('#notification-menu');if(button){button.classList.add('has-unread');button.setAttribute('aria-label',tr('Notifications','Notificaciones')+' — '+count+' '+tr('unread','sin leer'))}}})}const b=document.querySelector('#global-back');if(b)b.onclick=back;const h=document.querySelector('#global-home');if(h)h.onclick=()=>navigate('home');document.querySelector('#password-menu').onclick=()=>navigate('setPassword')}queueMicrotask(()=>{displayImageCache.collect(new Set([...document.querySelectorAll('img')].map(img=>img.src)));activateOperationalDrafts();installFormSubmissionGuards();installAiWritingTools()})}
 function splash(){sessionStorage.setItem('ge_splash_seen','1');app.innerHTML=`<section class="ge-splash"><div class="splash-overlay"></div><div class="splash-brand"><img src="/ge-logo.png" alt="G&E Florida Contractors"><h1>SAFETY DEPARTMENT</h1><p>PEOPLE &nbsp; | &nbsp; SAFETY &nbsp; | &nbsp; RESULTS</p></div><div class="splash-bottom"><strong>${tr('BUILDING A SAFER TOMORROW','CONSTRUYENDO UN MAÑANA MÁS SEGURO')}</strong><span>G&E SAFETY • v1.0</span></div></section>`;setTimeout(()=>{if(!state.session)login()},1350)}
 let renderRevision=0;
 function captureView(){const revision=renderRevision,user=state.session?.user?.id,project=state.project,page=state.page,detail=state.detail;return ()=>revision===renderRevision&&user===state.session?.user?.id&&project===state.project&&page===state.page&&detail===state.detail}

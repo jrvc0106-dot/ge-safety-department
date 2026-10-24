@@ -1,3 +1,4 @@
+import {equipmentDateTimeInput,equipmentInspectionUtc,equipmentDay,equipmentReportDate} from '../src/equipment-datetime.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -9,7 +10,7 @@ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=
 function fn(name){const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);return source.slice(node.start,node.end)}
 for(const count of [0,1,6,7,13])test(`equipment report retains all ${count} photos in groups of six`,async()=>{
  const record={report_number:'EI-TEST',equipment_name:'Forklift',project:{name:'Project'},location:'Test Area',inspector_name:'Safety',checklist:[{item:'Existing check',result:'pass',note:'Existing finding'}],overall_status:'approved',photos:Array.from({length:count},(_,i)=>({path:String(i)}))};let html;
- const ctx=vm.createContext({state:{project:'project',detail:'record'},db:{from(){return{select(){return this},eq(){return this},single:async()=>({data:record})}}},captureView:()=>()=>true,frame:s=>html=s,signedDisplayImage:async(_,path)=>'photo-'+path,tr:x=>x,esc:x=>String(x??''),fmt:x=>x,equipmentInspectionTypes:{},reportSignaturesReport:()=>'<div>Saved signatures</div>',error:e=>{throw e}});
+ const ctx=vm.createContext({state:{project:'project',detail:'record'},db:{from(){return{select(){return this},eq(){return this},single:async()=>({data:record})}}},captureView:()=>()=>true,frame:s=>html=s,signedDisplayImage:async(_,path)=>'photo-'+path,tr:x=>x,esc:x=>String(x??''),fmt:x=>x,equipmentReportDate,equipmentInspectionTypes:{},reportSignaturesReport:()=>'<div>Saved signatures</div>',error:e=>{throw e}});
  vm.runInContext(fn('equipmentInspectionReport'),ctx);await ctx.equipmentInspectionReport();const dom=new JSDOM(html),doc=dom.window.document;
  assert.deepEqual([...doc.querySelectorAll('.eq-photo-page')].map(p=>p.querySelectorAll('img').length),Array.from({length:Math.ceil(count/6)},(_,i)=>Math.min(6,count-i*6)));
  assert.deepEqual([...doc.querySelectorAll('.eq-photos img')].map(img=>img.getAttribute('src')),Array.from({length:count},(_,i)=>'photo-'+i));
