@@ -59,7 +59,7 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
   });
   draw();
  }
- const controller={async files(name){await queue;const entries=fields.get(name)||[];if(entries.some(entry=>entry.error&&!entry.file))throw entries.find(entry=>entry.error&&!entry.file).error;return Promise.all(entries.map(entry=>entry.file||download(entry.item)))}};
+ const controller={async files(name){await queue;const entries=fields.get(name)||[];if(entries.some(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)))throw entries.find(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)).error;return Promise.all(entries.map(entry=>entry.file||download(entry.item)))}};
  controllers.set(form,controller);
  const observer=new MutationObserver(()=>{if(form.isConnected)return;for(const entries of fields.values())for(const entry of entries)if(entry.url)URL.revokeObjectURL(entry.url);observer.disconnect()});observer.observe(document.body,{childList:true,subtree:true});
  return controller;
