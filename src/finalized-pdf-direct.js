@@ -1,4 +1,5 @@
 import {isValidPdfBlob} from './report-pdf-quality.js';
+import {reportExportFilename} from './report-export-filename.js';
 
 // This path opens the already-finalized document; it never reconstructs a
 // report, uploads a new revision, or changes source signatures/photos.
@@ -17,9 +18,13 @@ export function indexFinalPdfDocuments(rows,projectId){
 }
 
 export function archivedPdfFilename(entry){
- const number=String(entry?.report_number||'Final-Report').replace(/[^A-Za-z0-9_-]/g,'-').slice(0,90)||'Final-Report';
- const version=Math.max(1,Number(entry?.version)||1);
- return 'GE-ONE-'+number+'-v'+version+'.pdf';
+ return reportExportFilename({
+  title:entry?.title,
+  reportType:entry?.report_type,
+  equipmentType:entry?.report_type==='equipment_inspection'?entry?.title:undefined,
+  originalDate:entry?.original_report_date||entry?.snapshot?.original_report_date||
+   entry?.inspection_at||entry?.incident_at||entry?.orientation_date||entry?.created_at
+ });
 }
 
 // Creates a short-lived signed link and inspects file size in parallel.
