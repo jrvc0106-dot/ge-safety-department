@@ -420,6 +420,8 @@ async function ensurePdfExporter(){
   catch{throw new Error(tr('PDF tools could not load. Check your connection and try again.','No se pudieron cargar las herramientas PDF. Revise su conexión e intente nuevamente.'))}
 }
 const preparedReportPdfs=new WeakMap();
+// Share one expensive PDF rendering task when automatic archiving and a user action overlap.
+const pendingReportPdfs=new WeakMap();
 const jhaReportImageUrls=new WeakMap();
 let activeJhaPdfReport=null;
 function releaseJhaPdfResources(report){
@@ -541,6 +543,16 @@ function alignEquipmentPhotoPageStarts(container,pageHeight){if(!container.query
 async function buildReportPdf(highQuality=false){
   const report=document.querySelector('article.report');
   if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
+  const cached=preparedReportPdf(report,highQuality);
+  if(cached)return cached;
+  const running=pendingReportPdfs.get(report);
+  if(running&&(running.highQuality||!highQuality))return running.promise;
+  // The generator retains the existing fonts, image, signature, pagination, PDF
+  // integrity checks and archival behavior, but runs only once for each quality.
+  const generate=async()=>{
+
+  const report=document.querySelector('article.report');
+  if(!report)throw new Error(tr('Report document not found.','No se encontró el documento del reporte.'));
   if(report.dataset?.loading==='true')throw new Error(tr('The report is still loading. Please wait before exporting.','El reporte sigue cargando. Espere antes de exportar.'));
   if(report.dataset?.loading==='error')throw new Error(tr('The report could not finish loading. Reopen it before exporting.','El reporte no terminó de cargar. Vuelva a abrirlo antes de exportar.'));
   const cached=preparedReportPdf(report,highQuality);if(cached)return cached;
@@ -615,6 +627,11 @@ async function buildReportPdf(highQuality=false){
     });
   }
   return prepared;
+  };
+  const promise=generate();
+  pendingReportPdfs.set(report,{highQuality,promise});
+  try{return await promise}
+  finally{if(pendingReportPdfs.get(report)?.promise===promise)pendingReportPdfs.delete(report)}
 }
 async function auditMedicalPdfAction(action,report){
  if(report?.dataset?.toolKind!=='medical_followup'||!['download','share'].includes(action))return;
