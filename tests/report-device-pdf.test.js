@@ -71,3 +71,29 @@ test('mobile UI marker does not change saved report data or PDF exports',async()
  assert.match(mobile,/dataset\.geReportDevice = deviceKindFromWindow\(win\)/);
  assert.match(exportCode,/applyAdaptiveReportPdfLayout\(container,pageSize/);
 });
+
+
+test('six JHA photos remain together while unusually long finding text moves intact to a continuation page',()=>{
+ const {dom,container}=makeReport('jha',6);
+ try{
+  const page=container.querySelector('.ewr-photo-page');
+  page.getBoundingClientRect=()=>({height:1170});
+  const original=[...page.querySelectorAll('figure>p')].map(p=>p.textContent);
+  const result=applyAdaptiveReportPdfLayout(container,{inner:{width:8,px:{height:1003}}},{sourceDevice:'mobile'});
+  const continuation=container.querySelector('.ge-pdf-photo-notes');
+  assert.equal(result.photoPages,1);
+  assert.equal(page.querySelectorAll('figure img').length,6);
+  assert.equal(continuation.querySelectorAll('.ge-pdf-photo-note').length,6);
+  assert.deepEqual([...continuation.querySelectorAll('p')].map(p=>p.textContent),original);
+  assert.equal(page.querySelectorAll('figure>p').length,0);
+  assert.equal(continuation.querySelector('h2').textContent.includes('continued'),true);
+ }finally{dom.window.close()}
+});
+test('PDF export uses a single post-layout photo alignment to avoid blank iPad or phone sheets',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ const expr=main.slice(main.indexOf("}else if(highQuality){"),main.indexOf("}else{",main.indexOf("}else if(highQuality){")));
+ assert.ok(!expr.includes("alignJhaPhotoPageStarts(container"));
+ assert.ok(!expr.includes("alignEquipmentPhotoPageStarts(container"));
+ assert.ok(expr.includes('renderPaginatedPdf(container,pageSize'));
+});
