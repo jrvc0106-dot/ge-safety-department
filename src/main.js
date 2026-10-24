@@ -754,7 +754,8 @@ async function syncPendingDraftEvidence(){
  const allowed=new Set(state.projects.map(x=>x.id)),prefix='ge_draft_v1:'+state.profile.id+':';
  for(let i=0;i<localStorage.length;i++){
   const storageKey=localStorage.key(i);if(!storageKey?.startsWith(prefix))continue;
-  let record;try{record=JSON.parse(localStorage.getItem(storageKey)||'{}')}catch{continue}
+  const originalDraft=localStorage.getItem(storageKey);
+  let record;try{record=JSON.parse(originalDraft||'{}')}catch{continue}
   const parts=storageKey.slice(prefix.length).split(':'),projectId=parts.shift(),type=parts.shift(),draftKey=parts.join(':');
   if(!allowed.has(projectId)||!record.payload?.__files)continue;
   // Stage uploaded changes separately. Never delete local originals before BOTH
@@ -773,12 +774,15 @@ async function syncPendingDraftEvidence(){
    }
   }
   if(!uploaded.length)continue;
+  // Do not overwrite edits made while photo uploads were in flight.
+  if(localStorage.getItem(storageKey)!==originalDraft)continue;
   try{
    const result=await db.from('form_drafts').upsert({
     user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,
     payload:updated.payload,status:'active',updated_at:updated.updated_at||new Date().toISOString()
    },{onConflict:'user_id,project_id,form_type,draft_key'});
    if(result.error)continue;
+   if(localStorage.getItem(storageKey)!==originalDraft)continue;
    localStorage.setItem(storageKey,JSON.stringify(updated));
   }catch{continue}
   // Two stores now have the uploaded evidence paths. Cleanup is safe to retry
