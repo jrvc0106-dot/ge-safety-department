@@ -17,12 +17,14 @@ https://uubgrpdknxheflbkwkzf.supabase.co/functions/v1/backup-cloud?callback=1
 5. In Cloud Backup Center, select Connect account for Google Drive, grant drive.file access, close the authorization window and refresh the connection status.
 6. Select Google Drive in Primary Storage and create a backup.
 
-### Dropbox
+### Dropbox: simple one-time setup in Cloud Backup Center
 
-1. Create a scoped API app in https://www.dropbox.com/developers/apps with App Folder access.
-2. Enable files.content.write, files.metadata.read and account_info.read. Register the redirect URL above.
-3. In Supabase Edge Function Secrets, set DROPBOX_BACKUP_APP_KEY and DROPBOX_BACKUP_APP_SECRET.
-4. Connect the account in Cloud Backup Center, then select Dropbox as Primary Storage.
+1. Sign in to G&E ONE as Admin and open Cloud Backup Center. The Dropbox card includes an official Dropbox app-console link and the exact redirect URL, with a **Copy address** button.
+2. In Dropbox App Console create an app **once**: choose **Scoped access → App folder**, enable **files.content.write**, **files.metadata.read**, and **account_info.read**, and register the redirect URL.
+3. Copy the **App key** from Dropbox Settings into G&E ONE (never paste the App Secret or your Dropbox password), then tap **Save key and connect Dropbox**. Authorize in the real Dropbox login window.
+4. GE ONE refreshes the connection status when Dropbox returns. Select **Dropbox** as Primary Storage, then create a verified backup and inspect the copy's progress/history.
+
+The new flow uses server-managed authorization-code **PKCE (S256)**, a ten-minute one-use OAuth state, and encrypted refresh tokens stored outside the browser. Dropbox's public App key is the only manual field. Existing server-managed DROPBOX_BACKUP_APP_KEY and DROPBOX_BACKUP_APP_SECRET configuration remains supported for legacy installations; it is no longer required for a new Admin-configured Dropbox App Key.
 
 Never enter provider secrets into the browser app or commit them to Git. Gemini API keys are unrelated to Drive OAuth credentials.
 
@@ -36,7 +38,7 @@ create-cloud-backup creates a local immutable snapshot with project records, des
 
 External copies use the verified snapshot and upload up to three files per request. A database lease blocks concurrent processing. Progress is saved after each provider-acknowledged upload and can be resumed from history. External completion means all files and the manifest were acknowledged at their expected size; Google/Dropbox end-to-end checksum verification is not claimed. Keep the page open during copying. A cloud-account change requires a new backup. A provider timeout followed by a successful upload but a failed database checkpoint may create a duplicate Google Drive file on retry; source records remain intact.
 
-Provider credentials are currently unconfigured; account authorization and real provider uploads must be verified after setup. Controlled tests cover authorization, OAuth replay protection, encrypted credentials, pagination/copy integrity, provider request formats, resumed copying and destination selection.
+Dropbox still requires its owner to create an OAuth app and approve access once; account authorization and real provider uploads must be verified with that account. Do not claim a Dropbox connection until OAuth succeeds. Controlled tests cover authorization, OAuth replay protection, encrypted credentials, pagination/copy integrity, provider request formats, resumed copying and destination selection.
 
 ## Local download and Admin access
 
