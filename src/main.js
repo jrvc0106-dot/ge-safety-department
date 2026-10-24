@@ -2092,22 +2092,38 @@ async function reportCenter(){
    if(!reportType||!sourceId)continue;
    const entry=archivedPdfs.get(reportType+':'+sourceId);
    if(!entry)continue;
-   const bar=document.createElement('div');bar.className='final-pdf-shortcuts';
-   bar.setAttribute('aria-label',tr('Saved finalized PDF','PDF finalizado guardado'));
+   const bar=document.createElement('section');bar.className='final-pdf-shortcuts';
+   bar.setAttribute('role','group');
+   bar.setAttribute('aria-label',tr('Final PDF actions','Acciones del PDF finalizado'));
+   const heading=document.createElement('div');heading.className='final-pdf-shortcuts-heading';
+   const headingLabel=document.createElement('strong');
+   headingLabel.className='final-pdf-shortcuts-title';
+   headingLabel.textContent=tr('SAVED FINAL PDF','PDF FINAL GUARDADO');
+   const headingHint=document.createElement('span');headingHint.className='final-pdf-shortcuts-hint';
+   headingHint.textContent=tr('Choose an action for this document','Seleccione una acción para este documento');
+   heading.append(headingLabel,headingHint);
+   const actionGrid=document.createElement('div');actionGrid.className='final-pdf-actions-grid';
    const add=(mode)=>{
     const button=document.createElement('button');button.type='button';
-    button.className='secondary final-pdf-shortcut';
+    button.className='final-pdf-shortcut final-pdf-shortcut--'+mode;
+    button.dataset.pdfAction=mode;
     const label=mode==='view'?tr('View saved PDF','Ver PDF guardado'):
       mode==='download'?tr('Download saved PDF','Descargar PDF guardado'):
-      tr('Save saved PDF to…','Guardar PDF guardado en…');
-    button.textContent=(mode==='view'?'◉ ':mode==='download'?'⇩ ':'▣ ')+label;
+      tr('Save PDF to…','Guardar PDF en…');
+    button.setAttribute('aria-label',label);
+    const icon=document.createElement('span');icon.className='final-pdf-shortcut-icon';
+    icon.setAttribute('aria-hidden','true');
+    icon.textContent=mode==='view'?'◉':mode==='download'?'↓':'▣';
+    const caption=document.createElement('span');caption.className='final-pdf-shortcut-label';
+    caption.textContent=label;
+    button.append(icon,caption);
     button.onclick=async()=>{
      if(button.disabled||!viewCurrent()||state.project!==entry.project_id)return;
      // Begin an available folder picker synchronously in the original click.
      const destination=mode==='save'?reservePdfDestination(archivedPdfFilename(entry),{win:window}):null;
      button.disabled=true;
-     const original=button.textContent;
-     button.textContent=mode==='view'?tr('Opening saved PDF…','Abriendo PDF guardado…'):
+     const original=caption.textContent;
+     caption.textContent=mode==='view'?tr('Opening saved PDF…','Abriendo PDF guardado…'):
        mode==='download'?tr('Starting download…','Iniciando descarga…'):
        tr('Preparing saved PDF…','Preparando PDF guardado…');
      try{
@@ -2144,12 +2160,13 @@ async function reportCenter(){
      }catch(err){
       if(viewCurrent())error(new Error(tr('Could not access the saved PDF. Open the original report to review or regenerate it. Details: ','No se pudo acceder al PDF guardado. Abra el reporte original para revisarlo o regenerarlo. Detalle: ')+(err?.message||String(err))));
      }finally{
-      if(button.isConnected){button.disabled=false;button.textContent=mode==='save'&&readyArchivedPdf?.entryId===entry.id?'▣ '+tr('Save PDF now','Guardar PDF ahora'):original}
+      if(button.isConnected){button.disabled=false;caption.textContent=mode==='save'&&readyArchivedPdf?.entryId===entry.id?tr('Save PDF now','Guardar PDF ahora'):original}
      }
     };
     return button;
    };
-   bar.append(add('view'),add('download'),add('save'));
+   actionGrid.append(add('view'),add('download'),add('save'));
+   bar.append(heading,actionGrid);
    record.after(bar);
   }
  }
