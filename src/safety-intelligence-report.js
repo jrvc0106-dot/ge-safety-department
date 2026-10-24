@@ -25,7 +25,9 @@ export function fullPageGeWatermarkLayout(imageWidth,imageHeight,pageWidth=612,p
 }
 
 export const safetyPdfFilename=(project,run)=>{
- const period=String(run?.period_end||'').slice(0,10);
+ // Older analytics snapshots may omit period_end; use their saved computation
+ // date as the best available historical date, never today's download date.
+ const period=String(run?.period_end||run?.computed_at||run?.created_at||'').slice(0,10);
  const cadence=run?.cadence==='monthly'?'Monthly':'Weekly';
  return reportExportFilename({
   title:cadence+' Safety Trends Report '+clean(project,80),
