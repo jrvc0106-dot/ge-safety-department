@@ -37,7 +37,7 @@ test('JHA camera photo remains attachable at final submit even when draft cloud 
   remove:async()=>{},preview:async()=>'',download:async()=>{},
   allowLocalFinalUpload:true,tr:x=>x,onError:e=>errors.push(e)
  });
- const photo=new dom.window.File(['ipad camera content'],'site-photo.jpg',{type:'image/jpeg'});
+ const photo=Object.assign(new Blob(['ipad camera content'],{type:'image/jpeg'}),{name:'site-photo.jpg'});
  try{
   Object.defineProperty(input,'files',{configurable:true,value:[photo]});
   input.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
@@ -61,7 +61,7 @@ test('other photo modules continue to block failed draft evidence until user ret
   remove:async()=>{},preview:async()=>'',download:async()=>{},tr:x=>x,onError:e=>errors.push(e)
  });
  try{
-  Object.defineProperty(input,'files',{configurable:true,value:[new dom.window.File(['img'],'site.jpg',{type:'image/jpeg'})]});
+  Object.defineProperty(input,'files',{configurable:true,value:[Object.assign(new Blob(['img'],{type:'image/jpeg'}),{name:'site.jpg'})]});
   input.dispatchEvent(new dom.window.Event('change'));
   // Non-JHA modules retain existing behavior (their upload integrity is unchanged).
   await assert.rejects(controller.files('photos_0'),/Cloud sync failed/);
