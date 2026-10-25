@@ -84,17 +84,21 @@ Deno.serve(async req=>{
   const body=await req.json(),project=body.project_id,p=body.provider;
   if(typeof project!=="string"||!/^[0-9a-f-]{36}$/i.test(project))return json({error:"Select a valid project."},400);
   await authorizeUser(auth.data.user.id,project);
+  // One company-wide Dropbox authorization, inherited by every current and future project.
+  // Keep the original encrypted refresh token; do not duplicate credentials between projects.
+  const globalControl=must(await admin.from("dropbox_auto_control").select("enabled,connection_id,updated_at").eq("id",1).maybeSingle());
+  const globalDropbox=globalControl?.connection_id?must(await admin.from("backup_cloud_connections").select("id,provider,account_label,connected_at,app_key,encrypted_token").eq("id",globalControl.connection_id).eq("provider","dropbox").maybeSingle()):null;
   if(body.action==="status"){
    const settings=must(await admin.from("backup_cloud_settings").select("provider,dropbox_app_key").eq("project_id",project).maybeSingle());
    const connections=must(await admin.from("backup_cloud_connections").select("provider,account_label,connected_at").eq("project_id",project));
    const backups=must(await admin.from("cloud_backups").select("id").eq("project_id",project).order("created_at",{ascending:false}).limit(30));
    const exports=backups.length?must(await admin.from("backup_cloud_exports").select("backup_id,provider,status,total_files,copied,error_message,completed_at").in("backup_id",backups.map(x=>x.id))):[];
-   const auto=must(await admin.from("dropbox_auto_control").select("enabled,updated_at").eq("id",1).maybeSingle());
+   const auto=globalControl;
    const automaticRows=must(await admin.from("dropbox_automatic_reports").select("status").limit(10000));
    const counts=automaticRows.reduce((result,item)=>(result[item.status]=(result[item.status]||0)+1,result),{pending:0,sending:0,completed:0,failed:0});
    const medicalRows=must(await admin.from("dropbox_automatic_medical_reports").select("status").limit(10000));
    const medicalCounts=medicalRows.reduce((result,item)=>(result[item.status]=(result[item.status]||0)+1,result),{pending:0,sending:0,completed:0,failed:0});
-   return json({provider:settings?.provider||"supabase",providers:providers.map(provider=>({provider,configured:provider==="dropbox"?Boolean(settings?.dropbox_app_key||(credentials(provider).id&&credentials(provider).secret)):Boolean(credentials(provider).id&&credentials(provider).secret),connection:connections.find(x=>x.provider===provider)||null})),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback(),automatic_reports:{enabled:Boolean(auto?.enabled),counts,medical_counts:medicalCounts}});
+   return json({provider:settings?.provider||(globalDropbox?"dropbox":"supabase"),providers:providers.map(provider=>({provider,configured:provider==="dropbox"?Boolean(globalDropbox||settings?.dropbox_app_key||(credentials(provider).id&&credentials(provider).secret)):Boolean(credentials(provider).id&&credentials(provider).secret),connection:provider==="dropbox"&&globalDropbox?{provider:"dropbox",account_label:globalDropbox.account_label,connected_at:globalDropbox.connected_at}:connections.find(x=>x.provider===provider)||null})),company_dropbox_connected:Boolean(globalDropbox),exports:exports.map(x=>({...x,copied_count:x.copied.length,copied:undefined})),callback_url:callback(),automatic_reports:{enabled:Boolean(auto?.enabled),counts,medical_counts:medicalCounts}});
   }
 
   if(body.action==="local_download"){
@@ -127,7 +131,7 @@ Deno.serve(async req=>{
    const appKey=String(body.app_key||"").trim();
    if(!validDropboxAppKey(appKey))return json({error:"Enter a valid Dropbox App Key (letters and numbers only)."},400);
    const linked=must(await admin.from("backup_cloud_connections").select("app_key").eq("project_id",project).eq("provider","dropbox").maybeSingle());
-   if(linked&&linked.app_key!==appKey)return json({error:"Disconnect the current Dropbox account before changing its App Key."},409);
+   if((linked&&linked.app_key!==appKey)||(globalDropbox&&globalDropbox.app_key!==appKey))return json({error:"A corporate Dropbox account is already connected. Disconnect it before changing the App Key."},409);
    const existing=must(await admin.from("backup_cloud_settings").select("provider").eq("project_id",project).maybeSingle());
    must(await admin.from("backup_cloud_settings").upsert({project_id:project,provider:existing?.provider||"supabase",dropbox_app_key:appKey,updated_by:auth.data.user.id,updated_at:new Date().toISOString()},{onConflict:"project_id"}));
    return json({ok:true});
@@ -137,9 +141,9 @@ Deno.serve(async req=>{
    if(!providers.includes(p))return json({error:"Supabase is already available."},400);
    const c=credentials(p);
    const settings=must(await admin.from("backup_cloud_settings").select("dropbox_app_key").eq("project_id",project).maybeSingle());
-   const appKey=p==="dropbox"?(settings?.dropbox_app_key||c.id):c.id;
+   const appKey=p==="dropbox"?(globalDropbox?.app_key||settings?.dropbox_app_key||c.id):c.id;
    if(!appKey||(p==="google_drive"&&!c.secret))return json({error:p==="dropbox"?"Set your Dropbox App Key first.":"Google Drive provider setup is pending.",code:"NOT_CONFIGURED"},503);
-   const pkce=p==="dropbox"&&Boolean(settings?.dropbox_app_key||!c.secret);
+   const pkce=p==="dropbox"&&Boolean(globalDropbox?.app_key||settings?.dropbox_app_key||!c.secret);
    const verifier=pkce?hex(crypto.getRandomValues(new Uint8Array(32))):null;
    const state=crypto.randomUUID();must(await admin.from("backup_cloud_oauth_states").delete().lt("expires_at",new Date().toISOString()));
    must(await admin.from("backup_cloud_oauth_states").insert({state,project_id:project,provider:p,user_id:auth.data.user.id,app_key:pkce?appKey:null,code_verifier:verifier,expires_at:new Date(Date.now()+600000).toISOString()}));
@@ -152,15 +156,27 @@ Deno.serve(async req=>{
    }
    return json({authorization_url:url.toString()});
   }
-  const connection=providers.includes(p)?must(await admin.from("backup_cloud_connections").select("*").eq("project_id",project).eq("provider",p).maybeSingle()):null;
+  const connection=p==="dropbox"&&globalDropbox?globalDropbox:providers.includes(p)?must(await admin.from("backup_cloud_connections").select("*").eq("project_id",project).eq("provider",p).maybeSingle()):null;
+  if(body.action==="test_dropbox"){
+   if(!globalDropbox)return json({error:"Connect the corporate Dropbox account first."},409);
+   const tokenValue=await access(globalDropbox);
+   const probe=new Blob(["GE ONE verified Dropbox connection. "+new Date().toISOString()+"\n"],{type:"text/plain"});
+   await upload("dropbox",tokenValue,"","GE ONE Connection Test.txt",probe);
+   return json({ok:true,provider:"dropbox",verified_at:new Date().toISOString(),scope:"company"});
+  }
   if(body.action==="select"){
    if(p!=="supabase"&&!connection)return json({error:"Connect this provider before selecting it as primary backup storage."},409);
    must(await admin.from("backup_cloud_settings").upsert({project_id:project,provider:p,updated_by:auth.data.user.id,updated_at:new Date().toISOString()}));return json({ok:true});
   }
   if(body.action==="disconnect"){
    if(p==="dropbox"){
-    const activeConnection=must(await admin.from("backup_cloud_connections").select("id").eq("project_id",project).eq("provider","dropbox").maybeSingle());
-    if(activeConnection)must(await admin.from("dropbox_auto_control").update({enabled:false,connection_id:null,updated_by:auth.data.user.id,updated_at:new Date().toISOString()}).eq("connection_id",activeConnection.id));
+    // Explicitly disconnect the one corporate connection; never delete reports or queues.
+    if(globalDropbox){
+     must(await admin.from("dropbox_auto_control").update({enabled:false,connection_id:null,updated_by:auth.data.user.id,updated_at:new Date().toISOString()}).eq("id",1));
+     must(await admin.from("backup_cloud_connections").delete().eq("id",globalDropbox.id));
+    }
+    must(await admin.from("backup_cloud_settings").update({provider:"supabase",updated_by:auth.data.user.id}).eq("provider","dropbox"));
+    return json({ok:true});
    }
    must(await admin.from("backup_cloud_connections").delete().eq("project_id",project).eq("provider",p));
    must(await admin.from("backup_cloud_settings").update({provider:"supabase",updated_by:auth.data.user.id}).eq("project_id",project).eq("provider",p));return json({ok:true});
