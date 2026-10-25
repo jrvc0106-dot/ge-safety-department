@@ -145,7 +145,8 @@ async function sendOne(row:any,connection:any,access:string){
   if(!person.error&&person.data?.name)author=person.data.name;
  }
  const folder="/GE ONE Reports",projectFolder=folder+"/"+safe(project.name,"Project")+" "+record.project_id.slice(0,8);
- const category=reportCategories[record.report_type]||"Other Safety Reports";
+ const category=record.report_type==="training"&&record.snapshot?.source_page==="registeredOrientationReport"
+  ?"Register Safety Orientation":reportCategories[record.report_type]||"Other Safety Reports";
  const typeFolder=projectFolder+"/"+category;
  const yearFolder=typeFolder+"/"+year,monthFolder=yearFolder+"/"+readableMonth;
  const dateFolder=monthFolder+"/"+readableDay,authorFolder=dateFolder+"/Created By - "+safe(author,"G&E Safety Team");
