@@ -34,7 +34,9 @@ test('automatic reports use specific PDF paths and jobsite folders, and retain s
  assert.match(edge,/admin\.storage\.from\("final-reports"\)\.download\(record\.pdf_path\)/);
  assert.match(edge,/\/GE ONE Reports/);
  assert.match(edge,/safe\(project\.name,"Project"\)/);
- assert.match(edge,/safe\(record\.report_type,"Safety Reports"\)/);
+ assert.match(edge,/reportCategories\[record\.report_type\]/);
+ assert.match(edge,/Created By - /);
+ assert.match(edge,/originalReportDay\(record\)/);
  assert.match(edge,/By G&E\.pdf/);
  assert.match(edge,/mode:"overwrite"/);
  assert.doesNotMatch(edge,/storage\.from\("final-reports"\)\.remove/);
