@@ -10,7 +10,7 @@ test('Archive cleanup keeps a minimum seven-day verification period',()=>{
  assert.match(worker,/await verify\(row,record,token\)/);
  assert.match(worker,/originalHash!==remoteHash/);
  assert.match(worker,/Math\.max\(7,Number\(settings\.retention_days\)\)/);
- assert.match(worker,/cleanup_hold/);
+ assert.match(schema,/cleanup_hold boolean NOT NULL DEFAULT false/);
 });
 test('Archive never deletes database records or medical files',()=>{
  assert.doesNotMatch(worker,/\.from\("report_documents"\)\.delete\(/);
