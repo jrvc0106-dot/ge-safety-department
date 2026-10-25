@@ -2203,7 +2203,29 @@ async function reportCenter(){
   mountSafetyIntelligence({db,profile:state.profile,projectId:state.project,tr});
  }
 
-  const title=document.querySelector('#report-library-title'),list=document.querySelector('#report-library-list'),search=document.querySelector('#report-search'),dateFilter=document.querySelector('#report-date-filter'),library=title.closest('.report-library'),libraryHead=title.closest('.report-library-head'),filterBar=search.closest('.report-filter-bar');let currentCategory='daily';
+  const title=document.querySelector('#report-library-title'),list=document.querySelector('#report-library-list'),search=document.querySelector('#report-search'),dateFilter=document.querySelector('#report-date-filter'),library=title.closest('.report-library'),libraryHead=title.closest('.report-library-head'),filterBar=search.closest('.report-filter-bar');let currentCategory='daily',archivedDropboxIds=new Set();
+ function paintArchivedBadges(){
+  for(const actions of document.querySelectorAll('.report-compact-actions[data-archive-report-id]')){
+   const archived=archivedDropboxIds.has(actions.dataset.archiveReportId);
+   actions.closest('.report-compact-row')?.querySelectorAll('.report-dropbox-archived').forEach(node=>node.remove());
+   if(!archived)continue;
+   const badge=document.createElement('small');badge.className='report-dropbox-archived';
+   badge.textContent=tr('Archived in Dropbox','Archivado en Dropbox');
+   badge.style.cssText='font-size:10px;color:#526773;white-space:nowrap;margin-right:8px';
+   actions.prepend(badge);
+  }
+ }
+ async function refreshDropboxArchiveStatus(){
+  try{
+   const result=await db.functions.invoke('dropbox-archive-cleanup',{
+    body:{action:'archive_status',project_id:state.project}
+   });
+   if(!viewCurrent()||result.error||!Array.isArray(result.data?.archived))return;
+   archivedDropboxIds=new Set(result.data.archived.map(row=>row.id));
+   paintArchivedBadges();
+  }catch{} // The report library remains usable even if the archive service is offline.
+ }
+ void refreshDropboxArchiveStatus();
  function empty(){return '<div class="report-empty">'+tr('No reports in this category yet.','Aún no hay reportes en esta categoría.')+'</div>'}
  function docMeta(type,source){const d=registered.find(x=>x.report_type===type&&x.source_id===source);return d?'<span class="document-id">'+esc(d.report_number)+' · v'+d.version+' · '+esc(d.document_status.toUpperCase())+'</span>':''}
  function row(kind,id,name,meta,status='',type='',timestamp=new Date().toISOString(),creator=''){
@@ -2223,6 +2245,7 @@ async function reportCenter(){
    const line=document.createElement('div');line.className='report-compact-row';
    record.parentNode.insertBefore(line,record);line.appendChild(record);
    const actions=document.createElement('div');actions.className='report-compact-actions';
+   if(entry)actions.dataset.archiveReportId=entry.id;
    actions.setAttribute('role','group');
    actions.setAttribute('aria-label',tr('PDF actions','Acciones de PDF'));
    const add=mode=>{
@@ -2266,6 +2289,7 @@ async function reportCenter(){
    actions.append(add('view'),add('download'));
    line.appendChild(actions);
   }
+  paintArchivedBadges();
  }
 
  let trashOpen=false,trashToggle=null,trashPanel=null;
