@@ -1,0 +1,29 @@
+.ge-training-stats{margin:18px 0;padding:18px;border:1px solid #d5d9de;border-radius:12px;background:#fff;color:#23313b}
+.ge-stats-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.ge-stats-heading small{font-size:10px;letter-spacing:1px;color:#66717a}
+.ge-stats-heading h2{font-size:19px;margin:5px 0}
+.ge-stats-heading p{font-size:12px;margin:0;color:#68747d}
+.ge-stats-heading button,.ge-stats-view{font-size:12px;min-height:32px;padding:6px 12px;white-space:nowrap}
+.ge-stats-controls{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 7px}
+.ge-stats-controls label{flex:1;min-width:145px;font-size:12px;font-weight:600;color:#46525a}
+.ge-stats-controls select{display:block;width:100%;margin:5px 0 0;padding:8px;border:1px solid #c8cdd2;border-radius:7px;background:#fff;color:#293642;font:inherit}
+.ge-stats-status{font-size:11px;color:#5b6770;min-height:17px;margin:8px 0}
+.ge-stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.ge-stats-card{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:6px;padding:13px;border-radius:9px;border:1px solid #d5d8dc;background:#f5f6f7;color:#27333c;min-width:0;min-height:130px}
+.ge-stats-card[aria-pressed="true"]{border-color:#48677a;background:#eef2f4}
+.ge-stats-card-title{font-size:12px;font-weight:650;overflow-wrap:anywhere}
+.ge-stats-card-icon{font-size:16px;color:#687885}
+.ge-stats-card strong{font-size:27px;font-weight:740;line-height:1}
+.ge-stats-card small,.ge-stats-card-attendance{font-size:11px;color:#657079;overflow-wrap:anywhere}
+.ge-stats-summary{margin-top:15px;padding-top:11px;border-top:1px solid #e2e5e8;font-size:12px;color:#384852}
+.ge-stats-footnote{display:block;font-size:11px;color:#6a747d;margin-top:7px;line-height:1.5}
+.ge-stats-detail{margin-top:15px;border-top:1px solid #e0e3e7;padding-top:10px}
+.ge-stats-detail h3{font-size:15px;margin:3px 0 10px}
+.ge-stats-detail-list{max-height:430px;overflow-y:auto}
+.ge-stats-detail-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 2px;border-bottom:1px solid #e7e9eb}
+.ge-stats-record-meta{min-width:0;overflow-wrap:anywhere}
+.ge-stats-record-meta strong{display:block;font-size:12px}
+.ge-stats-record-meta small{display:block;color:#68737c;font-size:11px;line-height:1.6}
+.ge-stats-empty{font-size:12px;color:#69747d}
+@media(max-width:800px){.ge-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ge-stats-heading h2{font-size:17px}}
+@media(max-width:430px){.ge-training-stats{padding:12px}.ge-stats-heading{flex-direction:column;gap:8px}.ge-stats-controls{flex-direction:column}.ge-stats-card{padding:11px;min-height:120px}}
