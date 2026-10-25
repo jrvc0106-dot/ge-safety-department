@@ -143,7 +143,7 @@ async function sendOne(row:any,connection:any,access:string){
  const dateFolder=monthFolder+"/"+readableDay,authorFolder=dateFolder+"/Created By - "+safe(author,"G&E Safety Team");
  const reportFolder=authorFolder+"/"+safe(record.report_number,"Report")+" "+record.id.slice(0,8);
  for(const directory of [folder,projectFolder,typeFolder,yearFolder,monthFolder,dateFolder,authorFolder,reportFolder])await ensureFolder(access,directory);
- const title=safe(String(record.title||"Safety Report").replace(/\\.pdf$/i,"").replace(/\\s+\\d{2}\\.\\d{2}\\.\\d{4}\\s+By G&E$/i,""),"Safety Report");
+ const title=safe(String(record.title||"Safety Report").replace(/\.pdf$/i,"").replace(/\s+\d{2}\.\d{2}\.\d{4}\s+By G&E$/i,""),"Safety Report");
  const name=title+" "+readableDay+" By G&E.pdf";
  const remotePath=reportFolder+"/"+name;
  const saved=await providerCall("https://content.dropboxapi.com/2/files/upload",{
