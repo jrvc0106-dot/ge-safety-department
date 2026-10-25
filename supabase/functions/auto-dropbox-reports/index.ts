@@ -33,7 +33,10 @@ async function providerCall(url:string,options:RequestInit){
   const result=await response.text();
   let body:any={};try{body=result?JSON.parse(result):{}}catch{}
   if(!response.ok){
-   const error=new Error("Dropbox returned HTTP "+response.status);
+   const endpoint=new URL(url).pathname;
+   const detail=String(body?.error_summary||body?.error_description||(typeof body?.error==="string"?body.error:"")||"")
+     .replace(/[^A-Za-z0-9_.\/\-: ]/g,"").slice(0,100);
+   const error=new Error("Dropbox HTTP "+response.status+" at "+endpoint+(detail?": "+detail:""));
    (error as any).status=response.status;
    (error as any).tag=String(body?.error_summary||"");
    throw error;
@@ -174,11 +177,11 @@ async function runWorker(){
  const medicalClaims=must(await admin.rpc("claim_dropbox_automatic_medical_reports",{p_limit:1}));
  let sent=0,failed=0,medicalSent=0,medicalFailed=0;
  if(!claimed.length&&!medicalClaims.length)return {enabled:true,sent,failed,medicalSent,medicalFailed};
- let token:string|null=null;
- try{token=await accessToken(connection)}catch{token=null}
+ let token:string|null=null,tokenError="";
+ try{token=await accessToken(connection)}catch(error:any){tokenError=String(error?.message||"Dropbox token refresh failed").slice(0,160);}
  for(const job of claimed){
   try{
-   if(!token)throw Error("Reconnect Dropbox account.");
+   if(!token)throw Error(tokenError||"Reconnect Dropbox account.");
    const result=await sendOne(job,connection,token);
    const update=await admin.from("dropbox_automatic_reports")
     .update({status:"completed",remote_path:result.remotePath,remote_id:result.remoteId,completed_at:new Date().toISOString(),
@@ -200,7 +203,7 @@ async function runWorker(){
  }
  for(const job of medicalClaims){
   try{
-   if(!token)throw Error("Reconnect Dropbox account.");
+   if(!token)throw Error(tokenError||"Reconnect Dropbox account.");
    const result=await sendMedical(job,token);
    const update=await admin.from("dropbox_automatic_medical_reports").update({
     status:"completed",remote_id:result.remoteId,remote_path:result.remotePath,
