@@ -47,3 +47,45 @@ export function alignCriticalReportPdfBlocks(container,pageHeight){
  }
  return added;
 }
+
+
+// Keep whole evidence photos (including their captions), signature panels and
+// report footers on a single sheet in OTHER high-quality report types.
+// JHA/Equipment use their existing, more specialized six-photo pagination.
+// Work only on the temporary html2pdf clone; saved report HTML is untouched.
+export function alignGeneralReportPdfEvidence(container,pageHeight){
+ if(!container?.querySelector||!(pageHeight>0))return 0;
+ const report=container.querySelector('article.report:not(.ge-reference-jha):not(.equipment-pdf):not(.quick-safety-orientation-report)');
+ if(!report?.querySelectorAll||!container.getBoundingClientRect)return 0;
+ const doc=container.ownerDocument||report.ownerDocument;
+ if(!doc?.createElement)return 0;
+ const selector=[
+  '.report-photos figure','.ir-photos figure','.inventory-evidence figure',
+  '.report-photo-grid figure','.registered-orientation-evidence',
+  '.report-signatures','.dr-signatures','.ir-signatures',
+  '.registered-orientation-signatures','.report-footer',
+  '.registered-orientation-footer'
+ ].join(',');
+ const blocks=[...report.querySelectorAll(selector)];
+ let moved=0;
+ for(const node of blocks){
+  if(!node.parentNode||!node.getBoundingClientRect)continue;
+  const rect=node.getBoundingClientRect();
+  const start=rect.top-container.getBoundingClientRect().top+(container.scrollTop||0);
+  const height=rect.height||rect.bottom-rect.top;
+  // A block taller than one printable sheet cannot be saved by padding.
+  // Such reports need their own content-aware continuation pages instead.
+  if(!Number.isFinite(start)||!Number.isFinite(height)||start<0||
+     height<=0||height>=pageHeight-24)continue;
+  const position=((start%pageHeight)+pageHeight)%pageHeight;
+  if(position<2||position+height<=pageHeight-8)continue;
+  const gap=pageHeight-position;
+  const spacer=doc.createElement('div');
+  spacer.className='ge-pdf-evidence-alignment-spacer';
+  spacer.setAttribute('aria-hidden','true');
+  spacer.style.cssText='display:block;box-sizing:border-box;margin:0;padding:0;border:0;width:100%;height:'+gap+'px;';
+  node.parentNode.insertBefore(spacer,node);
+  moved++;
+ }
+ return moved;
+}
