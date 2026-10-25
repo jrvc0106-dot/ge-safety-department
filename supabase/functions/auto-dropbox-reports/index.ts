@@ -89,6 +89,23 @@ const dateLabel=(value:unknown)=>{
  return [String(date.getUTCMonth()+1).padStart(2,"0"),
   String(date.getUTCDate()).padStart(2,"0"),date.getUTCFullYear()].join(".");
 };
+const reportCategories:Record<string,string>={
+ daily_report:"Daily Safety Reports",daily_safety_walk:"Daily Safety Walks",
+ observation:"Safety Observations",correction:"Corrective Actions",
+ disciplinary_action:"Disciplinary Actions",incident:"Incidents - Accidents",
+ near_miss:"Near Miss Reports",equipment_inspection:"Equipment Inspections",
+ inventory:"Inventory Reports",toolbox:"Toolbox Talks",tool_toolbox:"Toolbox Talks",
+ tool_training:"G&E Safety Training",training:"Quick Safety Orientation",
+ registered_safety_orientation:"Register Safety Orientation"
+};
+function reportDay(value:unknown){
+ const v=String(value||"");
+ if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;
+ const d=new Date(v);if(!Number.isFinite(d.getTime()))return "";
+ const parts=Object.fromEntries(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d).map(x=>[x.type,x.value]));
+ return parts.year+"-"+parts.month+"-"+parts.day;
+}
+const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
 async function pdfIsComplete(blob:Blob){
  if(!blob||blob.size<32)return false;
  const [start,end]=await Promise.all([blob.slice(0,8).text(),blob.slice(-2048).text()]);
