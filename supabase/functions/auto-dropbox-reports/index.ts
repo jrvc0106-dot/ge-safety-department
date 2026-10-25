@@ -34,8 +34,12 @@ async function providerCall(url:string,options:RequestInit){
   let body:any={};try{body=result?JSON.parse(result):{}}catch{}
   if(!response.ok){
    const endpoint=new URL(url).pathname;
-   const detail=String(body?.error_summary||body?.error_description||(typeof body?.error==="string"?body.error:"")||"")
-     .replace(/[^A-Za-z0-9_.\/\-: ]/g,"").slice(0,100);
+   const scope=result.match(/(?:required|requires|missing|require[d]?)\s+(?:the\s+)?scope\s+['"\x60]?([a-z][a-z0-9._-]+)/i);
+   const raw=String(body?.error_summary||body?.error_description||(typeof body?.error==="string"?body.error:"")||result);
+   const detail=scope?"Dropbox permission "+scope[1]+" missing; enable it, Submit and reconnect":raw
+     .replace(/Bearer\s+[A-Za-z0-9_.~-]+/gi,"Bearer hidden")
+     .replace(/\b(?:sl\.|scl\.)[A-Za-z0-9_.~-]+/gi,"hidden")
+     .replace(/[^A-Za-z0-9_.\/\-: '()]/g," ").replace(/\s+/g," ").trim().slice(0,128);
    const error=new Error("Dropbox HTTP "+response.status+" at "+endpoint+(detail?": "+detail:""));
    (error as any).status=response.status;
    (error as any).tag=String(body?.error_summary||"");
