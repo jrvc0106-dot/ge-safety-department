@@ -1,0 +1,1 @@
+UPDATE storage.buckets SET file_size_limit=41943040 WHERE id='final-reports' AND (file_size_limit IS NULL OR file_size_limit<41943040);
