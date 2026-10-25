@@ -159,8 +159,9 @@ async function complete(row:any){
   event_type:"finalized",detail:{source_page:"quickOrientationReport",backfill_from_saved_registration:true}});
  return inserted.data.id;
 }
-async function runWorker(){
- const jobs=must(await admin.rpc("claim_quick_orientation_pdf_backfill",{p_limit:3}));
+async function runWorker(projectId:string|null=null){
+ const jobs=must(await admin.rpc(projectId?"claim_quick_orientation_backfill_project":"claim_quick_orientation_pdf_backfill",
+  projectId?{p_project:projectId,p_limit:3}:{p_limit:3}));
  let completed=0,failed=0;
  for(const job of jobs){
   try{
@@ -189,6 +190,7 @@ Deno.serve(async req=>{
   if(!await workerAuthorized(req.headers.get("x-ge-dropbox-worker")||""))return json({error:"Unauthorized"},401);
   const body=await req.json();
   if(body?.action!=="process")return json({error:"Invalid action"},400);
-  return json(await runWorker());
+  const projectId=typeof body.project_id==="string"&&/^[a-f0-9-]{36}$/i.test(body.project_id)?body.project_id:null;
+  return json(await runWorker(projectId));
  }catch{return json({error:"Quick orientation PDF archiver is temporarily unavailable"},500)}
 });
