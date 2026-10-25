@@ -106,6 +106,13 @@ function reportDay(value:unknown){
  return parts.year+"-"+parts.month+"-"+parts.day;
 }
 const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+function originalReportDay(record:any){
+ const explicit=reportDay(record.snapshot?.original_report_date);
+ if(explicit)return explicit;
+ const match=String(record.report_number||"").match(/(?:^|[-_])(20\d{2})(0[1-9]|1[0-2])([0-2]\d|3[01])(?:[-_]|$)/);
+ if(match)return match[1]+"-"+match[2]+"-"+match[3];
+ return reportDay(record.created_at||record.finalized_at);
+}
 async function pdfIsComplete(blob:Blob){
  if(!blob||blob.size<32)return false;
  const [start,end]=await Promise.all([blob.slice(0,8).text(),blob.slice(-2048).text()]);
