@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas';
 import {jsPDF} from 'jspdf';
-import {alignCriticalReportPdfBlocks} from './report-pdf-page-alignment.js';
+import {alignCriticalReportPdfBlocks,alignGeneralReportPdfEvidence} from './report-pdf-page-alignment.js';
 import {applyAdaptiveReportPdfLayout,deviceKindFromWindow} from './report-device-pdf.js';
 
 // 200 DPI keeps text, signatures and photos clear while holding each letter page
@@ -52,6 +52,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
   // not stop a signature or corrective-action panel from being sliced.
   // Align intact blocks in the temporary PDF clone before measuring its height.
   alignCriticalReportPdfBlocks(container,pageHeight);
+  alignGeneralReportPdfEvidence(container,pageHeight);
   const totalHeight=Math.max(1,container.scrollHeight);
   const pdf=new Pdf({...options.jsPDF,compress:true});
   let pagesAdded=0;
