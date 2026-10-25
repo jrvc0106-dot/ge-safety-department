@@ -69,6 +69,14 @@ Deno.serve(async req=>{
    const params: Record<string,string>={grant_type:"authorization_code",code,redirect_uri:callback()};
    if(record.provider==="dropbox"&&record.code_verifier)params.code_verifier=record.code_verifier;
    const result=await token(record.provider,params,{appKey:record.app_key||null});if(!result.refresh_token||!result.access_token)throw Error("Offline access was not granted.");
+   if(record.provider==="dropbox"){
+    // Do not record a connection unless Dropbox actually granted the required scopes.
+    const granted=new Set(String(result.scope||"").split(/\s+/).filter(Boolean));
+    const needed=["files.content.write","files.metadata.read","account_info.read"];
+    if(needed.some(scope=>!granted.has(scope)))throw Error("Dropbox has not granted the required permissions. Enable files.content.write, files.metadata.read and account_info.read in Dropbox App Console (Permissions > Submit), then reconnect.");
+    const probe=new Blob(["GE ONE Dropbox access verified\n"],{type:"text/plain"});
+    await upload("dropbox",result.access_token,"","GE ONE Connection Test.txt",probe);
+   }
    const account=record.provider==="google_drive"?await request("https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)",{headers:{Authorization:"Bearer "+result.access_token}}):await request("https://api.dropboxapi.com/2/users/get_current_account",{method:"POST",headers:{Authorization:"Bearer "+result.access_token}});
    const label=record.provider==="google_drive"?(account.user?.emailAddress||account.user?.displayName||"Google Drive"):(account.email||account.name?.display_name||"Dropbox");
    const existingConnection=must(await admin.from("backup_cloud_connections").select("id").eq("project_id",record.project_id).eq("provider",record.provider).maybeSingle());
@@ -79,7 +87,13 @@ Deno.serve(async req=>{
     must(await admin.from("dropbox_auto_control").upsert({id:1,enabled:true,connection_id:connected.id,updated_by:record.user_id,updated_at:new Date().toISOString()},{onConflict:"id"}));
    }
    message="Account connected successfully. Final PDF reports will copy to Dropbox automatically, including existing completed PDFs. Return to GE ONE.";status=200;
-  }catch{}
+  }catch(error){
+   // Human-readable, fixed guidance. OAuth tokens and Dropbox responses are never printed.
+   const reason=String(error?.message||"");
+   message=/required permissions|missing_scope|Dropbox HTTP 401|Dropbox HTTP 403|permission/i.test(reason)
+    ?"Dropbox is not authorized to upload files. In Dropbox App Console open Permissions, enable files.content.write, files.metadata.read and account_info.read, click Submit, and approve the connection again in GE ONE."
+    :"Dropbox connection was not completed. Return to GE ONE and try Reconnect Dropbox Permissions.";
+  }
   const nonce=hex(crypto.getRandomValues(new Uint8Array(16)));
   const html="<!doctype html><html><meta name=viewport content='width=device-width,initial-scale=1'><title>G&E Cloud Backup</title><body><h1>G&E Cloud Backup</h1><p>"+message+"</p><p><a href='https://ge-safety-department.vercel.app'>Return to GE ONE / Volver a GE ONE</a></p><script nonce='"+nonce+"'>try{if(window.opener){window.opener.postMessage({type:'ge-cloud-backup-oauth',success:"+String(status===200)+"},'*');if("+String(status===200)+")window.close()}}catch(e){}</script></body></html>";
   return new Response(html,{status,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","Content-Security-Policy":"default-src 'none'; script-src 'nonce-"+nonce+"'; frame-ancestors 'none'; navigate-to https://ge-safety-department.vercel.app"}});
@@ -161,7 +175,7 @@ Deno.serve(async req=>{
    for(const [k,v] of Object.entries({client_id:appKey,redirect_uri:callback(),response_type:"code",state}))url.searchParams.set(k,v);
    if(p==="google_drive"){url.searchParams.set("scope","https://www.googleapis.com/auth/drive.file");url.searchParams.set("access_type","offline");url.searchParams.set("prompt","consent");}
    else{
-    url.searchParams.set("token_access_type","offline");url.searchParams.set("scope","files.content.write files.metadata.read account_info.read");
+    url.searchParams.set("token_access_type","offline");url.searchParams.set("scope","files.content.write files.metadata.read account_info.read");url.searchParams.set("force_reapprove","true");url.searchParams.set("include_granted_scopes","user");
     if(pkce){url.searchParams.set("code_challenge_method","S256");url.searchParams.set("code_challenge",await pkceChallenge(verifier));}
    }
    return json({authorization_url:url.toString()});
