@@ -154,7 +154,7 @@ async function complete(task:any){
  const path=task.project_id+"/"+task.source_type+"/"+number+"-RECOVERED-"+task.source_id.slice(0,8)+"-REV-"+(version-1)+".pdf";
  const stored=await admin.storage.from("final-reports").upload(path,new Blob([bytes],{type:"application/pdf"}),
   {contentType:"application/pdf",cacheControl:"3600",upsert:false});
- if(stored.error)throw Error("Could not store reconstructed final PDF.");
+ if(stored.error)throw Error("Could not store reconstructed final PDF: "+String(stored.error.message||"storage error").slice(0,90));
  const original=record.incident_at||record.inspection_at||record.incident_date||record.created_at;
  const doc=await admin.from("report_documents").insert({
   project_id:task.project_id,report_type:task.source_type,source_id:task.source_id,report_number:number,
