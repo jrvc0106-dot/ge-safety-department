@@ -2247,8 +2247,16 @@ async function reportCenter(){
      if(state.project!==entry.project_id)return;
      button.disabled=true;
      try{
-      if(mode==='view')await openArchivedPdf(db.storage,entry,{win:window,isCurrent:viewCurrent});
-      else await downloadArchivedPdf(db.storage,entry,{doc:document,isCurrent:viewCurrent});
+      const fallback=async archived=>{
+       const reply=await db.functions.invoke('dropbox-archive-cleanup',{
+        body:{action:'archive_link',project_id:archived.project_id,report_id:archived.id}
+       });
+       if(reply.error||!reply.data?.url)throw new Error(reply.data?.error||reply.error?.message||
+        tr('Dropbox archive cannot be opened right now.','No se puede abrir el archivo de Dropbox en este momento.'));
+       return reply.data.url;
+      };
+      if(mode==='view')await openArchivedPdf(db.storage,entry,{win:window,isCurrent:viewCurrent,fallback});
+      else await downloadArchivedPdf(db.storage,entry,{doc:document,isCurrent:viewCurrent,fallback});
      }catch(err){
       if(viewCurrent())error(new Error(tr('Unable to access saved PDF: ','No se pudo acceder al PDF guardado: ')+(err?.message||String(err))));
      }finally{if(button.isConnected)button.disabled=false}
