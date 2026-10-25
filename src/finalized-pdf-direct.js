@@ -30,32 +30,42 @@ export function archivedPdfFilename(entry){
 // Creates a short-lived signed link and inspects file size in parallel.
 // The browser streams the signed PDF directly, avoiding html2canvas,
 // re-encoding, temporary full-resolution images, and JS Blob memory.
-export async function archivedPdfLink(storage,entry,{download=false}={}){
+export async function archivedPdfLink(storage,entry,{download=false,fallback=null}={}){
  if(!entry?.pdf_path||entry.document_status!=='final'||!VALID_TYPES.has(entry.report_type))throw Error('A finalized PDF is not available for this report.');
  const file=storage.from('final-reports');
  const tasks=[
   file.createSignedUrl(entry.pdf_path,180,download?{download:archivedPdfFilename(entry)}:undefined),
   typeof file.info==='function'?file.info(entry.pdf_path):Promise.resolve(null)
  ];
- const [signed,metadata]=await Promise.all(tasks);
- if(metadata?.error)throw metadata.error;
- const size=metadata?.data?.size;
- if(size!==undefined&&size!==null&&(!Number.isFinite(Number(size))||Number(size)<32))
-  throw Error('The archived PDF is empty or damaged. Open the report instead to inspect its evidence.');
- if(signed?.error)throw signed.error;
- const address=signed?.data?.signedUrl;
- if(!address)throw Error('A secure PDF link could not be created.');
- const url=new URL(address);
- if(url.protocol!=='https:')throw Error('The PDF link is not secure.');
- return url.href;
+ try{
+  const [signed,metadata]=await Promise.all(tasks);
+  if(metadata?.error)throw metadata.error;
+  const size=metadata?.data?.size;
+  if(size!==undefined&&size!==null&&(!Number.isFinite(Number(size))||Number(size)<32))
+   throw Error('The archived PDF is empty or damaged. Open the report instead to inspect its evidence.');
+  if(signed?.error)throw signed.error;
+  const address=signed?.data?.signedUrl;
+  if(!address)throw Error('A secure PDF link could not be created.');
+  const url=new URL(address);
+  if(url.protocol!=='https:')throw Error('The PDF link is not secure.');
+  return url.href;
+ }catch(originalError){
+  if(typeof fallback!=='function')throw originalError;
+  // A deleted GE ONE PDF is available from Dropbox only after authenticated retrieval.
+  const remote=await fallback(entry);
+  const url=new URL(remote);
+  if(url.protocol!=='https:'||!url.hostname.endsWith('.dropboxusercontent.com'))
+   throw Error('The secure Dropbox archive link was invalid.');
+  return url.href;
+ }
 }
 
-export async function openArchivedPdf(storage,entry,{win=window,isCurrent=()=>true}={}){
+export async function openArchivedPdf(storage,entry,{win=window,isCurrent=()=>true,fallback=null}={}){
  // Must reserve the viewer in the original click, before awaiting a network request.
  let viewer;
  try{viewer=win.open?.('about:blank','_blank');if(viewer)viewer.opener=null}catch{}
  try{
-  const link=await archivedPdfLink(storage,entry);
+  const link=await archivedPdfLink(storage,entry,{fallback});
   if(!isCurrent())throw Error('The active report/project changed while preparing the PDF.');
   if(viewer&&!viewer.closed)viewer.location.href=link;
   else win.location.assign(link); // Popup blockers: show the original PDF in this tab.
@@ -66,8 +76,8 @@ export async function openArchivedPdf(storage,entry,{win=window,isCurrent=()=>tr
  }
 }
 
-export async function downloadArchivedPdf(storage,entry,{doc=document,isCurrent=()=>true}={}){
- const link=await archivedPdfLink(storage,entry,{download:true});
+export async function downloadArchivedPdf(storage,entry,{doc=document,isCurrent=()=>true,fallback=null}={}){
+ const link=await archivedPdfLink(storage,entry,{download:true,fallback});
  if(!isCurrent())throw Error('The active report/project changed while preparing the PDF.');
  const a=doc.createElement('a');
  a.href=link;a.rel='noopener noreferrer';a.download=archivedPdfFilename(entry);
