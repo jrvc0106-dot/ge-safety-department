@@ -82,7 +82,7 @@ grant execute on function public.claim_dropbox_automatic_reports(integer) to ser
 
 -- Execute an authenticated worker without ever placing its secret in application JS.
 -- pg_net and pg_cron are already installed for G&E ONE.
-select cron.schedule('ge-auto-dropbox-final-reports','*/5 * * * *',
+select cron.schedule('ge-auto-dropbox-final-reports','* * * * *',
  $cron$
  select net.http_post(
    url:='https://uubgrpdknxheflbkwkzf.supabase.co/functions/v1/auto-dropbox-reports',
