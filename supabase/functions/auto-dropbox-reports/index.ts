@@ -128,13 +128,23 @@ async function sendOne(row:any,connection:any,access:string){
  const blob=downloaded.data;
  if(!(await pdfIsComplete(blob)))throw Error("Finalized PDF failed the integrity check.");
  if(blob.size>150*1024*1024)throw Error("PDF exceeds Dropbox standard upload limit; review large-file upload.");
- const folder="/GE ONE Reports";
- const projectFolder=folder+"/"+safe(project.name,"Project")+" "+record.project_id.slice(0,8);
- const typeFolder=projectFolder+"/"+safe(record.report_type,"Safety Reports");
- const reportFolder=typeFolder+"/"+safe(record.report_number,"Report")+" "+record.id.slice(0,8);
- for(const directory of [folder,projectFolder,typeFolder,reportFolder])await ensureFolder(access,directory);
- const name=safe(record.title,"Safety Report")+" "+dateLabel(record.snapshot?.original_report_date||
-   record.finalized_at||record.created_at)+" By G&E.pdf";
+ const dayKey=originalReportDay(record),[year,month,day]=dayKey?dayKey.split("-"):["Unknown Year","00","00"];
+ const readableDay=dayKey?month+"."+day+"."+year:"Unknown Date";
+ const readableMonth=month==="00"?"Unknown Month":month+" "+months[Number(month)-1];
+ let author="G&E Safety Team";
+ if(record.created_by){
+  const person=await admin.from("profiles").select("name").eq("id",record.created_by).maybeSingle();
+  if(!person.error&&person.data?.name)author=person.data.name;
+ }
+ const folder="/GE ONE Reports",projectFolder=folder+"/"+safe(project.name,"Project")+" "+record.project_id.slice(0,8);
+ const category=reportCategories[record.report_type]||"Other Safety Reports";
+ const typeFolder=projectFolder+"/"+safe(category,"Other Safety Reports");
+ const yearFolder=typeFolder+"/"+year,monthFolder=yearFolder+"/"+readableMonth;
+ const dateFolder=monthFolder+"/"+readableDay,authorFolder=dateFolder+"/Created By - "+safe(author,"G&E Safety Team");
+ const reportFolder=authorFolder+"/"+safe(record.report_number,"Report")+" "+record.id.slice(0,8);
+ for(const directory of [folder,projectFolder,typeFolder,yearFolder,monthFolder,dateFolder,authorFolder,reportFolder])await ensureFolder(access,directory);
+ const title=safe(String(record.title||"Safety Report").replace(/\\.pdf$/i,"").replace(/\\s+\\d{2}\\.\\d{2}\\.\\d{4}\\s+By G&E$/i,""),"Safety Report");
+ const name=title+" "+readableDay+" By G&E.pdf";
  const remotePath=reportFolder+"/"+name;
  const saved=await providerCall("https://content.dropboxapi.com/2/files/upload",{
   method:"POST",headers:{
