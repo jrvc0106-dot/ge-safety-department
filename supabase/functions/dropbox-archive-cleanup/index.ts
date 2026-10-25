@@ -179,7 +179,7 @@ async function archiveStatus(body:any,req:Request){
  return json({archived:rows.map((x:any)=>({id:x.report_id,archived_at:x.cleanup_archived_at,bytes:x.cleanup_bytes_freed}))});
 }
 Deno.serve(async(req:Request)=>{
- if(req.method==="OPTIONS")return json({},204);
+ if(req.method==="OPTIONS")return new Response(null,{status:204,headers:{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type,x-ge-dropbox-worker","Access-Control-Allow-Methods":"POST,OPTIONS"}});
  if(req.method!=="POST")return json({error:"Method not allowed"},405);
  try{
   const body=await req.json();
