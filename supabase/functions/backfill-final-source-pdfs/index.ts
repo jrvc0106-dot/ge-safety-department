@@ -139,7 +139,8 @@ async function complete(task:any){
    photos=pics.map((x:any)=>({...x,bucket:"daily-safety-walks"}));
   }
  }else if(cfg.photos&&cfg.owner){
-  const pics=must(await admin.from(cfg.photos).select("path,caption").eq(cfg.owner,record.id));
+  const fields=task.source_type==="disciplinary_action"?"path":"path,caption";
+  const pics=must(await admin.from(cfg.photos).select(fields).eq(cfg.owner,record.id));
   photos=pics.map((x:any)=>({...x,bucket:cfg.bucket}));
  }
  if(task.source_type==="correction"){
