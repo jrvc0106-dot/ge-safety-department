@@ -12,7 +12,17 @@ async function pkceChallenge(verifier){
  const digest=new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(verifier)));
  return btoa(String.fromCharCode(...digest)).replaceAll("+","-").replaceAll("/","_").replace(/=+$/,"");
 }
-async function request(url,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);try{const response=await fetch(url,{...options,signal:controller.signal});const text=await response.text();if(!response.ok)throw Error(response.status===401?"Cloud authorization expired. Reconnect the account.":response.status===429?"Cloud provider limit reached. Try again later.":"Cloud provider could not complete the request.");return text?JSON.parse(text):{}}finally{clearTimeout(timer)}}
+function dropboxFailure(status:number,endpoint:string,raw:string):string{
+ let parsed:any={};try{parsed=JSON.parse(raw)}catch{}
+ const summary=String(parsed?.error_summary||parsed?.error_description||(typeof parsed?.error==="string"?parsed.error:"")||raw||"");
+ const scope=summary.match(/(?:required|requires|missing|require[d]?)\s+(?:the\s+)?scope\s+['"\x60]?([a-z][a-z0-9._-]+)/i);
+ if(scope)return "Dropbox permission "+scope[1]+" is missing. Enable it in Dropbox App Console, click Submit, then reconnect Dropbox.";
+ if(/invalid_grant|invalid_client|invalid_refresh_token/i.test(summary))return "Dropbox authorization expired or invalid. Reconnect Dropbox.";
+ const clean=summary.replace(/Bearer\s+[A-Za-z0-9_.~-]+/gi,"Bearer [hidden]").replace(/\b(?:sl\.|scl\.)[A-Za-z0-9_.~-]+/gi,"[hidden]").replace(/[^A-Za-z0-9 ._:\/\-'"()]/g," ").replace(/\s+/g," ").trim().slice(0,170);
+ return "Dropbox HTTP "+status+" at "+endpoint+(clean?": "+clean:"");
+}
+
+async function request(url,options={}){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);try{const response=await fetch(url,{...options,signal:controller.signal});const body=await response.text();if(!response.ok){if(new URL(url).hostname.endsWith("dropboxapi.com"))throw Error(dropboxFailure(response.status,new URL(url).pathname,body));throw Error(response.status===401?"Cloud authorization expired. Reconnect the account.":response.status===429?"Cloud provider limit reached. Try again later.":"Cloud provider could not complete the request.");}return body?JSON.parse(body):{}}finally{clearTimeout(timer)}}
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
 async function cryptKey(){const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(env("SUPABASE_SERVICE_ROLE_KEY")));return crypto.subtle.importKey("raw",digest,"AES-GCM",false,["encrypt","decrypt"])}
 async function encrypt(value){const iv=crypto.getRandomValues(new Uint8Array(12)),cipher=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},await cryptKey(),new TextEncoder().encode(value)));return hex(iv)+"."+hex(cipher)}
