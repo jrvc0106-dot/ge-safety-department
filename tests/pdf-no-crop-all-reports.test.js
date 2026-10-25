@@ -6,7 +6,7 @@ import {protectPdfReportEvidencePhotos,protectPdfReportLogos} from '../src/repor
 import {alignGeneralReportPdfEvidence} from '../src/report-pdf-page-alignment.js';
 const css=readFileSync(new URL('../src/style.css',import.meta.url),'utf8');
 const exporter=readFileSync(new URL('../src/pdf-export.js',import.meta.url),'utf8');
-const app=readFileSync(new URL('../src/main.js',import.meta.url),'utf8';
+const app=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 
 test('report photo frames use contain instead of cover, preserving full evidence',()=>{
  const sections=['.report-photos img','.ewr-evidence img','.report-photo-grid img','.ir-photos img','.inventory-report-table img','.inventory-evidence img'];
