@@ -64,20 +64,28 @@ async function accessToken(connection:any){
  return String(response.access_token);
 }
 async function ensureFolder(token:string,path:string){
+ // A repeated create_folder_v2 is a Dropbox write even when it conflicts.
+ // Read the existing folder first to avoid write throttling across report uploads.
+ try{
+  const info=await providerCall("https://api.dropboxapi.com/2/files/get_metadata",{
+   method:"POST",headers:jsonHeaders(token),body:JSON.stringify({path})
+  });
+  if(info[".tag"]==="folder")return;
+  throw Error("Dropbox destination is an existing file, not a folder.");
+ }catch(error:any){
+  if(error.status!==409||!/path\\/not_found/.test(String(error.tag||"")))
+   throw error;
+ }
  try{
   await providerCall("https://api.dropboxapi.com/2/files/create_folder_v2",{
    method:"POST",headers:jsonHeaders(token),body:JSON.stringify({path,autorename:false})
   });
  }catch(error:any){
-  // Existing folders are expected after the first PDF. Reject file-vs-folder conflicts.
-  if(error.status===409&&/path\/conflict\/folder/.test(error.tag))return;
-  if(error.status===409&&/path\/conflict/.test(error.tag)){
-   const info=await providerCall("https://api.dropboxapi.com/2/files/get_metadata",{
-    method:"POST",headers:jsonHeaders(token),body:JSON.stringify({path})
-   });
-   if(info[".tag"]==="folder")return;
-  }
-  throw error;
+  if(error.status!==409)throw error;
+  const info=await providerCall("https://api.dropboxapi.com/2/files/get_metadata",{
+   method:"POST",headers:jsonHeaders(token),body:JSON.stringify({path})
+  });
+  if(info[".tag"]!=="folder")throw error;
  }
 }
 const safe=(value:unknown,fallback:string)=>String(value||fallback).normalize("NFKD")
