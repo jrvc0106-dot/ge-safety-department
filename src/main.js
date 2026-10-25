@@ -610,7 +610,7 @@ async function buildReportPdf(highQuality=false){
   const worker=html2pdf().set(options).from(report).toContainer();
   const container=await worker.get('container');
   // Preserve the approved layout while preventing logo distortion in the PDF clone.
-  protectPdfReportLogos(container);
+  protectPdfReportLogos(container,{photos:true});
   try{await rasterizePdfSignatures(container)}catch(err){(await worker.get('overlay'))?.remove();throw err}
   let blob;
   if(report.classList?.contains?.('quick-safety-orientation-report')){
