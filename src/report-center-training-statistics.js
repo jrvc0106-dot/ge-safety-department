@@ -78,9 +78,9 @@ async function fetchAll(db,table,columns,projects,filterKind=false){
  for(let index=0;index<projects.length;index+=50){
   const ids=projects.slice(index,index+50);
   for(let offset=0;;offset+=size){
-   let query=db.from(table).select(columns).in('project_id',ids).order('created_at',{ascending:false}).range(offset,offset+size-1);
+   let query=db.from(table).select(columns).in('project_id',ids);
    if(filterKind)query=query.in('kind',['toolbox','training']);
-   const response=await query;
+   const response=await query.order('created_at',{ascending:false}).range(offset,offset+size-1);
    if(response.error)throw new Error('Unable to load statistics from '+table+': '+response.error.message);
    const batch=response.data||[];
    rows.push(...batch);
