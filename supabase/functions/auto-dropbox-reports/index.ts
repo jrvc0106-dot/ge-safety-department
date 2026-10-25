@@ -205,14 +205,15 @@ async function archiveMedical(body:any,userId:string,role:string){
  return json({enabled:true,queued:true});
 }
 
-async function runWorker(){
+async function runWorker(projectId:string|null=null){
  const control=must(await admin.from("dropbox_auto_control").select("enabled,connection_id").eq("id",1).maybeSingle());
  if(!control?.enabled||!control.connection_id)return {enabled:false,sent:0,failed:0};
  const connection=must(await admin.from("backup_cloud_connections").select("id,provider,encrypted_token,app_key")
   .eq("id",control.connection_id).eq("provider","dropbox").maybeSingle());
  if(!connection)return {enabled:false,reason:"Dropbox authorization removed",sent:0,failed:0};
- const claimed=must(await admin.rpc("claim_dropbox_automatic_reports",{p_limit:2}));
- const medicalClaims=must(await admin.rpc("claim_dropbox_automatic_medical_reports",{p_limit:1}));
+ const claimed=must(await admin.rpc(projectId?"claim_dropbox_quick_project":"claim_dropbox_automatic_reports",
+  projectId?{p_project:projectId,p_limit:2}:{p_limit:2}));
+ const medicalClaims=projectId?[]:must(await admin.rpc("claim_dropbox_automatic_medical_reports",{p_limit:1}));
  let sent=0,failed=0,medicalSent=0,medicalFailed=0;
  if(!claimed.length&&!medicalClaims.length)return {enabled:true,sent,failed,medicalSent,medicalFailed};
  let token:string|null=null,tokenError="";
@@ -266,8 +267,13 @@ Deno.serve(async req=>{
  if(req.method!=="POST")return json({error:"Method not allowed"},405);
  try{
   const body=await req.json();
-  if(body.action==="process"){
+  if(body.action==="process"||body.action==="process_quick_project"){
    if(!await authorizeWorker(req.headers.get("x-ge-dropbox-worker")||""))return json({error:"Unauthorized"},401);
+   if(body.action==="process_quick_project"){
+    if(typeof body.project_id!=="string"||!/^[a-f0-9-]{36}$/i.test(body.project_id))
+     return json({error:"Valid project required"},400);
+    return json(await runWorker(body.project_id));
+   }
    return json(await runWorker());
   }
   if(body.action==="queue_medical"){
