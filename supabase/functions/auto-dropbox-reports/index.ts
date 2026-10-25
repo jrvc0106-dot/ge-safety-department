@@ -73,7 +73,7 @@ async function ensureFolder(token:string,path:string){
   if(info[".tag"]==="folder")return;
   throw Error("Dropbox destination is an existing file, not a folder.");
  }catch(error:any){
-  if(error.status!==409||!/path\\/not_found/.test(String(error.tag||"")))
+  if(error.status!==409||!String(error.tag||"").includes("path/not_found"))
    throw error;
  }
  try{
