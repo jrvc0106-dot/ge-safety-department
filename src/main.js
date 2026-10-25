@@ -2289,7 +2289,7 @@ async function reportCenter(){
    actions.append(add('view'),add('download'));
    line.appendChild(actions);
   }
-  paintArchivedBadges();
+  if(typeof paintArchivedBadges==='function')paintArchivedBadges();
  }
 
  let trashOpen=false,trashToggle=null,trashPanel=null;
