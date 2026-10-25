@@ -72,8 +72,8 @@ Deno.serve(async req=>{
    if(record.provider==="dropbox"){
     // Do not record a connection unless Dropbox actually granted the required scopes.
     const granted=new Set(String(result.scope||"").split(/\s+/).filter(Boolean));
-    const needed=["files.content.write","files.metadata.read","account_info.read"];
-    if(needed.some(scope=>!granted.has(scope)))throw Error("Dropbox has not granted the required permissions. Enable files.content.write, files.metadata.read and account_info.read in Dropbox App Console (Permissions > Submit), then reconnect.");
+    const needed=["files.content.write","files.content.read","files.metadata.read","account_info.read"];
+    if(needed.some(scope=>!granted.has(scope)))throw Error("Dropbox has not granted the required permissions. Enable files.content.write, files.content.read, files.metadata.read and account_info.read in Dropbox App Console (Permissions > Submit), then reconnect.");
     const probe=new Blob(["GE ONE Dropbox access verified\n"],{type:"text/plain"});
     await upload("dropbox",result.access_token,"","GE ONE Connection Test.txt",probe);
    }
@@ -175,7 +175,7 @@ Deno.serve(async req=>{
    for(const [k,v] of Object.entries({client_id:appKey,redirect_uri:callback(),response_type:"code",state}))url.searchParams.set(k,v);
    if(p==="google_drive"){url.searchParams.set("scope","https://www.googleapis.com/auth/drive.file");url.searchParams.set("access_type","offline");url.searchParams.set("prompt","consent");}
    else{
-    url.searchParams.set("token_access_type","offline");url.searchParams.set("scope","files.content.write files.metadata.read account_info.read");url.searchParams.set("force_reapprove","true");url.searchParams.set("include_granted_scopes","user");
+    url.searchParams.set("token_access_type","offline");url.searchParams.set("scope","files.content.write files.content.read files.metadata.read account_info.read");url.searchParams.set("force_reapprove","true");url.searchParams.set("include_granted_scopes","user");
     if(pkce){url.searchParams.set("code_challenge_method","S256");url.searchParams.set("code_challenge",await pkceChallenge(verifier));}
    }
    return json({authorization_url:url.toString()});
