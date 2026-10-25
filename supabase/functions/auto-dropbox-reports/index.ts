@@ -104,6 +104,9 @@ const reportCategories:Record<string,string>={
  near_miss:"Near Miss Reports",equipment_inspection:"Equipment Inspections",
  inventory:"Inventory Reports",toolbox:"Toolbox Talks",tool_toolbox:"Toolbox Talks",
  tool_training:"G&E Safety Training",training:"Quick Safety Orientation",
+ tool_qr:"Confined Space Reports",tool_director:"Safety Director Reports",
+ tool_safety_net:"Safety Net Inspections",tool_emergency:"Emergency Reports",
+ tool_hazard:"Hazard Reports",
  registered_safety_orientation:"Register Safety Orientation"
 };
 function reportDay(value:unknown){
