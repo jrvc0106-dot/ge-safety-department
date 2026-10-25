@@ -119,7 +119,7 @@ async function pdfIsComplete(blob:Blob){
  return /^%PDF-\d\.\d/.test(start)&&/%%EOF\s*$/.test(end);
 }
 async function sendOne(row:any,connection:any,access:string){
- const record=must(await admin.from("report_documents").select("id,project_id,title,report_number,report_type,snapshot,pdf_path,document_status,version,finalized_at,created_at")
+ const record=must(await admin.from("report_documents").select("id,project_id,title,report_number,report_type,snapshot,pdf_path,document_status,version,finalized_at,created_at,created_by,source_id")
   .eq("id",row.report_id).eq("project_id",row.project_id).single());
  if(record.document_status!=="final"||!record.pdf_path||record.report_type.includes("medical"))throw Error("PDF is not finalized or is excluded.");
  const project=must(await admin.from("projects").select("name").eq("id",record.project_id).single());
