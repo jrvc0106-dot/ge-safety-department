@@ -1,4 +1,4 @@
-const CACHE='ge-safety-v3';
+const CACHE='ge-safety-v4';
 const SHELL=['/','/index.html','/manifest.webmanifest','/ge-logo.png'];
 
 self.addEventListener('install',event=>{
@@ -20,12 +20,19 @@ self.addEventListener('fetch',event=>{
 
   // Vite asset names include a content hash. The same URL is immutable.
   if(/^\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/.test(url.pathname)){
+    // Prefer the current deployed chunk. Safari may retain an outdated shell
+    // after a release; offline fallback is only safe for an exact URL match.
     event.respondWith(caches.open(CACHE).then(async cache=>{
-      const cached=await cache.match(event.request);
-      if(cached)return cached;
-      const response=await fetch(event.request);
-      if(response.ok)await cache.put(event.request,response.clone());
-      return response;
+      try{
+        const response=await fetch(event.request);
+        if(response.ok){await cache.put(event.request,response.clone());return response;}
+        const cached=await cache.match(event.request);
+        return cached||response;
+      }catch(error){
+        const cached=await cache.match(event.request);
+        if(cached)return cached;
+        throw error;
+      }
     }));
     return;
   }
