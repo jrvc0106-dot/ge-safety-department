@@ -8,7 +8,15 @@ export function alignCriticalReportPdfBlocks(container,pageHeight){
  const selectors=isJha
   ?'.ewr-section, .ewr-section-title, .ewr-tr, .ewr-signatures, .ge-pdf-photo-note, .ewr-footer, [data-jha-pdf-page]'
   :'section, .eq-table tr, .eq-corrective, .eq-signatures, footer, [data-equipment-pdf-page]';
- const nodes=[...report.querySelectorAll(selectors)];
+ const nodes=[...report.querySelectorAll(selectors)].filter(node=>{
+  // Do not insert a second page spacer inside a section already kept intact.
+  // Nested spacers were able to split signatures and produce empty PDF sheets.
+  if(node.matches?.('.ewr-signatures,.eq-signatures,.ewr-section-title,.ewr-tr,.ewr-footer,.eq-table tr')){
+   const outer=node.closest('.ewr-section,section');
+   if(outer&&outer!==node&&outer.getBoundingClientRect?.().height<pageHeight-12)return false;
+  }
+  return true;
+ });
  const doc=container.ownerDocument||report.ownerDocument;
  if(!doc?.createElement||!container.getBoundingClientRect)return 0;
  let added=0;
@@ -24,6 +32,8 @@ export function alignCriticalReportPdfBlocks(container,pageHeight){
   // An oversized section must not be pushed indefinitely; only protect blocks
   // that fit on one sheet. Photo sheets retain their established start alignment.
   if(remainder<2||(!photoPage&&height>pageHeight-12))continue;
+  // A spacer very close to the sheet edge creates a near-empty trailing page.
+  if(pageHeight-remainder<3)continue;
   if(!photoPage&&remainder+height<=pageHeight-8)continue;
   const gap=pageHeight-remainder;
   // A spacer DIV is invalid inside <tbody>/<thead> and can be hoisted out
