@@ -66,6 +66,33 @@ export function pdfPageRasterChoice(container,top,height){
  return {format:'PNG',mime:'image/png'};
 }
 
+// Non-Quick reports keep their approved two-column PHOTO layout on iPhones,
+// iPads and desktops. The stylesheet lives only in html2pdf's temporary clone.
+export function stabilizeNonQuickPdfColumns(container){
+ const report=container?.querySelector?.('article.report:not(.ge-reference-jha):not(.equipment-pdf):not(.quick-safety-orientation-report)');
+ if(!report)return false;
+ const doc=container.ownerDocument||report.ownerDocument;
+ if(!doc?.createElement||!container.appendChild)return false;
+ if(container.querySelector('[data-ge-nonquick-pdf-columns]'))return true;
+ const style=doc.createElement('style');
+ style.setAttribute('data-ge-nonquick-pdf-columns','');
+ style.textContent=[
+  'article.report:not(.quick-safety-orientation-report) .report-photos,',
+  'article.report:not(.quick-safety-orientation-report) .ir-photos,',
+  'article.report:not(.quick-safety-orientation-report) .report-photo-grid,',
+  'article.report:not(.quick-safety-orientation-report) .dr-photo-grid,',
+  'article.report:not(.quick-safety-orientation-report) .registered-orientation-evidence-grid',
+  '{grid-template-columns:repeat(2,minmax(0,1fr))!important;}',
+  'article.report:not(.quick-safety-orientation-report) .inventory-evidence-grid',
+  '{grid-template-columns:repeat(3,minmax(0,1fr))!important;}',
+  'article.report:not(.quick-safety-orientation-report) figure{min-width:0!important;}',
+  'article.report:not(.quick-safety-orientation-report) figcaption',
+  '{overflow-wrap:anywhere!important;white-space:normal!important;}'
+ ].join('');
+ container.appendChild(style);
+ return true;
+}
+
 export async function renderPaginatedPdf(container,pageSize,options,render=html2canvas,Pdf=jsPDF){
   const width=pageSize.inner.width*96;
   const pageHeight=pageSize.inner.px.height;
@@ -74,6 +101,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
   applyAdaptiveReportPdfLayout(container,pageSize,{
     sourceDevice:typeof window==='undefined'?'desktop':deviceKindFromWindow(window)
   });
+  stabilizeNonQuickPdfColumns(container);
   // html2canvas slices fixed-height images; ordinary CSS page-break rules do
   // not stop a signature or corrective-action panel from being sliced.
   // Align intact blocks in the temporary PDF clone before measuring its height.
