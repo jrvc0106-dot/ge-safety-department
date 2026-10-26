@@ -5,7 +5,30 @@ import {prepareLocalBackup} from './local-backup.js';
 // iPadOS may clear website data; exporting a ZIP to Files remains an explicit user action.
 const DB_NAME='ge-one-verified-tablet-backups';
 const ONE_WEEK=7*24*60*60*1000;
-export const weeklyBackupDue=(latest,now=Date.now())=>!latest||!Number.isFinite(Date.parse(latest.savedAt))||now-Date.parse(latest.savedAt)>=ONE_WEEK;
+// A clock correction or incorrectly future-dated backup must not postpone
+// all future safety copies indefinitely. Small clock differences are tolerated.
+export const weeklyBackupDue=(latest,now=Date.now())=>{
+ const saved=Date.parse(latest?.savedAt);
+ if(!Number.isFinite(saved))return true;
+ return saved-now>5*60*1000||now-saved>=ONE_WEEK;
+};
+
+// SHA-256 protects against an archive altered after its original download.
+// Legacy records created before this feature still pass the existing size check.
+export async function tabletBackupSha256(blob){
+ if(!(blob instanceof Blob)||!blob.size)throw Error('Tablet backup archive is empty.');
+ const subtle=globalThis.crypto?.subtle;
+ if(!subtle)throw Error('Secure backup verification is unavailable on this device.');
+ const digest=new Uint8Array(await subtle.digest('SHA-256',await blob.arrayBuffer()));
+ return Array.from(digest,byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+export async function verifyTabletBackupRecord(record){
+ if(!record?.blob||record.blob.size!==record.size)
+  throw Error('The tablet backup is missing or incomplete.');
+ if(record.sha256&&await tabletBackupSha256(record.blob)!==record.sha256)
+  throw Error('Tablet backup integrity verification failed.');
+ return record;
+}
 
 function openDatabase(){
  return new Promise((resolve,reject)=>{
@@ -53,18 +76,19 @@ export async function getTabletBackup(key){
    const request=tx.objectStore('archives').get(key);
    request.onsuccess=()=>set(request.result||null);
   });
-  if(!record?.blob||record.blob.size!==record.size)throw Error('The tablet backup is missing or incomplete.');
-  return record;
+  return await verifyTabletBackupRecord(record);
  }finally{db.close()}
 }
 export async function saveTabletBackup({userId,projectId,backupId,name,blob,source='manual',savedAt=new Date().toISOString()}){
  if(!userId||!projectId||!backupId||!(blob instanceof Blob)||!blob.size||!name)throw Error('Incomplete verified backup');
+ if(blob.size>200*1024*1024)throw Error('The tablet backup exceeds the supported 200 MB limit.');
+ const sha256=await tabletBackupSha256(blob);
  const scope=tabletBackupScope(userId,projectId),key=scope+'|'+backupId;
- const metadata={key,scope,projectId,userId,backupId,name,source,size:blob.size,savedAt};
+ const metadata={key,scope,projectId,userId,backupId,name,source,size:blob.size,sha256,savedAt};
  const db=await openDatabase();
  try{
   await runTransaction(db,['metadata','archives'],'readwrite',tx=>{
-   tx.objectStore('archives').put({key,blob,size:blob.size});
+   tx.objectStore('archives').put({key,blob,size:blob.size,sha256});
    tx.objectStore('metadata').put(metadata);
   });
   // Retain the newest two device copies per user and project. Clean up only AFTER
