@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {alignGeneralReportPdfEvidence} from '../src/report-pdf-page-alignment.js';
-import {pdfPageRasterChoice,renderPaginatedPdf} from '../src/pdf-export.js';
+import {pdfPageRasterChoice,renderPaginatedPdf,stabilizeNonQuickPdfColumns} from '../src/pdf-export.js';
 
 const pageSize={inner:{width:8,px:{height:1003}}};
 const options={jsPDF:{unit:'in',format:'letter'},margin:[.25,.25,.3,.25],html2canvas:{useCORS:true}};
@@ -95,4 +95,24 @@ test('evidence photo page stays high-resolution JPEG while prior text sheet is l
   assert.deepEqual(types,['PNG','JPEG']);
   assert.deepEqual(encoded.map(e=>[e.type,e.quality]),[['image/png',undefined],['image/jpeg',0.96]]);
  }finally{dom.window.close()}
+});
+
+test('iPhone and iPad PDF temporary clone retains two-column photos without modifying Quick Orientation',()=>{
+ const dom=new JSDOM('<div id="export"><article class="report incident-pdf"><div class="ir-photos"><figure><img></figure><figure><img></figure></div></article></div>');
+ const quick=new JSDOM('<div id="export"><article class="report quick-safety-orientation-report"><div class="quick-report-photos"><figure><img></figure></div></article></div>');
+ try{
+  const container=dom.window.document.getElementById('export'),quickContainer=quick.window.document.getElementById('export');
+  const before=container.querySelector('article').outerHTML;
+  assert.equal(stabilizeNonQuickPdfColumns(container),true);
+  assert.equal(stabilizeNonQuickPdfColumns(container),true);
+  const styles=container.querySelectorAll('style[data-ge-nonquick-pdf-columns]');
+  assert.equal(styles.length,1);
+  assert.match(styles[0].textContent,/grid-template-columns:repeat\\(2,minmax\\(0,1fr\\)\\)!important/);
+  assert.match(styles[0].textContent,/figcaption/);
+  assert.equal(container.querySelector('article').outerHTML,before);
+  const quickBefore=quickContainer.innerHTML;
+  assert.equal(stabilizeNonQuickPdfColumns(quickContainer),false);
+  assert.equal(quickContainer.innerHTML,quickBefore);
+  assert.equal(quickContainer.querySelector('style'),null);
+ }finally{dom.window.close();quick.window.close()}
 });
