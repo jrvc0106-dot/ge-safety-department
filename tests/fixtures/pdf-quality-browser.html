@@ -63,7 +63,24 @@ try{
  const remote=await fetch('http://127.0.0.1:4181/upload',{
   method:'POST',headers:{'Content-Type':'application/pdf'},body:blob});
  if(!remote.ok)throw Error('Browser PDF artifact could not be saved: '+remote.status);
- finish(true,{photos:cards.length,pageIndices,bytes:blob.size,originalLogo:true,sourceIntact:true});
+ // A second independently rendered case ensures the exporter does not create
+ // unnecessary extra sheets when the six-photo evidence grid already fits.
+ target.innerHTML=sourceBefore;
+ const compactIntro=target.querySelector('.smoke-intro');
+ compactIntro.style.height='160px';
+ await Promise.all([...target.querySelectorAll('img')].map(img=>img.decode()));
+ protectPdfReportLogos(target,{photos:true});
+ const compactBlob=await renderPaginatedPdf(target,pageSize,options);
+ if(!await isValidPdfBlob(compactBlob))throw Error('Compact one-page PDF is malformed');
+ const compactBytes=await compactBlob.text();
+ const compactPages=[...compactBytes.matchAll(/\/Type\s*\/Page\b/g)].length;
+ if(compactPages!==1)throw Error('Short report wasted an extra PDF page: '+compactPages);
+ const second=await fetch('http://127.0.0.1:4181/upload-compact',{
+  method:'POST',headers:{'Content-Type':'application/pdf'},body:compactBlob});
+ if(!second.ok)throw Error('Compact PDF artifact could not be saved: '+second.status);
+ if(source.innerHTML!==sourceBefore)throw Error('Original report mutated during compact export');
+ finish(true,{photos:cards.length,pageIndices,bytes:blob.size,compactPages,
+  compactBytes:compactBlob.size,originalLogo:true,sourceIntact:true});
 }catch(error){finish(false,{error:String(error?.stack||error)})}
 </script>
 </body></html>
