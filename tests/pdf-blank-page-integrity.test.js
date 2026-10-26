@@ -43,7 +43,7 @@ test('middle and trailing blank sheets are omitted without deleting any real con
  try{
   const result=await renderPaginatedPdf({scrollHeight:4012},pageSize,options,async(_container,opts)=>{
    rendered.push(opts.y);
-   return {width:1600,height:2089,ink:opts.y===1003||opts.y===3010?undefined:25,
+   return {width:1600,height:2089,ink:opts.y===1003||opts.y===3009?undefined:25,
     toDataURL:()=> 'data:image/jpeg;base64,AAA'};
   },Pdf);
   assert.ok(result.size);
