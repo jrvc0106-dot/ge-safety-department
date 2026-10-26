@@ -66,8 +66,9 @@ try{
  // A second independently rendered case ensures the exporter does not create
  // unnecessary extra sheets when the six-photo evidence grid already fits.
  target.innerHTML=sourceBefore;
- const compactIntro=target.querySelector('.smoke-intro');
- compactIntro.style.height='160px';
+ // Without a long narrative, all six photos should fit with the header
+ // on one sheet. No artificial filler is permitted in this compact example.
+ target.querySelector('.smoke-intro').remove();
  await Promise.all([...target.querySelectorAll('img')].map(img=>img.decode()));
  protectPdfReportLogos(target,{photos:true});
  const compactBlob=await renderPaginatedPdf(target,pageSize,options);
