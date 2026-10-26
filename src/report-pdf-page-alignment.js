@@ -100,6 +100,8 @@ export function alignGeneralReportPdfEvidence(container,pageHeight){
   '.report-photos figure','.ir-photos figure','.inventory-evidence figure',
   '.report-photo-grid figure','.registered-orientation-evidence',
   '.dr-photo-grid figure','.inventory-evidence-item',
+  '.report-observation','.report-corrections','.dr-callout','.dr-section-title',
+  '.ir-two','.ir-checkgrid','.registered-orientation-section',
   '.report-signatures','.dr-signatures','.ir-signatures',
   '.registered-orientation-signatures','.report-footer',
   '.registered-orientation-footer'
