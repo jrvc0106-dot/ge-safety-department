@@ -116,3 +116,17 @@ test('iPhone and iPad PDF temporary clone retains two-column photos without modi
   assert.equal(quickContainer.querySelector('style'),null);
  }finally{dom.window.close();quick.window.close()}
 });
+
+test('short corrective-action panels remain whole and full-length panels are not pushed into blank pages',()=>{
+ const dom=new JSDOM('<div id="export"><article class="report incident-pdf"><section class="ir-two" id="findings">Corrective action and responsible person</section><section class="report-corrections" id="large">Long narrative</section></article></div>');
+ try{
+  const container=dom.window.document.getElementById('export'),short=dom.window.document.getElementById('findings'),large=dom.window.document.getElementById('large');
+  container.getBoundingClientRect=()=>({top:0});
+  short.getBoundingClientRect=()=>({top:960,bottom:1090,height:130});
+  large.getBoundingClientRect=()=>({top:1200,bottom:2500,height:1300});
+  assert.equal(alignGeneralReportPdfEvidence(container,1003),1);
+  assert.equal(short.previousElementSibling.style.height,'43px');
+  assert.equal(large.previousElementSibling,short);
+  assert.equal(short.textContent,'Corrective action and responsible person');
+ }finally{dom.window.close()}
+});
