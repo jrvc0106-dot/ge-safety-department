@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GE ONE PDF quality browser regression</title>
+<link rel="stylesheet" href="/src/style.css">
+<style>
+body{margin:0!important;background:white!important;color:#1e293b}
+#smoke-source,#smoke-export{width:768px;min-width:768px;box-sizing:border-box;margin:0!important}
+#smoke-source{display:none}
+#smoke-export>.professional-report{width:768px!important;max-width:768px!important;box-sizing:border-box!important;margin:0!important;padding:14px!important}
+.smoke-logo{height:58px!important;width:130px!important;object-fit:contain!important;object-position:left center!important}
+.smoke-header{display:flex;align-items:center;gap:20px;border-bottom:3px solid #34495e;padding:12px 0}
+.smoke-header h1{font-size:21px;margin:0}
+.smoke-intro{height:530px;padding:24px 0;box-sizing:border-box}
+.smoke-intro h2{font-size:14px}
+.smoke-intro p{font-size:13px;line-height:1.6}
+#smoke-export .report-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:10px 0}
+#smoke-export .report-photos figure{margin:0;padding:0;border:1px solid #ccd5df;border-radius:4px;overflow:hidden}
+#smoke-export .report-photos img{display:block;width:100%;height:150px;object-fit:contain;background:white}
+#smoke-export .report-photos figcaption{font-size:11px;line-height:1.35;padding:7px;color:#334155;white-space:normal;overflow-wrap:anywhere}
+#smoke-result{position:fixed;left:780px;top:15px;max-width:300px;white-space:pre-wrap;font-size:12px;color:black}
+</style></head>
+<body>
+<div id="smoke-source"></div>
+<div id="smoke-export"></div>
+<pre id="smoke-result" data-status="running">Running real-browser PDF quality check</pre>
+<script type="module">
+import {renderPaginatedPdf} from '/src/pdf-export.js';
+import {isValidPdfBlob,protectPdfReportLogos} from '/src/report-pdf-quality.js';
+const result=document.getElementById('smoke-result');
+const finish=(ok,extra={})=>{
+ result.dataset.status=ok?'pass':'fail';
+ result.textContent=JSON.stringify({ok,...extra});
+};
+try{
+ const source=document.getElementById('smoke-source');
+ const target=document.getElementById('smoke-export');
+ const svg=index=>'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="800" height="400" fill="#dde6ef"/><rect x="30" y="25" width="740" height="350" fill="#a9becc"/><circle cx="130" cy="180" r="95" fill="#667e8f"/><text x="260" y="205" font-family="Arial" font-size="62" fill="#172f46">EVIDENCE '+index+'</text></svg>';
+ const figures=Array.from({length:6},(_,i)=>
+  '<figure><img alt="Evidence photo '+(i+1)+'" src="data:image/svg+xml,'+encodeURIComponent(svg(i+1))+'"><figcaption>Photo '+(i+1)+' — Confirmed full corrective-action evidence, no crop, no loss of description.</figcaption></figure>'
+ ).join('');
+ source.innerHTML='<article class="report professional-report"><header class="smoke-header"><img class="smoke-logo" src="/ge-logo.png" alt="Original G&E logo"><div><h1>G&E FLORIDA CONTRACTORS</h1><p>Professional Daily Safety Report</p></div></header><section class="smoke-intro"><h2>FIELD INSPECTION & CORRECTIVE ACTIONS</h2><p>Safety observations, project documentation, responsible staff and corrective actions.</p><p>Report content is preserved even when evidence begins close to a sheet boundary.</p></section><section class="report-photos">'+figures+'</section><footer class="report-footer"><p>Safety Director — Document closed and verified</p></footer></article>';
+ const sourceBefore=source.innerHTML;
+ target.innerHTML=source.innerHTML;
+ const allImages=[...target.querySelectorAll('img')];
+ await Promise.all(allImages.map(img=>img.decode()));
+ if(allImages.some(img=>!img.naturalWidth||!img.naturalHeight))throw Error('Missing logo or photo evidence');
+ protectPdfReportLogos(target,{photos:true});
+ const pageSize={inner:{width:8,height:10.45,px:{height:1003}}};
+ const options={margin:[.25,.25,.3,.25],jsPDF:{unit:'in',format:'letter',orientation:'portrait'},
+   html2canvas:{useCORS:true,allowTaint:false,backgroundColor:'#fff',logging:false,imageTimeout:30000}};
+ const blob=await renderPaginatedPdf(target,pageSize,options);
+ if(!await isValidPdfBlob(blob))throw Error('Generated PDF failed integrity check');
+ const grid=target.querySelector('.report-photos'),cards=[...grid.querySelectorAll('figure')];
+ const rootTop=target.getBoundingClientRect().top;
+ const pageIndices=cards.map(card=>Math.floor((card.getBoundingClientRect().top-rootTop)/1003));
+ if(new Set(pageIndices).size!==1)throw Error('Six photo captions did not remain on one page: '+pageIndices);
+ if(cards.some(card=>{
+  const y=card.getBoundingClientRect().top-rootTop;
+  return (y%1003+1003)%1003+card.getBoundingClientRect().height>1003-5;
+ }))throw Error('Evidence photo or caption crosses a page boundary');
+ if(source.innerHTML!==sourceBefore)throw Error('Saved report HTML was changed');
+ if(blob.size<10000)throw Error('Suspiciously small PDF');
+ const remote=await fetch('http://127.0.0.1:4181/upload',{
+  method:'POST',headers:{'Content-Type':'application/pdf'},body:blob});
+ if(!remote.ok)throw Error('Browser PDF artifact could not be saved: '+remote.status);
+ // A second independently rendered case ensures the exporter does not create
+ // unnecessary extra sheets when the six-photo evidence grid already fits.
+ target.innerHTML=sourceBefore;
+ // Without a long narrative, all six photos should fit with the header
+ // on one sheet. No artificial filler is permitted in this compact example.
+ target.querySelector('.smoke-intro').remove();
+ await Promise.all([...target.querySelectorAll('img')].map(img=>img.decode()));
+ protectPdfReportLogos(target,{photos:true});
+ const compactBlob=await renderPaginatedPdf(target,pageSize,options);
+ if(!await isValidPdfBlob(compactBlob))throw Error('Compact one-page PDF is malformed');
+ const compactBytes=await compactBlob.text();
+ const compactPages=[...compactBytes.matchAll(/\/Type\s*\/Page\b/g)].length;
+ if(compactPages!==1)throw Error('Short report wasted an extra PDF page: '+compactPages);
+ const second=await fetch('http://127.0.0.1:4181/upload-compact',{
+  method:'POST',headers:{'Content-Type':'application/pdf'},body:compactBlob});
+ if(!second.ok)throw Error('Compact PDF artifact could not be saved: '+second.status);
+ if(source.innerHTML!==sourceBefore)throw Error('Original report mutated during compact export');
+ finish(true,{photos:cards.length,pageIndices,bytes:blob.size,compactPages,
+  compactBytes:compactBlob.size,originalLogo:true,sourceIntact:true});
+}catch(error){finish(false,{error:String(error?.stack||error)})}
+</script>
+</body></html>
