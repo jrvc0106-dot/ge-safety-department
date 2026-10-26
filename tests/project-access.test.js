@@ -26,7 +26,7 @@ test('project access shows exact memberships and the all-projects control',async
  assert.equal(worker.querySelector('[data-save-access]').disabled,true);
  const safety=t.dom.window.document.querySelector('[data-member-id="safety-1"]');
  assert.equal(safety.querySelector('[data-project-summary]').textContent,'2 projects');
- assert.equal(safety.querySelector('[data-all-projects]').indeterminate,true);
+ assert.equal(safety.querySelector('[data-all-projects]').checked,false);
  assert.equal(t.dom.window.document.querySelector('[data-member-role="admin"] [data-project-summary]').textContent,'All projects');
  t.dom.window.close();
 });
