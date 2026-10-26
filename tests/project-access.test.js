@@ -97,3 +97,24 @@ test('member selector shows only selected person with jobsite checklist',async()
  assert.equal(safety.querySelector('[data-project-id="old-job"]').checked,false);
  t.dom.window.close();
 });
+
+test('project access permits return to Team Access even when no jobsite was assigned',async()=>{
+ const t=setup();t.dependencies.state.projects=[];await renderProjectAccess(t.dependencies);
+ const back=t.dom.window.document.querySelector('#project-access-back');
+ assert.equal(back.disabled,false);
+ back.click();
+ assert.deepEqual(t.calls.at(-1),{navigate:['admin']});
+ t.dom.window.close();
+});
+test('server-reported failure does not mark access as saved',async()=>{
+ const t=setup();
+ t.dependencies.db.rpc=async(name)=>name==='get_project_access_data'?{data:projectData,error:null}:{data:null,error:{message:'Denied'}};
+ await renderProjectAccess(t.dependencies);
+ const c=t.dom.window.document.querySelector('[data-member-id="worker-1"]');
+ const box=c.querySelector('[data-project-id="domus"]');box.checked=true;box.dispatchEvent(new t.dom.window.Event('change'));
+ c.querySelector('[data-save-access]').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.match(c.querySelector('.project-access-status').textContent,/Denied/);
+ assert.equal(c.querySelector('[data-save-access]').disabled,false);
+ t.dom.window.close();
+});
