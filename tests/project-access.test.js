@@ -41,7 +41,7 @@ test('manager can assign one, selected multiple or all projects using the protec
  assert.deepEqual(t.calls[1],{name:'set_member_project_access_mode',args:{p_member_id:'worker-1',p_project_ids:['domus','rivage'],p_all_future:false}});
  assert.equal(card.querySelector('.project-access-status').textContent,'Access saved.');
  const all=card.querySelector('[data-all-projects]');all.checked=true;all.dispatchEvent(new t.dom.window.Event('change'));
- assert.equal(card.querySelector('[data-project-summary]').textContent,'All projects');
+ assert.equal(card.querySelector('[data-project-summary]').textContent,'All projects + future');
  assert.deepEqual(checks.map(input=>input.checked),[true,true,true]);
  t.dom.window.close();
 });
@@ -79,5 +79,21 @@ test('previously saved perpetual membership appears checked',async()=>{
  const card=t.dom.window.document.querySelector('[data-member-id="safety-1"]');
  assert.equal(card.querySelector('[data-all-projects]').checked,true);
  assert.equal(card.querySelector('[data-save-access]').disabled,true);
+ t.dom.window.close();
+});
+
+test('member selector shows only selected person with jobsite checklist',async()=>{
+ const t=setup();await renderProjectAccess(t.dependencies);
+ const picker=t.dom.window.document.querySelector('#project-access-member-select');
+ assert.ok(picker);
+ assert.equal(t.dom.window.document.querySelector('[data-member-id="worker-1"]').hidden,false);
+ assert.equal(t.dom.window.document.querySelector('[data-member-id="safety-1"]').hidden,true);
+ picker.value='safety-1';picker.dispatchEvent(new t.dom.window.Event('change'));
+ assert.equal(t.dom.window.document.querySelector('[data-member-id="worker-1"]').hidden,true);
+ const safety=t.dom.window.document.querySelector('[data-member-id="safety-1"]');
+ assert.equal(safety.hidden,false);
+ assert.equal(safety.querySelector('[data-project-id="rivage"]').checked,true);
+ assert.equal(safety.querySelector('[data-project-id="domus"]').checked,true);
+ assert.equal(safety.querySelector('[data-project-id="old-job"]').checked,false);
  t.dom.window.close();
 });
