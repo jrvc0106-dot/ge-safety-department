@@ -40,6 +40,59 @@ export function pdfCanvasPageIsBlank(canvas,{documentRef=globalThis.document}={}
  finally{if(sample){sample.width=0;sample.height=0}}
 }
 
+// Only the non-Quick high-quality Letter exporter uses this decision.
+// Text-only sheets are stored losslessly so small lettering, signatures and
+// the G&E logo are not blurred by JPEG compression. Evidence photo sheets stay
+// JPEG for reasonable storage and sharing sizes on iPad/mobile.
+export function pdfPageRasterChoice(container,top,height){
+ const report=container?.querySelector?.('article.report:not(.quick-safety-orientation-report)');
+ if(!report)return {format:'JPEG',mime:'image/jpeg',quality:0.92};
+ const root=container.getBoundingClientRect?.();
+ if(!root||!Number.isFinite(root.top))return {format:'JPEG',mime:'image/jpeg',quality:0.92};
+ const images=report.querySelectorAll(
+  'figure img:not([data-signature-strokes]),.report-photos img,.ir-photos img,.report-photo-grid img,'+
+  '.dr-photo-grid img,.inventory-evidence img,.registered-orientation-evidence img,'+
+  '.eq-photo-frame img,.ewr-photo-card img'
+ );
+ for(const img of images){
+  if(img.getAttribute?.('src')?.includes('ge-logo.png'))continue;
+  const box=img.getBoundingClientRect?.();
+  if(!box||!Number.isFinite(box.top)||!Number.isFinite(box.bottom))continue;
+  const y=box.top-root.top+(container.scrollTop||0);
+  const end=box.bottom-root.top+(container.scrollTop||0);
+  if(end>top+1&&y<top+height-1)
+   return {format:'JPEG',mime:'image/jpeg',quality:0.96};
+ }
+ return {format:'PNG',mime:'image/png'};
+}
+
+// Non-Quick reports keep their approved two-column PHOTO layout on iPhones,
+// iPads and desktops. The stylesheet lives only in html2pdf's temporary clone.
+export function stabilizeNonQuickPdfColumns(container){
+ const report=container?.querySelector?.('article.report:not(.ge-reference-jha):not(.equipment-pdf):not(.quick-safety-orientation-report)');
+ if(!report)return false;
+ const doc=container.ownerDocument||report.ownerDocument;
+ if(!doc?.createElement||!container.appendChild)return false;
+ if(container.querySelector('[data-ge-nonquick-pdf-columns]'))return true;
+ const style=doc.createElement('style');
+ style.setAttribute('data-ge-nonquick-pdf-columns','');
+ style.textContent=[
+  'article.report:not(.quick-safety-orientation-report) .report-photos,',
+  'article.report:not(.quick-safety-orientation-report) .ir-photos,',
+  'article.report:not(.quick-safety-orientation-report) .report-photo-grid,',
+  'article.report:not(.quick-safety-orientation-report) .dr-photo-grid,',
+  'article.report:not(.quick-safety-orientation-report) .registered-orientation-evidence-grid',
+  '{grid-template-columns:repeat(2,minmax(0,1fr))!important;}',
+  'article.report:not(.quick-safety-orientation-report) .inventory-evidence-grid',
+  '{grid-template-columns:repeat(3,minmax(0,1fr))!important;}',
+  'article.report:not(.quick-safety-orientation-report) figure{min-width:0!important;}',
+  'article.report:not(.quick-safety-orientation-report) figcaption',
+  '{overflow-wrap:anywhere!important;white-space:normal!important;}'
+ ].join('');
+ container.appendChild(style);
+ return true;
+}
+
 export async function renderPaginatedPdf(container,pageSize,options,render=html2canvas,Pdf=jsPDF){
   const width=pageSize.inner.width*96;
   const pageHeight=pageSize.inner.px.height;
@@ -48,6 +101,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
   applyAdaptiveReportPdfLayout(container,pageSize,{
     sourceDevice:typeof window==='undefined'?'desktop':deviceKindFromWindow(window)
   });
+  stabilizeNonQuickPdfColumns(container);
   // html2canvas slices fixed-height images; ordinary CSS page-break rules do
   // not stop a signature or corrective-action panel from being sliced.
   // Align intact blocks in the temporary PDF clone before measuring its height.
@@ -68,7 +122,11 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
       if(!(options.skipBlankLeadingPage&&pagesAdded===0&&
           pdfCanvasPageIsBlank(canvas))){
         if(pagesAdded)pdf.addPage();
-        pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',options.margin[1],options.margin[0],
+        const raster=pdfPageRasterChoice(container,top,height);
+        const encoded=raster.format==='PNG'
+          ?canvas.toDataURL(raster.mime)
+          :canvas.toDataURL(raster.mime,raster.quality);
+        pdf.addImage(encoded,raster.format,options.margin[1],options.margin[0],
           pageSize.inner.width,height/96,undefined,'FAST');
         pagesAdded++;
       }
