@@ -44,6 +44,31 @@ export function pdfCanvasPageIsBlank(canvas,{documentRef=globalThis.document}={}
 // Text-only sheets are stored losslessly so small lettering, signatures and
 // the G&E logo are not blurred by JPEG compression. Evidence photo sheets stay
 // JPEG for reasonable storage and sharing sizes on iPad/mobile.
+// Conservative blank-page check for OTHER report PDFs. A near-white page
+// is retained whenever a single sampled pixel contains visible ink, a logo,
+// a signature or photograph. A failed/unavailable canvas scan retains the page.
+// This is separate from the legacy JHA first-page blank detection and the
+// completely independent Quick Safety Orientation renderer.
+export function pdfCanvasPageIsTrulyEmpty(canvas,{documentRef=globalThis.document}={}){
+ if(!canvas?.width||!canvas?.height||!documentRef?.createElement)return false;
+ let sample;
+ try{
+  sample=documentRef.createElement('canvas');
+  sample.width=256;sample.height=320;
+  const ctx=sample.getContext?.('2d',{willReadFrequently:true});
+  if(!ctx?.drawImage||!ctx?.getImageData)return false;
+  ctx.drawImage(canvas,0,0,sample.width,sample.height);
+  const pixels=ctx.getImageData(0,0,sample.width,sample.height).data;
+  if(!pixels||pixels.length!==sample.width*sample.height*4)return false;
+  for(let i=0;i<pixels.length;i+=4){
+   // Transparent white is blank. Conservative threshold preserves pale text.
+   if(pixels[i+3]>12&&(pixels[i]<250||pixels[i+1]<250||pixels[i+2]<250))return false;
+  }
+  return true;
+ }catch{return false}
+ finally{if(sample){sample.width=0;sample.height=0}}
+}
+
 export function pdfPageRasterChoice(container,top,height){
  const report=container?.querySelector?.('article.report:not(.quick-safety-orientation-report)');
  if(!report)return {format:'JPEG',mime:'image/jpeg',quality:0.92};
@@ -119,8 +144,12 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
       if(!canvas.width||!canvas.height)throw new Error('Unable to render PDF page '+(index+1));
       // Only JHA opts into removing an empty FIRST slice; all other
       // documents keep their approved pagination byte-for-byte.
-      if(!(options.skipBlankLeadingPage&&pagesAdded===0&&
-          pdfCanvasPageIsBlank(canvas))){
+      // A genuinely empty raster is never appended to a final report.
+      // Do not remove faint content: the strict scan retains any detectable
+      // logo, text, border, evidence, or signature.
+      const strictlyEmpty=pdfCanvasPageIsTrulyEmpty(canvas);
+      if(!(strictlyEmpty||(options.skipBlankLeadingPage&&pagesAdded===0&&
+          pdfCanvasPageIsBlank(canvas)))){
         if(pagesAdded)pdf.addPage();
         const raster=pdfPageRasterChoice(container,top,height);
         const encoded=raster.format==='PNG'
