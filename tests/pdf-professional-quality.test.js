@@ -107,7 +107,7 @@ test('iPhone and iPad PDF temporary clone retains two-column photos without modi
   assert.equal(stabilizeNonQuickPdfColumns(container),true);
   const styles=container.querySelectorAll('style[data-ge-nonquick-pdf-columns]');
   assert.equal(styles.length,1);
-  assert.match(styles[0].textContent,/grid-template-columns:repeat\\(2,minmax\\(0,1fr\\)\\)!important/);
+  assert.ok(styles[0].textContent.includes('grid-template-columns:repeat(2,minmax(0,1fr))!important'));
   assert.match(styles[0].textContent,/figcaption/);
   assert.equal(container.querySelector('article').outerHTML,before);
   const quickBefore=quickContainer.innerHTML;
