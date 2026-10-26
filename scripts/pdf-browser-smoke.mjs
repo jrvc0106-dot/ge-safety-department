@@ -4,7 +4,7 @@ import {mkdir,readFile,stat,writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 
-const dir=resolve('artifacts/pdf-quality'),file=join(dir,'nonquick-six-evidence-photos.pdf');
+const dir=resolve('artifacts/pdf-quality'),file=join(dir,'nonquick-six-evidence-photos.pdf'),compactFile=join(dir,'nonquick-compact-six-evidence-photos.pdf');
 await mkdir(dir,{recursive:true});
 const port=4178,receiverPort=4181;
 const receiver=createServer(async(req,res)=>{
@@ -12,7 +12,7 @@ const receiver=createServer(async(req,res)=>{
  res.setHeader('Access-Control-Allow-Methods','POST, OPTIONS');
  res.setHeader('Access-Control-Allow-Headers','Content-Type');
  if(req.method==='OPTIONS'){res.writeHead(204);res.end();return}
- if(req.method!=='POST'||req.url!=='/upload'){res.writeHead(404);res.end();return}
+ if(req.method!=='POST'||!['/upload','/upload-compact'].includes(req.url)){res.writeHead(404);res.end();return}
  try{
   const chunks=[];let bytes=0;
   for await(const chunk of req){
@@ -23,7 +23,7 @@ const receiver=createServer(async(req,res)=>{
   const pdf=Buffer.concat(chunks);
   if(pdf.length<10000||!pdf.subarray(0,8).toString().startsWith('%PDF-')||
     !/%%EOF\s*$/.test(pdf.subarray(-2048).toString()))throw Error('Incomplete PDF artifact');
-  await writeFile(file,pdf);
+  await writeFile(req.url==='/upload-compact'?compactFile:file,pdf);
   res.writeHead(200);res.end('saved');
  }catch(error){console.error('PDF artifact error:',error.message);res.writeHead(500);res.end('invalid')}
 });
@@ -66,8 +66,11 @@ try{
  const match=html.match(/<pre id="smoke-result" data-status="(pass|fail|running)">([^<]*)<\/pre>/);
  if(!match||match[1]!=='pass')throw Error('PDF browser smoke failed: '+(match?.[2]||html.slice(-1200)));
  const saved=await readFile(file),info=await stat(file);
- if(!saved.subarray(0,8).toString().startsWith('%PDF-')||info.size<10000)throw Error('Browser did not produce valid archive');
- console.log('Non-Quick PDF real Chromium smoke: PASS; PDF bytes:',info.size);
+ const compact=await readFile(compactFile),compactInfo=await stat(compactFile);
+ if(!saved.subarray(0,8).toString().startsWith('%PDF-')||info.size<10000||
+   !compact.subarray(0,8).toString().startsWith('%PDF-')||compactInfo.size<10000)
+   throw Error('Browser did not produce both verified PDF examples');
+ console.log('Non-Quick PDF real Chromium smoke: PASS; 2-page and compact examples:',info.size,compactInfo.size);
  console.log('Chrome details:',match[2]);
- console.log('PDF artifact:',file);
+ console.log('PDF artifacts:',file,compactFile);
 }finally{await stop()}
