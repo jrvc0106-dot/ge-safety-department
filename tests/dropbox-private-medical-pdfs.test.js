@@ -33,6 +33,11 @@ test('confidential PDF queue only acknowledges verified full upload',async()=>{
  assert.equal(calls[0].bucket,'medical-final-pdfs');
  assert.equal(calls[0].opt.upsert,false);
  await assert.rejects(()=>queueMedicalDropboxPdf(db,{blob:new Blob(['x']),projectId,userId,followupId}));
+ const before=calls.length;
+ await assert.rejects(()=>queueMedicalDropboxPdf(db,{blob:new Blob(['This is not a PDF document'.repeat(4)],{type:'application/pdf'}),projectId,userId,followupId}),/incomplete or invalid/);
+ await assert.rejects(()=>queueMedicalDropboxPdf(db,{blob:new Blob(['%PDF-1.7\\nTruncated medical record'],{type:'application/pdf'}),projectId,userId,followupId}),/incomplete or invalid/);
+ await assert.rejects(()=>queueMedicalDropboxPdf(db,{blob:new Blob(['%PDF-1.7\\nbody body body body body\\n%%EOF'],{type:'text/plain'}),projectId,userId,followupId}),/PDF files only/);
+ assert.equal(calls.length,before,'Rejected sensitive files must never be uploaded');
 });
 test('Dropbox status is not mistaken for an authorized medical backup before OAuth',async()=>{
  const db={functions:{invoke:async()=>({data:{enabled:false,medical_queued:false}})}};

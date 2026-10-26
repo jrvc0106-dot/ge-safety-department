@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {weeklyBackupDue,tabletBackupScope,createVerifiedTabletBackup} from '../src/tablet-weekly-backup.js';
+import {weeklyBackupDue,tabletBackupScope,createVerifiedTabletBackup,tabletBackupSha256,verifyTabletBackupRecord} from '../src/tablet-weekly-backup.js';
 
 const DAY=24*60*60*1000;
 test('weekly tablet backup triggers first use and every seven days, never before due date',()=>{
@@ -10,6 +10,8 @@ test('weekly tablet backup triggers first use and every seven days, never before
  assert.equal(weeklyBackupDue({savedAt:new Date(now-7*DAY+1).toISOString()},now),false);
  assert.equal(weeklyBackupDue({savedAt:new Date(now-7*DAY).toISOString()},now),true);
  assert.equal(weeklyBackupDue({savedAt:new Date(now-2*DAY).toISOString()},now),false);
+ assert.equal(weeklyBackupDue({savedAt:new Date(now+DAY).toISOString()},now),true); // Future timestamp from clock correction.
+ assert.equal(weeklyBackupDue({savedAt:'invalid date'},now),true);
  assert.equal(tabletBackupScope('admin-a','site-b'),'admin-a|site-b');
 });
 test('automatic snapshot confirms backend, downloads verified archive and persists on tablet before success',async()=>{
@@ -56,4 +58,20 @@ test('weekly automation is limited to admin sessions and existing manual Cloud B
  assert.match(code,/id="create-cloud-backup"/);
  assert.match(code,/backupCloudCall\(\{action:'local_download'/);
  assert.match(code,/saveTabletBackup\(\{userId:state\.session\.user\.id/);
+});
+
+
+test('iPad archive SHA-256 identifies same-size tampering before a backup can be recovered',async()=>{
+ const original=new Blob(['verified-backup-content']);
+ const altered=new Blob(['modified-backup-content']);
+ assert.equal(original.size,altered.size);
+ const sha256=await tabletBackupSha256(original);
+ assert.match(sha256,/^[0-9a-f]{64}$/);
+ assert.equal(await tabletBackupSha256(original),sha256);
+ const verified={blob:original,size:original.size,sha256};
+ assert.equal(await verifyTabletBackupRecord(verified),verified);
+ await assert.rejects(verifyTabletBackupRecord({...verified,blob:altered}),/integrity verification failed/);
+ await assert.rejects(verifyTabletBackupRecord({...verified,size:original.size+1}),/missing or incomplete/);
+ // Existing iPad copies saved before SHA-256 support remain readable.
+ assert.equal((await verifyTabletBackupRecord({blob:original,size:original.size})).blob,original);
 });

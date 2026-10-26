@@ -1,3 +1,5 @@
+import {isValidPdfBlob} from './report-pdf-quality.js';
+
 // Confidential medical PDF archive. Separate from ordinary report_documents and final-reports.
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function medicalDropboxPdfPath({projectId,userId,followupId}={}){
@@ -14,6 +16,8 @@ export async function medicalDropboxStatus(db,{projectId,followupId}){
 }
 export async function queueMedicalDropboxPdf(db,{blob,projectId,userId,followupId}={}){
  if(!(blob instanceof Blob)||blob.size<32||blob.size>40*1024*1024)throw Error('Medical PDF is missing or exceeds 40 MB.');
+ if(blob.type&&blob.type!=='application/pdf')throw Error('Medical archive accepts PDF files only.');
+ if(!(await isValidPdfBlob(blob)))throw Error('Confidential medical PDF is incomplete or invalid.');
  const path=medicalDropboxPdfPath({projectId,userId,followupId});
  const saved=await db.storage.from('medical-final-pdfs').upload(path,blob,{
   contentType:'application/pdf',upsert:false,cacheControl:'3600'

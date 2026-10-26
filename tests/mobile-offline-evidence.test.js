@@ -101,3 +101,28 @@ test('offline restored JHA evidence shows a local preview and exports its saved 
   dom.window.close();
  }
 });
+
+
+test('iPad offline draft save reports IndexedDB transaction abort instead of hanging',async()=>{
+ const prior=globalThis.indexedDB;
+ const database={
+  objectStoreNames:{contains:()=>true},
+  transaction(){
+   const tx={objectStore:()=>({put:()=>queueMicrotask(()=>tx.onabort?.())})};
+   return tx;
+  },
+  close(){}
+ };
+ globalThis.indexedDB={open(){
+  const request={result:database};
+  queueMicrotask(()=>request.onsuccess?.());
+  return request;
+ }};
+ try{
+  const file=new File(['photo data'],'proof.jpg',{type:'image/jpeg'});
+  await assert.rejects(putOfflineDraftFile('unsaved-photo',file),/save aborted/);
+ }finally{
+  database.onversionchange?.();
+  globalThis.indexedDB=prior;
+ }
+});
