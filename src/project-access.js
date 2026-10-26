@@ -16,7 +16,7 @@ export async function renderProjectAccess({db,state,frame,tr,esc,captureView,loa
    return `<article class="project-access-member" data-member-id="${esc(member.id)}" data-member-role="${esc(member.role||'worker')}"><header><div class="project-access-avatar">${esc((member.name||member.email||'?').trim().charAt(0).toUpperCase())}</div><div class="project-access-identity"><strong>${esc(member.name||member.email)}</strong><span>${esc(member.email||'')}</span><small>${esc((member.role||'worker').replaceAll('_',' '))}${member.position?' · '+esc(member.position):''}</small></div><strong class="project-access-summary" data-project-summary>${isAdmin?tr('All projects','Todos los proyectos'):tr('Loading selection…','Cargando selección…')}</strong></header>${isAdmin?`<p class="project-access-admin-note">${tr('Admin accounts already have full project access.','Las cuentas Admin ya tienen acceso completo a los proyectos.')}</p>`:`<fieldset class="project-access-fieldset" ${projects.length?'':'disabled'}><legend>${tr('Projects this member can access','Proyectos a los que puede acceder')}</legend><div class="project-access-options">${options}</div><label class="project-access-all"><input type="checkbox" data-all-projects ${hasFutureAccess?'checked':''}><span>${tr('Include ALL jobsites, even future ones','Incluir TODOS los jobsites, incluso los futuros')}</span></label></fieldset><footer><button type="button" class="secondary project-access-save" data-save-access>${tr('Save access','Guardar acceso')}</button><span class="project-access-status" role="status" aria-live="polite"></span></footer>`}</article>`
   }).join('')}</div>`:`<div class="empty-state">${projects.length?tr('No active team members were found.','No se encontraron miembros activos del Team.'):tr('No projects are available yet.','Todavía no hay proyectos disponibles.')}</div>`}
  </section>`);
- const back=documentRef.querySelector('#project-access-back');if(back)back.onclick=()=>{if(state.projects.length)navigate('home')};
+ const back=documentRef.querySelector('#project-access-back');if(back){back.disabled=false;back.onclick=()=>navigate('admin')};
  const cards=[...documentRef.querySelectorAll('.project-access-member')];
  const picker=documentRef.querySelector('#project-access-member-select');
  const showSelectedMember=()=>{for(const card of cards)card.hidden=Boolean(picker&&card.dataset.memberId!==picker.value)};
@@ -43,7 +43,7 @@ export async function renderProjectAccess({db,state,frame,tr,esc,captureView,loa
    card.dataset.originalProjects=JSON.stringify(ids);card.dataset.originalAllFuture=card.dataset.allFuture;
    if(status)status.textContent=tr('Access saved.','Acceso guardado.');
    confirmAction(tr('Project access updated.','Acceso al proyecto actualizado.'));
-   if(memberId===state.profile.id){await load();if(back)back.disabled=!state.projects.length}
+   if(memberId===state.profile.id){await load()}
    sync(card);
   }catch(err){if(status)status.textContent=err?.message||String(err);else error(err)}
   finally{sync(card)}
