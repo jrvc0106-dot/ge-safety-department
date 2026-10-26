@@ -22,7 +22,7 @@ const receiver=createServer(async(req,res)=>{
   }
   const pdf=Buffer.concat(chunks);
   if(pdf.length<10000||!pdf.subarray(0,8).toString().startsWith('%PDF-')||
-    !/%%EOF\\s*$/.test(pdf.subarray(-2048).toString()))throw Error('Incomplete PDF artifact');
+    !/%%EOF\s*$/.test(pdf.subarray(-2048).toString()))throw Error('Incomplete PDF artifact');
   await writeFile(file,pdf);
   res.writeHead(200);res.end('saved');
  }catch(error){console.error('PDF artifact error:',error.message);res.writeHead(500);res.end('invalid')}
