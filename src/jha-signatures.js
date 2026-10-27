@@ -33,7 +33,10 @@ if(typeof document!=='undefined'){
   document.addEventListener('click',suppress,true);
   setTimeout(()=>document.removeEventListener('click',suppress,true),650);
  },true);
- document.addEventListener('touchmove',e=>{if(activeSignatureCanvas)e.preventDefault()},{capture:true,passive:false});
+ document.addEventListener('touchmove',e=>{if(activeSignatureCanvas){if(!activeSignatureCanvas.isConnected){unlockSignature();return}e.preventDefault()}},{capture:true,passive:false});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)unlockSignature()});
+ window.addEventListener('pagehide',unlockSignature);
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')unlockSignature()});
 }
 const roleLabel=(role,tr)=>role==='safety'?tr('Assigned Safety','Safety asignado'):tr('Jobsite Superintendent','Superintendente del jobsite');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -90,7 +93,7 @@ export function attachJhaSignatures(form,roles=defaultRoles){
   const finish=e=>{if(e.pointerId!==pointer)return;if(e.type==='pointerup'&&stroke)appendPoint(e);pointer=null;stroke=null;save()};
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,finish);
   form.querySelector(`[data-jha-clear="${role}"]`).onclick=()=>{unlockSignature();strokes=[];pointCount=0;pointer=null;stroke=null;draw();save()};
-  form.addEventListener('reset',()=>{queueMicrotask(()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()})});
+  form.addEventListener('reset',()=>{unlockSignature();queueMicrotask(()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()})});
   draw();
  }
 }
