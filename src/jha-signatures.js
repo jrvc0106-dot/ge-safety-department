@@ -1,5 +1,40 @@
 const defaultRoles=['safety','superintendent'];
 const boundCanvases=new WeakSet();
+// Shared signature-only scroll guard. A tap outside unlocks without activating controls.
+let activeSignatureCanvas=null;
+let savedScrollLock=null;
+function unlockSignature(){
+ if(!activeSignatureCanvas)return;
+ activeSignatureCanvas=null;
+ if(savedScrollLock){
+  document.documentElement.style.overflow=savedScrollLock.html;
+  document.body.style.overflow=savedScrollLock.body;
+  savedScrollLock=null;
+ }
+}
+function lockSignature(canvas){
+ if(activeSignatureCanvas===canvas)return;
+ unlockSignature();
+ activeSignatureCanvas=canvas;
+ savedScrollLock={html:document.documentElement.style.overflow,body:document.body.style.overflow};
+ document.documentElement.style.overflow='hidden';
+ document.body.style.overflow='hidden';
+}
+if(typeof document!=='undefined'){
+ document.addEventListener('pointerdown',e=>{
+  if(!activeSignatureCanvas)return;
+  if(!activeSignatureCanvas.isConnected){unlockSignature();return}
+  if(e.target===activeSignatureCanvas)return;
+  unlockSignature();
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  // Suppress the matching click so unlocking cannot submit or change a field.
+  const suppress=click=>{click.preventDefault();click.stopImmediatePropagation();document.removeEventListener('click',suppress,true)};
+  document.addEventListener('click',suppress,true);
+  setTimeout(()=>document.removeEventListener('click',suppress,true),650);
+ },true);
+ document.addEventListener('touchmove',e=>{if(activeSignatureCanvas)e.preventDefault()},{capture:true,passive:false});
+}
 const roleLabel=(role,tr)=>role==='safety'?tr('Assigned Safety','Safety asignado'):tr('Jobsite Superintendent','Superintendente del jobsite');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function signatureStrokes(value){
@@ -20,7 +55,7 @@ export function attachJhaSignatures(form,roles=defaultRoles){
  for(const role of roles){
   const canvas=form.querySelector(`[data-jha-signature="${role}"]`),input=form.elements.namedItem(`jha_${role}_signature`);
   if(!canvas||!input||boundCanvases.has(canvas))continue;
-  const ctx=canvas.getContext('2d');if(!ctx)continue;boundCanvases.add(canvas);
+  const ctx=canvas.getContext('2d');if(!ctx)continue;boundCanvases.add(canvas);canvas.style.touchAction='none';
   let strokes=signatureStrokes(input.value),pointer=null,stroke=null,saveTimer=null;
   let pointCount=strokes.reduce((n,s)=>n+s.length,0);
   const draw=()=>{
@@ -37,7 +72,7 @@ export function attachJhaSignatures(form,roles=defaultRoles){
   input.addEventListener('change',()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()});
   canvas.addEventListener('pointerdown',e=>{
    if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0)||strokes.length>=500||pointCount>=20000)return;
-   e.preventDefault();pointer=e.pointerId;stroke=[point(e)];strokes.push(stroke);pointCount++;canvas.setPointerCapture?.(pointer);draw();save();
+   e.preventDefault();lockSignature(canvas);pointer=e.pointerId;stroke=[point(e)];strokes.push(stroke);pointCount++;canvas.setPointerCapture?.(pointer);draw();save();
   });
   const appendPoint=e=>{
    if(pointCount>=20000)return;
@@ -54,7 +89,7 @@ export function attachJhaSignatures(form,roles=defaultRoles){
   });
   const finish=e=>{if(e.pointerId!==pointer)return;if(e.type==='pointerup'&&stroke)appendPoint(e);pointer=null;stroke=null;save()};
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,finish);
-  form.querySelector(`[data-jha-clear="${role}"]`).onclick=()=>{strokes=[];pointCount=0;pointer=null;stroke=null;draw();save()};
+  form.querySelector(`[data-jha-clear="${role}"]`).onclick=()=>{unlockSignature();strokes=[];pointCount=0;pointer=null;stroke=null;draw();save()};
   form.addEventListener('reset',()=>{queueMicrotask(()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()})});
   draw();
  }
