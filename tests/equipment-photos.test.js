@@ -34,3 +34,18 @@ test('equipment draft restores thumbnails, appends selections and saves only ret
   assert.deepEqual(snapshots.at(-1).evidence.map(p=>p.name),['restored.jpg','second.jpg','third.jpg']);
  }finally{for(const timer of ctx.draftTimers.values())clearTimeout(timer);form.remove();await Promise.resolve();Object.assign(globalThis,previous);dom.window.close()}
 });
+
+test('equipment PDF heading uses selected equipment type instead of optional unit name',async()=>{
+ const record={report_number:'EI-HEADER',equipment_type:'backhoe_loader',equipment_name:'Unit #12',project:{name:'Miramar Cove'},location:'Area A',inspector_name:'Safety',checklist:[{item:'Hydraulics',result:'pass'}],overall_status:'approved',photos:[]};let html;
+ const ctx=vm.createContext({state:{project:'project',detail:'record'},db:{from(){return{select(){return this},eq(){return this},single:async()=>({data:record})}}},captureView:()=>()=>true,frame:s=>html=s,signedDisplayImage:async()=>'',tr:x=>x,esc:x=>String(x??''),equipmentReportDate,equipmentInspectionTypes:{backhoe_loader:{name:'Backhoe Loader'}},reportSignaturesReport:()=>'',error:e=>{throw e}});
+ vm.runInContext(fn('equipmentInspectionReport'),ctx);await ctx.equipmentInspectionReport();
+ const dom=new JSDOM(html),doc=dom.window.document;
+ assert.equal(doc.querySelector('.eq-pdf-head h1').textContent,'Backhoe Loader');
+ assert.equal(doc.querySelector('.eq-pdf-head img').getAttribute('src'),'/ge-logo.png');
+ assert.equal(doc.querySelector('.eq-info p').textContent.includes('Backhoe Loader'),true);
+ dom.window.close();
+});
+test('equipment PDF header logo has 15 percent larger size in equipment-only CSS',()=>{
+ const css=readFileSync(new URL('../src/style.css',import.meta.url),'utf8');
+ assert.match(css,/\\.eq-pdf-head img\\{width:71\\.3px;height:auto;max-width:none;object-fit:contain\\}/);
+});
