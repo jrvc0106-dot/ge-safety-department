@@ -61,7 +61,7 @@ import './mobile-field-workflow.css';
 import {installAppearanceTheme,mountAppearanceSettings} from './appearance-themes.js';
 import './appearance-themes.css';
 import {normalizeMemberEmail,matchOrientationWarnings,summarizeOrientationWarnings,isFormalOrientationWarning} from './team-identity.js';
-import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from './quick-safety-orientation.js';
+import {quickSafetyOrientationForm,quickSafetyOrientationReport,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickCustomTrade,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickStickerVerificationMarkup,quickStickerDuplicateMarkup,quickOrientationPrimaryPhotoPath} from './quick-safety-orientation.js';
 import {registeredSafetyOrientationReport} from './registered-safety-orientation-report.js';
 import {loadRegisteredOrientationEvidence} from './registered-orientation-photo-loader.js';
 import {canVerifyStickerAcrossJobsites,renderGlobalStickerMatches} from './sticker-verification-access.js';
@@ -2613,6 +2613,7 @@ async function quickSafetyOrientation(){
  const form=document.querySelector('#quick-orientation-form'),facePreview=document.querySelector('#quick-face-preview');let facePhoto=null;
  mountReportSignatures(form,'orientation',tr);
  const syncEmployeeSignatureName=attachQuickEmployeeSignatureName(form);
+ attachQuickCustomTrade(form);
  const safetyName=quickSafetyAccountName(state.profile,state.session?.user?.email||''),safetyNameField=form.elements.namedItem('jha_safety_name'),safetyNameLabel=safetyNameField?.closest('label');
  if(safetyNameField&&safetyNameLabel){const identity=document.createElement('div'),caption=document.createElement('span'),name=document.createElement('strong'),hidden=document.createElement('input');identity.className='quick-safety-signer';caption.textContent=tr('Safety signing as','Safety firma como');name.textContent=safetyName||tr('Account name unavailable','Nombre de cuenta no disponible');hidden.type='hidden';hidden.name='jha_safety_name';hidden.value=safetyName;identity.append(caption,name,hidden);safetyNameLabel.replaceWith(identity)}
  const employeeNameField=form.elements.namedItem('jha_employee_name'),employeeNameLabel=employeeNameField?.closest('label');if(employeeNameLabel&&employeeNameLabel.firstChild?.nodeType===3)employeeNameLabel.firstChild.textContent=tr('Employee','Empleado')
@@ -2634,7 +2635,7 @@ async function quickSafetyOrientation(){
   if(!data.get('acknowledged'))return error(tr('The employee acknowledgment is required before saving.','Se requiere el reconocimiento del empleado antes de guardar.'));
   if(!approvals.safety.name.trim()||!approvals.safety.strokes.length||!approvals.employee.name.trim()||!approvals.employee.strokes.length)return error(tr('Enter both names and collect both signatures before saving.','Ingrese ambos nombres y registre ambas firmas antes de guardar.'));
   if(!facePhoto)return error(tr('Take or select the employee face photo before saving the orientation.','Tome o seleccione la foto del rostro del empleado antes de guardar la orientación.'));
-  const employeeName=String(data.get('employee_name')||'').trim(),sticker=String(data.get('sticker_number')||'').trim().toUpperCase(),trade=String(data.get('employee_trade')||'').trim(),company=String(data.get('employee_company')||'').trim(),employeePhone=String(data.get('employee_phone')||'').trim(),emergencyContact=String(data.get('emergency_contact')||'').trim();if(!employeeName||!sticker||!trade||!company)return error(tr('Complete all employee information before saving.','Complete toda la información del empleado antes de guardar.'));
+  const employeeName=String(data.get('employee_name')||'').trim(),sticker=String(data.get('sticker_number')||'').trim().toUpperCase(),trade=String(data.get('employee_trade')||'').trim()==='__custom__'?String(data.get('employee_custom_trade')||'').trim():String(data.get('employee_trade')||'').trim(),company=String(data.get('employee_company')||'').trim(),employeePhone=String(data.get('employee_phone')||'').trim(),emergencyContact=String(data.get('emergency_contact')||'').trim();if(!employeeName||!sticker||!trade||!company)return error(tr('Complete all employee information before saving.','Complete toda la información del empleado antes de guardar.'));
   form.dataset.submitting='true';button.disabled=true;let recordId=null;const uploaded=[];
   try{
    // Detect existing issued stickers before creating a new record. Keep both
