@@ -70,12 +70,36 @@ import {canAccessAdminOnlyPage,adminOnlyAccessMessage} from './admin-only-access
 import {isAdminOnlyTool} from './safety-tools-model.js';
 import {TEAM_ROLES,teamRoleLabel,isAssignableTeamRole} from './team-roles.js';
 installTabletViewport();
+// Tablet-only GE ONE: block phones before authentication, reports or field modules mount.
+// Use hardware/UA signals rather than viewport width so narrow iPad split-screen remains usable.
+function geOnePhoneDevice(win=window){
+ const ua=String(win.navigator?.userAgent||'').toLowerCase();
+ if(/iphone|ipod|windows phone|android.+mobile/.test(ua))return true;
+ if(/ipad|tablet/.test(ua))return false;
+ const platform=String(win.navigator?.platform||'').toLowerCase();
+ if((ua.includes('macintosh')||platform==='macintel')&&Number(win.navigator?.maxTouchPoints)>1)return false;
+ const mobileHint=win.navigator?.userAgentData?.mobile===true;
+ const shortest=Math.min(Number(win.screen?.width)||9999,Number(win.screen?.height)||9999);
+ const touch=Boolean(win.matchMedia?.('(any-pointer: coarse)').matches);
+ return mobileHint||(touch&&shortest<600);
+}
+if(geOnePhoneDevice()){
+ document.documentElement.dataset.gePhoneBlocked='true';
+ const notice=document.createElement('div');
+ notice.id='ge-one-tablet-only';
+ notice.setAttribute('role','alert');
+ notice.innerHTML='<div><h1>GE ONE · Tablet Only</h1><p>GE ONE is available exclusively on iPad and Android tablets.</p><p>GE ONE está disponible exclusivamente en iPad y tablets Android. El acceso desde teléfonos está deshabilitado.</p></div>';
+ document.body.appendChild(notice);
+ const style=document.createElement('style');
+ style.textContent='html[data-ge-phone-blocked] body{margin:0!important;background:#f2f4f6!important}html[data-ge-phone-blocked] #app{display:none!important}#ge-one-tablet-only{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:24px;background:#f2f4f6;color:#183148;font:16px/1.5 Arial,sans-serif;text-align:center}#ge-one-tablet-only>div{max-width:460px;padding:30px;background:white;border:1px solid #d7dee4;border-radius:12px}#ge-one-tablet-only h1{font-size:24px;margin:0 0 16px}';
+ document.head.appendChild(style);
+}
 const url=import.meta.env.VITE_SUPABASE_URL,key=import.meta.env.VITE_SUPABASE_ANON_KEY;
 const db=url&&key?createClient(url,key):null;
 const app=document.querySelector('#app');
 const acceptingInvitation=isTeamInviteActivation(window.location.search,window.location.hash);const state={session:null,profile:null,projects:[],project:null,projectUserId:null,observations:[],lang:localStorage.getItem('ge_lang')||'en',page:acceptingInvitation?'setPassword':'home',acceptingInvitation,inviteLink:null,detail:null,history:[]};
 const tr=(en,es)=>state.lang==='es'?es:en;
-const mobileExperience=installMobileExperience({win:window,doc:document});
+const mobileExperience=geOnePhoneDevice()?null:installMobileExperience({win:window,doc:document});
 const appearanceTheme=installAppearanceTheme({win:window,doc:document});
 // Capture finalization before form-specific submit handlers without changing draft saving.
 const FINALIZATION_FORM_KINDS={'walk-form':'daily','inventory-form':'inventory','equipment-form':'equipment','incident-form':'incident','discipline-form':'discipline','observation':'observation','correction':'correction'};
@@ -2587,4 +2611,4 @@ db?.auth.onAuthStateChange((event,session)=>{
     if(state.session&&!history.state?.geSafety)history.replaceState({geSafety:true,page:state.page,detail:state.detail,projectId:state.project},'',location.href);
     refresh();
   },0);
-});refresh();
+});if(!geOnePhoneDevice())refresh();
