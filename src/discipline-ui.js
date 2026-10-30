@@ -119,6 +119,7 @@ export function simplifyDisciplineForm(form,tr){
  form.addEventListener('input',syncConditional);
  form.addEventListener('reset',()=>doc.defaultView?.queueMicrotask(syncConditional));
  syncConditional();
+ const assistant=form.querySelector('.discipline-ai-guide');
  const finalFields=sections.at(-1).querySelector('.discipline-simple-fields');
  // Never discard future additions or report-signature controls.
  for(const remaining of Array.from(form.children)){
@@ -128,6 +129,7 @@ export function simplifyDisciplineForm(form,tr){
  const note=doc.createElement('p');note.textContent=tr('Review the details and signatures. Saving opens the finished report; no information is discarded.','Revise los datos y las firmas. Al guardar se abre el reporte final sin perder información.');
  footer.append(note,submit);
  form.append(...sections,footer);
+ if(assistant)form.prepend(assistant); // Put missing-field review before the form.
  form.dataset.disciplineSimplified='true';
 }
 
@@ -148,7 +150,7 @@ export function markDisciplineMissingFields(form,missing,{active=true}={}){
   const name=Array.isArray(item)?item[0]:item;
   const input=form.elements?.namedItem(name);
   if(!input||input.disabled)continue;
-  const box=input.closest('label')||input.closest('[data-jha-signature]')||input.closest('section');
+  const box=input.closest('label')||input.closest('[data-jha-signature]')||input.closest('.jha-approval')||input.closest('section');
   if(!box)continue;
   box.classList.add('discipline-ai-incomplete');
   if(input.type==='hidden'||name.endsWith('_signature')){
