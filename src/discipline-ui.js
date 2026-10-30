@@ -22,7 +22,7 @@ export function simplifyDisciplineForm(form,tr){
   {
    name:tr('Safety Violation','Violación de seguridad'),
    info:tr('Describe what happened and where. Record objective facts, not assumptions.','Describa qué ocurrió y dónde. Registre hechos objetivos, no suposiciones.'),
-   fields:['violation_type','incident_location','description','hazard_observed','company_rule','osha_reference']
+   fields:['violation_type','violation_custom','incident_location','description','hazard_observed','company_rule','osha_reference']
   },
   {
    name:tr('Disciplinary Action','Acción disciplinaria'),
@@ -129,4 +129,38 @@ export function simplifyDisciplineForm(form,tr){
  footer.append(note,submit);
  form.append(...sections,footer);
  form.dataset.disciplineSimplified='true';
+}
+
+// Show clear red borders only for items flagged by the report-quality review.
+// Do not disable fields or change any submitted values.
+export function markDisciplineMissingFields(form,missing,{active=true}={}){
+ if(!form?.querySelectorAll)return 0;
+ for(const node of form.querySelectorAll('.discipline-ai-incomplete')){
+  node.classList.remove('discipline-ai-incomplete');
+ }
+ for(const node of form.querySelectorAll('[data-discipline-ai-invalid]')){
+  node.removeAttribute('data-discipline-ai-invalid');
+  node.removeAttribute('aria-invalid');
+ }
+ if(!active)return 0;
+ let count=0;
+ for(const item of missing||[]){
+  const name=Array.isArray(item)?item[0]:item;
+  const input=form.elements?.namedItem(name);
+  if(!input||input.disabled)continue;
+  const box=input.closest('label')||input.closest('[data-jha-signature]')||input.closest('section');
+  if(!box)continue;
+  box.classList.add('discipline-ai-incomplete');
+  if(input.type==='hidden'||name.endsWith('_signature')){
+   // Highlight signature canvas/section, not an invisible hidden input.
+   const panel=input.closest('[data-jha-signature]')||input.closest('.jha-approval')||box;
+   panel.classList.add('discipline-ai-incomplete');
+  }else{
+   input.classList.add('discipline-ai-incomplete');
+   input.dataset.disciplineAiInvalid='true';
+   // Recommended fields remain recommendations; not a native validation error.
+  }
+  count++;
+ }
+ return count;
 }
