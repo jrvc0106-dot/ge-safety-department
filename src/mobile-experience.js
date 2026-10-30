@@ -2,7 +2,7 @@ import {deviceKindFromWindow} from './report-device-pdf.js';
 import {attachMobileFieldGuide} from './mobile-field-workflow.js';
 // G&E ONE: adaptive presentation layer. Data, permissions, navigation and PDFs stay in main.js.
 export const DISPLAY_MODE_STORAGE_KEY = 'ge_one_display_mode_v1';
-const VALID_PREFERENCES = new Set(['auto', 'mobile', 'desktop']);
+const VALID_PREFERENCES = new Set(['auto']);
 
 export function normalizeDisplayPreference(value) {
   return VALID_PREFERENCES.has(value) ? value : 'auto';
@@ -10,14 +10,14 @@ export function normalizeDisplayPreference(value) {
 
 export function resolveDisplayMode(preference, viewportWidth, phoneLike = false) {
   const selected = normalizeDisplayPreference(preference);
-  if (selected !== 'auto') return selected;
-  return phoneLike || (Number.isFinite(viewportWidth) && viewportWidth < 600) ? 'mobile' : 'desktop';
+  // GE ONE is tablet-only: always use the adaptive tablet layout.
+  return 'desktop';
 }
 
 export function installMobileExperience({win = window, doc = document} = {}) {
   let preference = 'auto';
-  try { preference = normalizeDisplayPreference(win.localStorage.getItem(DISPLAY_MODE_STORAGE_KEY)); }
-  catch { /* Private browsing can prohibit storage. Keep the session usable. */ }
+  try { win.localStorage.setItem(DISPLAY_MODE_STORAGE_KEY, 'auto'); }
+  catch { /* Private browsing can prohibit storage. */ }
   const apply = () => {
     const width = Number(win.innerWidth) || Number(doc.documentElement.clientWidth) || 1024;
     // Keep a phone in mobile mode after rotating to landscape; iPads stay responsive by width.
@@ -69,20 +69,15 @@ export function decorateMobileFrame({doc = document, mobile, tr = (en) => en, in
     heading.textContent = tr('Display Mode', 'Modo de visualización');
     const select = doc.createElement('select');
     select.id = 'ge-display-mode';
-    for (const [value, en, es] of [
-      ['auto', 'Automatic (recommended)', 'Automático (recomendado)'],
-      ['mobile', 'Mobile View', 'Vista móvil'],
-      ['desktop', 'Desktop View', 'Vista de computadora']
-    ]) {
-      const option = doc.createElement('option');
-      option.value = value;
-      option.textContent = tr(en, es);
-      select.appendChild(option);
-    }
+    const option = doc.createElement('option');
+    option.value = 'auto';
+    option.textContent = tr('Automatic (recommended)', 'Automático (recomendado)');
+    select.appendChild(option);
+    select.disabled = true;
     select.value = mobile.getPreference();
     select.addEventListener('change', () => mobile.setPreference(select.value));
     const tip = doc.createElement('small');
-    tip.textContent = tr('Automatic adapts to screen width. Your choice is saved on this device.', 'Automático adapta la pantalla a su tamaño. La selección queda guardada en este dispositivo.');
+    tip.textContent = tr('Tablet layout adjusts automatically to the screen and orientation.', 'El diseño de tablet se ajusta automáticamente a la pantalla y orientación.');
     field.append(heading, select, tip);
     settingsLanguage.closest('label')?.after(field);
   }
