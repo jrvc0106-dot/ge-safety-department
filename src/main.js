@@ -2368,6 +2368,22 @@ async function reportCenter(){
   else trashEntries.push(row);
   updateCenterCounts();
  }
+ function deletionReceipt(response,title){
+  const count=value=>Number.isSafeInteger(value)&&value>=0?String(value):tr('Not reported','No informado');
+  const lines=[
+   tr('Permanent deletion verified by Supabase.','Eliminación permanente confirmada por Supabase.'),
+   tr('Report: ','Reporte: ')+String(title||''),
+   tr('Archived PDF records removed: ','Registros PDF archivados eliminados: ')+count(response.deleted_pdfs),
+   tr('Storage files removed: ','Archivos de almacenamiento eliminados: ')+count(response.removed_storage_files),
+   tr('Source records removed: ','Registros principales eliminados: ')+count(response.deleted_source_records),
+   tr('Independent Dropbox backups and downloaded copies are not included.','Los respaldos independientes de Dropbox y copias descargadas no están incluidos.')
+  ];
+  const panel=document.createElement('section');panel.className='card';panel.setAttribute('role','status');panel.style.cssText='margin:12px 0;padding:16px;border-left:4px solid #25634b';
+  const heading=document.createElement('strong');heading.textContent=tr('Verified deletion receipt','Comprobante de eliminación verificada');panel.append(heading);
+  for(const line of lines){const p=document.createElement('p');p.textContent=line;p.style.margin='6px 0';panel.append(p)}
+  const copy=document.createElement('button');copy.type='button';copy.className='secondary';copy.textContent=tr('Copy receipt','Copiar comprobante');copy.onclick=()=>navigator.clipboard?.writeText(lines.join('\\n')).catch(err=>error(err));panel.append(copy);
+  const host=trashPanel||list;host.prepend(panel);
+ }
  function decorateDeleteButtons(){
   if(!isAdmin)return;
   for(const record of list.querySelectorAll('.report-record')){
@@ -2416,6 +2432,7 @@ async function reportCenter(){
      if(!viewCurrent())return;
      setTrashRow(purged.entry);
      draw(currentCategory);
+     deletionReceipt(purged,title);
      confirmAction(tr('The report, its stored PDF and associated Supabase records were permanently deleted.','Se eliminaron definitivamente de Supabase el reporte, su PDF y los registros asociados.'));
     }catch(err){
      if(!viewCurrent())return;
@@ -2468,6 +2485,7 @@ async function reportCenter(){
      const updated=response.entry;
      if(!viewCurrent())return;
      setTrashRow(updated);renderAdminTrash();
+     deletionReceipt(response,entry.report_title);
      confirmAction(tr('Report permanently removed from Supabase Storage and the database.','Reporte eliminado definitivamente de Supabase Storage y la base de datos.'));
     }catch(err){if(viewCurrent())error(err)}
     finally{if(permanent.isConnected)permanent.disabled=false;if(restore.isConnected)restore.disabled=false}
