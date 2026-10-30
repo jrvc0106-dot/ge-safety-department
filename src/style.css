@@ -2304,3 +2304,31 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
   grid-template-columns:minmax(0,1fr);padding:12px;
  }
 }
+
+
+/* Disciplinary AI completeness: visible red outlines ONLY after report review. */
+.discipline-shell #discipline-form .discipline-simple-fields label.discipline-ai-incomplete{
+ color:#9f1d20!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields input.discipline-ai-incomplete:not([type="checkbox"]):not([type="file"]),
+.discipline-shell #discipline-form .discipline-simple-fields textarea.discipline-ai-incomplete,
+.discipline-shell #discipline-form .discipline-simple-fields select.discipline-ai-incomplete,
+.discipline-shell #discipline-form .discipline-optional-grid input.discipline-ai-incomplete,
+.discipline-shell #discipline-form .discipline-optional-grid textarea.discipline-ai-incomplete,
+.discipline-shell #discipline-form .discipline-optional-grid select.discipline-ai-incomplete{
+ border:2px solid #ba2229!important;
+ box-shadow:0 0 0 3px rgba(186,34,41,.14)!important;
+ background:#fffafa!important;
+}
+.discipline-shell #discipline-form .jha-approval-fields .discipline-ai-incomplete{
+ outline:2px solid #ba2229!important;
+ outline-offset:2px!important;
+ border-radius:9px;
+}
+.discipline-shell #discipline-form .discipline-optional-details:has(.discipline-ai-incomplete){
+ border:2px solid #ba2229!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>label[hidden],
+.discipline-shell #discipline-form label#discipline-custom-violation-field[hidden]{
+ display:none!important;
+}
