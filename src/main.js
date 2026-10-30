@@ -236,9 +236,9 @@ async function uploadDraftFiles(form,type,key,input){
  for(const original of [...input.files]){
   // JHA camera originals may be over 10 MB; validate size after resizing,
   // otherwise a valid iPad photo is rejected before optimization can run.
-  if(type!=='daily_safety_walk'&&original.size>10*1024*1024)throw Error(tr('Each draft photo must be 10 MB or less.','Cada foto del borrador debe ser de 10 MB o menos.'));
+  // Process tablet camera originals before checking the storage size limit.
   let file=type==='daily_safety_walk'?await normalizeJhaPhoto(original,{normalize:normalizeReportImage}):await normalizeReportImage(original);
-  if(type==='daily_safety_walk'&&file.size>10*1024*1024)throw Error(tr('JHA photo is still larger than 10 MB after processing. Choose a smaller image.','La foto del JHA sigue superando 10 MB después de procesarse. Seleccione una imagen más pequeña.'));
+  if(file.size>10*1024*1024)throw Error(tr('Photo is still larger than 10 MB after processing. Choose a smaller image.','La foto sigue superando 10 MB después de procesarse. Seleccione una imagen más pequeña.'));
   if(!file.type.startsWith('image/'))throw Error(tr('Only supported images can be saved as draft evidence.','Solo imágenes compatibles pueden guardarse como evidencia temporal.'));
   const ext=file.type.split('/')[1]?.replace(/[^a-z0-9]/gi,'')||'jpg';
   const safeName=input.name.replace(/[^a-z0-9_-]/gi,'_');
