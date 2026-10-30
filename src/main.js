@@ -898,12 +898,11 @@ function installReportDocumentActions(){
   if(bar.dataset.pdfActions==='1')return;
   bar.dataset.pdfActions='1';
   const actions=document.createElement('div');actions.className='pdf-document-actions';
-  const isDailyJha=state.page==='safetyWalkReport';
-  actions.innerHTML=(isDailyJha?'':'<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>')+'<button type="button" class="pdf-download">⇩ '+tr('Download PDF','Descargar PDF')+'</button>'+'<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>'+'<button type="button" class="secondary pdf-save">▣ '+tr('Save PDF to…','Guardar PDF en…')+'</button>';
+  // One consistent set of three PDF actions for every final report.
+  actions.innerHTML='<button type="button" class="pdf-save">▣ '+tr('Save PDF','Guardar PDF')+'</button>'+
+    '<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>'+
+    '<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>';
   bar.appendChild(actions);
-  if(!isDailyJha)actions.querySelector('.pdf-view').onclick=e=>runPdfAction('view',e.currentTarget);
-  actions.querySelector('.pdf-download').onclick=e=>runPdfAction('download',e.currentTarget);
-  if(actions.querySelector('.pdf-share'))actions.querySelector('.pdf-share').onclick=e=>runPdfAction('share',e.currentTarget);
   {activeJhaPdfReport=report;attachJhaPdfActions(actions,report,{
     run:runPdfAction,
     warm:()=>ensurePdfExporter(),
