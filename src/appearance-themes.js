@@ -1,14 +1,12 @@
 /**
  * G&E ONE appearance system.
- * Four strictly visual, per-device preferences. Never changes report templates,
+ * Three strictly visual, per-device preferences. Never changes report templates,
  * authentication, stored project, document data, or access controls.
  */
 export const APPEARANCE_KEY='ge_one_appearance_theme_v1';
 export const APPEARANCE_THEMES=Object.freeze({
  original:Object.freeze({name:'Original',nameEs:'Original',description:'Original G&E corporate design',descriptionEs:'Diseño corporativo original G&E',
   bg:'#f3f4f5',surface:'#ffffff',subtle:'#f5f6f7',text:'#202b33',muted:'#50616e',border:'#d7dee3',accent:'#273c4b',accentText:'#ffffff',bar:'#f7f9fa'}),
- dark:Object.freeze({name:'Midnight Blue',nameEs:'Azul Medianoche',description:'Premium navy · bright readable text',descriptionEs:'Azul premium · lectura clara',
-  bg:'#0a1628',surface:'#13243a',subtle:'#1e3650',text:'#f4f8fc',muted:'#b6cee3',border:'#375673',accent:'#a8d4ff',accentText:'#11253a',bar:'#0e1e34'}),
  gray:Object.freeze({name:'Gray',nameEs:'Gris',description:'Elegant neutral gray',descriptionEs:'Grises neutros y elegantes',
   bg:'#e4e7e9',surface:'#f6f7f8',subtle:'#e4e8eb',text:'#222c33',muted:'#4f606b',border:'#bec7ce',accent:'#354957',accentText:'#ffffff',bar:'#eceff1'}),
  mix:Object.freeze({name:'Color Mix',nameEs:'Colores',description:'Balanced colors by module',descriptionEs:'Colores equilibrados por módulo',
@@ -35,7 +33,7 @@ export function installAppearanceTheme({win=window,doc=document,storage=win.loca
  const themeColor=doc.querySelector('meta[name="theme-color"]');
  const apply=()=>{
   doc.documentElement.setAttribute('data-ge-theme',selected);
-  doc.documentElement.style.colorScheme=selected==='dark'?'dark':'light';
+  doc.documentElement.style.colorScheme='light';
   if(themeColor)themeColor.setAttribute('content',APPEARANCE_THEMES[selected].bg);
   return selected;
  };
