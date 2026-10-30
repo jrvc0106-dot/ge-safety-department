@@ -2398,7 +2398,6 @@ async function reportCenter(){
    button.textContent='⌫ '+tr('Move to Trash','Enviar a papelera');
    button.setAttribute('aria-label',tr('Delete from Report Center: ','Eliminar del Centro de Reportes: ')+title);
    button.onclick=async()=>{
-    if(!window.confirm(reportCenterDeleteMessage(title,project.name||'',tr)))return;
     button.disabled=true;
     try{
      const updated=await changeReportCenterTrash(db,{projectId:state.project,kind,id,title,action:'trash'});
@@ -2415,8 +2414,6 @@ async function reportCenter(){
    permanent.textContent=tr('Delete permanently','Eliminar definitivamente');
    permanent.setAttribute('aria-label',tr('Permanently delete from Supabase: ','Eliminar definitivamente de Supabase: ')+title);
    permanent.onclick=async()=>{
-    // Both prompts run before ANY database write.
-    if(!confirmPermanentReportDeletion(window,{title,tr,language:state.lang}))return;
     const projectId=state.project;
     button.disabled=true;permanent.disabled=true;
     permanent.textContent=tr('Deleting…','Eliminando…');
@@ -2445,7 +2442,13 @@ async function reportCenter(){
     }
    };
    const actions=document.createElement('div');actions.className='report-center-admin-actions';
-   actions.append(button,permanent);
+   button.textContent=tr('Delete','Borrar');
+   button.setAttribute('aria-label',tr('Remove report from active list: ','Quitar reporte de lista activa: ')+title);
+   const trashShortcut=document.createElement('button');trashShortcut.type='button';trashShortcut.className='secondary';
+   trashShortcut.textContent=tr('Trash','Papelera');
+   trashShortcut.setAttribute('aria-label',tr('Open Admin Trash','Abrir Papelera Admin'));
+   trashShortcut.onclick=()=>toggleAdminTrash(true);
+   actions.append(button,trashShortcut,permanent);
    wrapper.append(actions);
   }
  }
@@ -2478,7 +2481,6 @@ async function reportCenter(){
    const permanent=document.createElement('button');permanent.type='button';permanent.className='report-center-admin-delete';
    permanent.textContent=tr('Remove permanently','Eliminar definitivamente');
    permanent.onclick=async()=>{
-    if(!confirmAdminTrashPermanentDeletion(window,{title:entry.report_title,tr}))return;
     permanent.disabled=true;restore.disabled=true;
     try{
      const response=await permanentlyPurgeReportFromSupabase(db,{projectId:state.project,kind:entry.report_kind,id:entry.report_id});
