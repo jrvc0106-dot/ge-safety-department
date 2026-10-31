@@ -51,3 +51,37 @@ export async function isValidPdfBlob(blob){
   return /^%PDF-[0-9]\.[0-9]/.test(header)&&/%%EOF\s*$/.test(tail);
  }catch{return false}
 }
+
+
+// Run only against the disposable export clone. Never silently omit broken
+// evidence: the caller must keep the saved report available for another try.
+// Decode concurrently so a report with six images does not wait serially.
+export async function validatePdfEvidenceImages(container){
+ if(!container?.querySelectorAll)return 0;
+ const selectors=[
+  'article.report:not(.quick-safety-orientation-report) .report-photos img',
+  'article.report:not(.quick-safety-orientation-report) .ir-photos img',
+  'article.report:not(.quick-safety-orientation-report) .report-photo-grid img',
+  'article.report:not(.quick-safety-orientation-report) .dr-photo-grid img',
+  'article.report:not(.quick-safety-orientation-report) .inventory-evidence img',
+  'article.report:not(.quick-safety-orientation-report) .eq-photo-frame img',
+  'article.report:not(.quick-safety-orientation-report) .ewr-photo-card img',
+  'article.report:not(.quick-safety-orientation-report) .registered-orientation-evidence img'
+ ].join(',');
+ const images=[...container.querySelectorAll(selectors)].filter(image=>
+  image.getAttribute?.('src')&&!image.getAttribute('src').includes('ge-logo.png'));
+ await Promise.all(images.map(async image=>{
+  try{
+   if(typeof image.decode==='function')await image.decode();
+   else if(image.complete===false)await new Promise((resolve,reject)=>{
+    image.addEventListener('load',resolve,{once:true});
+    image.addEventListener('error',()=>reject(new Error('Image loading failed')),{once:true});
+   });
+   if(image.naturalWidth===0||image.naturalHeight===0)
+    throw new Error('Image has no decoded dimensions');
+  }catch{
+   throw new Error('PDF evidence image could not be loaded. Please retry the export.');
+  }
+ }));
+ return images.length;
+}
