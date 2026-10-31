@@ -2,7 +2,8 @@
  * Presentation-only improvement of Employee Safety Discipline.
  * Preserve the original single scrollable form, all field nodes, their
  * listeners, RLS-aware sticker lookup, auto-drafts, approvals and submission.
- * No wizard, accordions, hidden secondary questions or new form fields.
+ * Keep four continuous sections, with optional details collapsed only when unused.
+ * Never erase field values, regenerate signatures, or create invented incident facts.
  */
 export function simplifyDisciplineForm(form,tr){
  if(!form||form.dataset.disciplineSimplified==='true')return;
@@ -21,7 +22,7 @@ export function simplifyDisciplineForm(form,tr){
   {
    name:tr('Safety Violation','Violación de seguridad'),
    info:tr('Describe what happened and where. Record objective facts, not assumptions.','Describa qué ocurrió y dónde. Registre hechos objetivos, no suposiciones.'),
-   fields:['violation_type','incident_location','description','hazard_observed','company_rule','osha_reference']
+   fields:['violation_type','violation_custom','incident_location','description','hazard_observed','company_rule','osha_reference']
   },
   {
    name:tr('Disciplinary Action','Acción disciplinaria'),
@@ -34,6 +35,12 @@ export function simplifyDisciplineForm(form,tr){
    fields:['employee_comments','employee_acknowledged','evidence','.jha-approval-fields']
   }
  ];
+ const optionalBySection={
+  0:['employee_id','employee_age'],
+  1:['osha_reference'],
+  2:[],
+  3:['employee_comments']
+ };
  const sections=[];
  for(const [index,group] of groups.entries()){
   const section=doc.createElement('section');section.className='discipline-simple-section';
@@ -46,18 +53,35 @@ export function simplifyDisciplineForm(form,tr){
   headingText.append(heading,info);header.append(number,headingText);
   const fields=doc.createElement('div');fields.className='discipline-simple-fields';
   section.append(header,fields);
+  const secondary=[];
   for(const key of group.fields){
    const node=find(key);
    if(!node)continue;
    const hint=key==='evidence'&&node.nextElementSibling?.tagName==='SMALL'?node.nextElementSibling:null;
-   fields.append(node);
+   if(optionalBySection[index].includes(key))secondary.push(node);
+   else fields.append(node);
    if(hint)fields.append(hint);
    if(key==='description'||key==='immediate_action'||key==='employee_name'||key==='action_level')node.classList.add('discipline-priority-field');
    if(key==='employee_orientation_id')node.classList.add('discipline-manual-lookup');
-   if(key==='employee_age'||key==='employee_id'||key==='osha_reference'||key==='company_rule')node.classList.add('discipline-secondary-field');
+   if(key==='employee_age'||key==='employee_id'||key==='osha_reference')node.classList.add('discipline-secondary-field');
+  }
+  if(secondary.length){
+   const details=doc.createElement('details');details.className='discipline-optional-details';
+   const summary=doc.createElement('summary');
+   summary.textContent=tr('Additional information (optional)','Información adicional (opcional)');
+   const panel=doc.createElement('div');panel.className='discipline-optional-grid';
+   panel.append(...secondary);details.append(summary,panel);fields.append(details);
+   // Saved and restored draft values must remain discoverable, never hidden.
+   const openForValues=()=>{
+    if(secondary.some(label=>[...label.querySelectorAll('input,select,textarea')].some(input=>input.type==='checkbox'?input.checked:Boolean(String(input.value||'').trim()))))details.open=true;
+   };
+   form.addEventListener('input',openForValues);
+   form.addEventListener('change',openForValues);
+   openForValues();
   }
   sections.push(section);
  }
+ const assistant=form.querySelector('.discipline-ai-guide');
  const finalFields=sections.at(-1).querySelector('.discipline-simple-fields');
  // Never discard future additions or report-signature controls.
  for(const remaining of Array.from(form.children)){
@@ -67,5 +91,79 @@ export function simplifyDisciplineForm(form,tr){
  const note=doc.createElement('p');note.textContent=tr('Review the details and signatures. Saving opens the finished report; no information is discarded.','Revise los datos y las firmas. Al guardar se abre el reporte final sin perder información.');
  footer.append(note,submit);
  form.append(...sections,footer);
+ // Contextual writing guidance only: never insert assumed violations or OSHA citations.
+ const violation=form.elements.namedItem('violation_type');
+ const facts=form.elements.namedItem('description')?.closest('label');
+ if(violation&&facts){
+  const guide=doc.createElement('p');guide.className='discipline-violation-guide';
+  guide.setAttribute('aria-live','polite');
+  facts.append(guide);
+  const setGuide=()=>{
+   const value=String(violation.value||'').toLowerCase();
+   let text=tr('Describe only the facts observed: the act, location, task, and available evidence.','Describa solamente los hechos observados: acto, lugar, trabajo y evidencia disponible.');
+   if(/ppe|face shield|n95|clothing|respirator/.test(value))text=tr('State which protective equipment was required and what you observed; do not assume why it was missing.','Indique qué protección se requería y qué observó; no suponga por qué faltaba.');
+   else if(/fall|scaffold|ladder/.test(value))text=tr('Record the actual work position, exposure, and observed protection or access condition.','Registre la posición del trabajo, la exposición y la condición observada de protección o acceso.');
+   else if(/crane|rigging|forklift|equipment|tagline/.test(value))text=tr('Record the equipment, operation, location, and unsafe act actually observed.','Registre el equipo, la operación, el lugar y el acto inseguro observado.');
+   else if(/respect|fighting|theft|drug|alcohol/.test(value))text=tr('Record observable conduct, witnesses and facts without speculation or diagnosis.','Registre conductas observables, testigos y hechos, sin suposiciones ni diagnósticos.');
+   guide.textContent=text;
+  };
+  violation.addEventListener('change',setGuide);setGuide();
+ }
+ const conditional=[
+  ['retraining_required','retraining_topic'],
+  ['follow_up_required','follow_up_notes']
+ ];
+ const syncConditional=()=>{
+  for(const [toggleName,fieldName] of conditional){
+   const checkbox=form.elements.namedItem(toggleName);
+   const input=form.elements.namedItem(fieldName);
+   const label=input?.closest('label');
+   if(!checkbox||!label)continue;
+   const show=checkbox.checked||Boolean(String(input.value||'').trim());
+   label.classList.toggle('discipline-conditional-muted',!show);
+   label.style.display=show?'':'none';
+   // These fields are stored as before and values are never cleared.
+  }
+ };
+ form.addEventListener('change',syncConditional);
+ form.addEventListener('input',syncConditional);
+ form.addEventListener('reset',()=>doc.defaultView?.queueMicrotask(syncConditional));
+
+ syncConditional();
+ if(assistant)form.prepend(assistant); // Put missing-field review before the form.
  form.dataset.disciplineSimplified='true';
+}
+
+// Show clear red borders only for items flagged by the report-quality review.
+// Do not disable fields or change any submitted values.
+export function markDisciplineMissingFields(form,missing,{active=true}={}){
+ if(!form?.querySelectorAll)return 0;
+ for(const node of form.querySelectorAll('.discipline-ai-incomplete')){
+  node.classList.remove('discipline-ai-incomplete');
+ }
+ for(const node of form.querySelectorAll('[data-discipline-ai-invalid]')){
+  node.removeAttribute('data-discipline-ai-invalid');
+  node.removeAttribute('aria-invalid');
+ }
+ if(!active)return 0;
+ let count=0;
+ for(const item of missing||[]){
+  const name=Array.isArray(item)?item[0]:item;
+  const input=form.elements?.namedItem(name);
+  if(!input||input.disabled)continue;
+  const box=input.closest('label')||input.closest('[data-jha-signature]')||input.closest('.jha-approval')||input.closest('section');
+  if(!box)continue;
+  box.classList.add('discipline-ai-incomplete');
+  if(input.type==='hidden'||name.endsWith('_signature')){
+   // Highlight signature canvas/section, not an invisible hidden input.
+   const panel=input.closest('[data-jha-signature]')||input.closest('.jha-approval')||box;
+   panel.classList.add('discipline-ai-incomplete');
+  }else{
+   input.classList.add('discipline-ai-incomplete');
+   input.dataset.disciplineAiInvalid='true';
+   // Recommended fields remain recommendations; not a native validation error.
+  }
+  count++;
+ }
+ return count;
 }

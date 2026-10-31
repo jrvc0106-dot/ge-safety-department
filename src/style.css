@@ -2253,3 +2253,82 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .project-access-member-select{width:100%;min-height:44px;margin-bottom:14px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;background:white;color:#17212f;font:inherit}
 .project-access-option{cursor:pointer}
 .project-access-option input[type="checkbox"]{width:19px;height:19px;accent-color:#304e66}
+
+
+/* Disciplinary Smart Quick Form: optional details stay in the same form.
+   Only the entry interface changes; final PDFs are unaffected. */
+.discipline-shell #discipline-form .discipline-optional-details{
+ grid-column:1/-1;width:100%;min-width:0;margin:0;
+ border:1px solid #ccd9e3;border-radius:10px;background:#fff;color:#213b4b;
+}
+.discipline-shell #discipline-form .discipline-optional-details>summary{
+ cursor:pointer;padding:13px 15px;min-height:44px;
+ font-size:13px;font-weight:800;line-height:1.4;color:#2a4b60;
+ list-style-position:inside;
+}
+.discipline-shell #discipline-form .discipline-optional-details>summary:focus-visible{
+ outline:3px solid #6ba5cd;outline-offset:2px;border-radius:10px;
+}
+.discipline-shell #discipline-form .discipline-optional-details[open]>summary{
+ border-bottom:1px solid #dbe4eb;
+}
+.discipline-shell #discipline-form .discipline-optional-grid{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:13px;padding:14px;
+}
+.discipline-shell #discipline-form .discipline-optional-grid>label{
+ display:grid;gap:6px;min-width:0;
+ color:#243b4a;font-weight:750;font-size:13px;line-height:1.45;
+}
+.discipline-shell #discipline-form .discipline-optional-grid>label:has(textarea){
+ grid-column:1/-1;
+}
+.discipline-shell #discipline-form .discipline-optional-grid input,
+.discipline-shell #discipline-form .discipline-optional-grid select,
+.discipline-shell #discipline-form .discipline-optional-grid textarea{
+ width:100%;min-width:0;min-height:45px;
+ border:1px solid #b8c8d5;border-radius:9px;
+ padding:10px 12px;background:#fff;color:#152b3b;
+ font-size:14px;box-sizing:border-box;
+}
+.discipline-shell #discipline-form .discipline-violation-guide{
+ margin:4px 0 0;padding:10px 12px;border-left:3px solid #688699;
+ border-radius:5px;background:#eaf1f5;
+ color:#26475a;font-size:12px;font-weight:600;line-height:1.45;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>label.discipline-conditional-muted{
+ display:none;
+}
+@media(max-width:800px){
+ .discipline-shell #discipline-form .discipline-optional-grid{
+  grid-template-columns:minmax(0,1fr);padding:12px;
+ }
+}
+
+
+/* Disciplinary AI completeness: visible red outlines ONLY after report review. */
+.discipline-shell #discipline-form .discipline-simple-fields label.discipline-ai-incomplete{
+ color:#9f1d20!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields input.discipline-ai-incomplete:not([type="checkbox"]):not([type="file"]),
+.discipline-shell #discipline-form .discipline-simple-fields textarea.discipline-ai-incomplete,
+.discipline-shell #discipline-form .discipline-simple-fields select.discipline-ai-incomplete,
+.discipline-shell #discipline-form .discipline-optional-grid input.discipline-ai-incomplete,
+.discipline-shell #discipline-form .discipline-optional-grid textarea.discipline-ai-incomplete,
+.discipline-shell #discipline-form .discipline-optional-grid select.discipline-ai-incomplete{
+ border:2px solid #ba2229!important;
+ box-shadow:0 0 0 3px rgba(186,34,41,.14)!important;
+ background:#fffafa!important;
+}
+.discipline-shell #discipline-form .jha-approval-fields .discipline-ai-incomplete{
+ outline:2px solid #ba2229!important;
+ outline-offset:2px!important;
+ border-radius:9px;
+}
+.discipline-shell #discipline-form .discipline-optional-details:has(.discipline-ai-incomplete){
+ border:2px solid #ba2229!important;
+}
+.discipline-shell #discipline-form .discipline-simple-fields>label[hidden],
+.discipline-shell #discipline-form label#discipline-custom-violation-field[hidden]{
+ display:none!important;
+}

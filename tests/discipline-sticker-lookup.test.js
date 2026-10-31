@@ -4,7 +4,8 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {parseAst} from 'rollup/parseAst';
 import {JSDOM} from 'jsdom';
-import {simplifyDisciplineForm} from '../src/discipline-ui.js';
+import {simplifyDisciplineForm,markDisciplineMissingFields} from '../src/discipline-ui.js';
+import {attachDisciplineViolationControls,disciplineViolationForSave} from '../src/discipline-osha-reference.js';
 
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const ast=parseAst(source);
@@ -40,7 +41,7 @@ async function setup({old=[traditional],fast=[quick],hist=[],confirmResult=true}
  const context=vm.createContext({
   state:{project,profile:{id:id(2),name:'Safety',role:'admin'},projects:[{id:project,name:'Jobsite'}]},db,document:doc,window:dom.window,FormData:dom.window.FormData,File:dom.window.File,Event:dom.window.Event,
   captureView:()=>()=>true,frame:html=>{doc.querySelector('main').innerHTML=html},tr,esc,fmt:()=>'',error:e=>errors.push(String(e?.message||e)),
-  disciplinaryActionLabel:r=>r.action_level||'Warning',simplifyDisciplineForm,
+  disciplinaryActionLabel:r=>r.action_level||'Warning',simplifyDisciplineForm,markDisciplineMissingFields,attachDisciplineViolationControls,disciplineViolationForSave,
   mountReportSignatures:form=>{
    form.querySelector('button[type=submit]').insertAdjacentHTML('beforebegin','<div class="jha-approval-fields"><input name="jha_safety_name"><input name="jha_employee_name"><input type="hidden" name="jha_employee_signature" value="[]"><button type="button" data-jha-clear="employee">Clear signature</button></div>');
    form.querySelector('[data-jha-clear="employee"]').onclick=()=>{form.elements.jha_employee_signature.value='[]'}

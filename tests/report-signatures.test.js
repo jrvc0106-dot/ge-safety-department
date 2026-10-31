@@ -57,3 +57,22 @@ test('late signature lookup cannot replace another jobsite screen',async()=>{
  let resolve;const t=aggregateFixture({readPromise:new Promise(r=>resolve=r)});const pending=attachAggregateSignatures(t.args);await new Promise(r=>setImmediate(r));t.leave();resolve({data:{approvals:{safety:{name:'Wrong project'}}}});await pending;
  assert.ok(!t.report.textContent.includes('Wrong project'));assert.equal(document.querySelector('.aggregate-signature-editor'),null);t.dom.window.close();
 });
+
+test('new disciplinary notices require only Safety and employee signatures',()=>{
+ const {dom,form}=fixture();
+ mountReportSignatures(form,'discipline',x=>x);
+ assert.deepEqual(REPORT_SIGNATURE_ROLES.discipline,['safety','employee']);
+ assert.equal(form.elements.namedItem('jha_foreman_name'),null);
+ const names=[...form.querySelectorAll('[name$="_name"]')].map(x=>x.name);
+ assert.ok(names.includes('jha_safety_name'));
+ assert.ok(names.includes('jha_employee_name'));
+ dom.window.close();
+});
+
+test('historical disciplinary records preserve a previously signed Foreman approval',()=>{
+ const historic={safety:{name:'Safety',strokes:[[[0,0],[1,1]]]},employee:{name:'Worker',strokes:[[[0,0],[1,1]]]},foreman:{name:'Old Foreman',strokes:[[[0,0],[1,1]]]}};
+ const out=reportSignaturesReport('discipline',historic,x=>x);
+ assert.match(out,/Old Foreman/);
+ const recent=reportSignaturesReport('discipline',{...historic,foreman:{name:'Old Foreman',strokes:[]}},x=>x);
+ assert.doesNotMatch(recent,/Old Foreman/);
+});
