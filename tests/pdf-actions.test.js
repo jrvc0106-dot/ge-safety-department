@@ -305,3 +305,19 @@ test('a previously archived iPad PDF uses the native Files action to choose a di
  assert.equal(called[0].filename,'report.pdf');
  assert.equal(t.downloads.length,0);
 });
+
+test('PDF libraries load while existing report photos are checked, without lowering resolution',async()=>{
+ const t=setup();
+ const originalExporter=await t.context.ensurePdfExporter();
+ let releaseLoader,imageChecks=0;
+ t.context.ensurePdfExporter=()=>new Promise(resolve=>{releaseLoader=resolve});
+ t.context.waitForReportImages=async()=>{imageChecks++};
+ const rendering=t.context.buildReportPdf(true);
+ assert.equal(imageChecks,1,'photos are checked before exporter download finishes');
+ assert.equal(typeof releaseLoader,'function');
+ releaseLoader(originalExporter);
+ const prepared=await rendering;
+ assert.equal(prepared.highQuality,true);
+ assert.ok(prepared.blob.size>32);
+ assert.equal(imageChecks,1);
+});

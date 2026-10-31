@@ -33,7 +33,9 @@ test('PDF clone protects original GE logo proportions, including report headers'
 test('all final PDF branches reject truncated files, and quick form keeps a complete source record',async()=>{
  assert.equal(await isValidPdfBlob(new Blob(['%PDF-1.7\nnot a complete PDF document'])),false);
  assert.match(app,/if\(!\(await isValidPdfBlob\(blob\)\)\)/);
- assert.match(app,/await waitForReportImages\(report\)/);
+ // Photo verification remains mandatory whether awaited sequentially or
+ // alongside the independent PDF-library download.
+ assert.match(app,/(?:await waitForReportImages\(report\)|Promise\.all\(\[ensurePdfExporter\(\),waitForReportImages\(report\)\]\))/);
  assert.match(app,/protectPdfReportLogos\(container,\{photos:true\}\)/);
  assert.match(app,/if\(!facePhoto\)return error/);
  assert.match(app,/\.eq\('sticker_number',sticker\)/);
