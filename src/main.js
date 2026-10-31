@@ -2051,7 +2051,7 @@ async function discipline(){const formProjectId=state.project,formUserId=state.p
    const sameName=matches.every(m=>String(m.record.employee_name||'').trim().toUpperCase()===String(matches[0].record.employee_name||'').trim().toUpperCase());
    if(!sameName||matches.filter(m=>m.kind==='quick').length>1||matches.filter(m=>m.kind==='standard').length>1){
     clearUnverifiedLink();setStickerDisambiguation(true);
-    stickerStatus.textContent=tr('This sticker matches multiple records. Select the correct employee below.','Este sticker coincide con varios registros. Seleccione el trabajador correcto abajo.');
+    stickerStatus.textContent=tr('Multiple employee records use this sticker. Select the correct employee below.','Este sticker coincide con varios registros. Seleccione el trabajador correcto abajo.');
     return
    }
    // If both registries represent the same person, favor the original verified
