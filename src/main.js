@@ -621,8 +621,10 @@ async function buildReportPdf(highQuality=false){
   if(report.dataset?.loading==='error')throw new Error(tr('The report could not finish loading. Reopen it before exporting.','El reporte no terminó de cargar. Vuelva a abrirlo antes de exportar.'));
   const cached=preparedReportPdf(report,highQuality);if(cached)return cached;
   const meta=currentReportIdentity(report);
-  const html2pdf=await ensurePdfExporter();
-  await waitForReportImages(report);
+  // Decode/verify existing evidence while PDF libraries load: these are
+  // independent tasks. Keep the same image integrity guard and render only
+  // once both finish. This never changes photo pixels, layout or resolution.
+  const [html2pdf]=await Promise.all([ensurePdfExporter(),waitForReportImages(report)]);
   if(document.querySelector('article.report')!==report)throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
   const snapshot=report.innerHTML;
   const options={
