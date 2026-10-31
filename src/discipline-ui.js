@@ -81,6 +81,16 @@ export function simplifyDisciplineForm(form,tr){
   }
   sections.push(section);
  }
+ const assistant=form.querySelector('.discipline-ai-guide');
+ const finalFields=sections.at(-1).querySelector('.discipline-simple-fields');
+ // Never discard future additions or report-signature controls.
+ for(const remaining of Array.from(form.children)){
+  if(remaining!==submit)finalFields.append(remaining);
+ }
+ const footer=doc.createElement('div');footer.className='discipline-simple-footer';
+ const note=doc.createElement('p');note.textContent=tr('Review the details and signatures. Saving opens the finished report; no information is discarded.','Revise los datos y las firmas. Al guardar se abre el reporte final sin perder información.');
+ footer.append(note,submit);
+ form.append(...sections,footer);
  // Contextual writing guidance only: never insert assumed violations or OSHA citations.
  const violation=form.elements.namedItem('violation_type');
  const facts=form.elements.namedItem('description')?.closest('label');
@@ -118,17 +128,8 @@ export function simplifyDisciplineForm(form,tr){
  form.addEventListener('change',syncConditional);
  form.addEventListener('input',syncConditional);
  form.addEventListener('reset',()=>doc.defaultView?.queueMicrotask(syncConditional));
+
  syncConditional();
- const assistant=form.querySelector('.discipline-ai-guide');
- const finalFields=sections.at(-1).querySelector('.discipline-simple-fields');
- // Never discard future additions or report-signature controls.
- for(const remaining of Array.from(form.children)){
-  if(remaining!==submit)finalFields.append(remaining);
- }
- const footer=doc.createElement('div');footer.className='discipline-simple-footer';
- const note=doc.createElement('p');note.textContent=tr('Review the details and signatures. Saving opens the finished report; no information is discarded.','Revise los datos y las firmas. Al guardar se abre el reporte final sin perder información.');
- footer.append(note,submit);
- form.append(...sections,footer);
  if(assistant)form.prepend(assistant); // Put missing-field review before the form.
  form.dataset.disciplineSimplified='true';
 }
