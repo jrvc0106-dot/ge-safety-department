@@ -1,5 +1,4 @@
 import {mountReportCenterTrainingStatistics} from './report-center-training-statistics.js';
-import {recordPageLoad,recordPerformanceMetric} from './performance-metrics.js';
 import './report-center-training-statistics.css';
 import {mountSafetyIntelligence} from './safety-intelligence.js';
 import {isValidPdfBlob,protectPdfReportLogos} from './report-pdf-quality.js';
@@ -746,7 +745,6 @@ async function auditMedicalPdfAction(action,report){
 }
 async function runPdfAction(action,button){
   if(pdfActionBusy)return;
-  const startedAt=Date.now(),metricProject=state.project,metricUser=state.session?.user?.id||state.profile?.id,metricPage=state.page;
   const report=document.querySelector('article.report');
   const isDailyJha=state.page==='safetyWalkReport';
   let prepared=report&&preparedReportPdf(report,true),preview;
@@ -896,11 +894,6 @@ async function runPdfAction(action,button){
     if(saveButton&&report&&preparedReportPdf(report,true))saveButton.textContent='▣ '+tr('Save PDF now','Guardar PDF ahora');
     const shareButton=document.querySelector('.pdf-share');
     if(shareButton&&report&&preparedReportPdf(report,true))shareButton.textContent='↗ '+tr('Share PDF now','Compartir PDF ahora');
-    // Track the actual end-to-end action latency without delaying the user
-    // or including filenames, report contents, photos, or employee data.
-    if(metricProject&&metricUser&&typeof recordPerformanceMetric==='function')
-      void recordPerformanceMetric(db,{projectId:metricProject,userId:metricUser,
-       page:metricPage+':'+action,metric:'pdf_action',duration:Date.now()-startedAt});
   }
 }
 function installReportDocumentActions(){
@@ -1104,25 +1097,7 @@ function splash(){sessionStorage.setItem('ge_splash_seen','1');app.innerHTML=`<s
 let renderRevision=0;
 function captureView(){const revision=renderRevision,user=state.session?.user?.id,project=state.project,page=state.page,detail=state.detail;return ()=>revision===renderRevision&&user===state.session?.user?.id&&project===state.project&&page===state.page&&detail===state.detail}
 function render(){renderRevision++;const current=captureView();try{const result=renderPage();if(result?.then)return result.catch(e=>{if(current())renderRecovery(e)});return result}catch(e){if(current())renderRecovery(e)}}
-function renderPageWithLoading(load,label){
- const revision=renderRevision,started=Date.now();
- const page=typeof state==='object'?state.page:'',
-  projectId=typeof state==='object'?state.project:null,
-  userId=typeof state==='object'?state.session?.user?.id:null;
- frame(`<section class="card page-loading" role="status" aria-live="polite" aria-busy="true"><span class="page-loading-indicator" aria-hidden="true"></span><span>${esc(label)}</span></section>`);
- requestAnimationFrame(()=>{
-  if(revision!==renderRevision)return;
-  let task;
-  try{task=load()}catch(err){if(revision===renderRevision)renderRecovery(err);return}
-  // Record only non-confidential page names and timings after paint/completion;
-  // telemetry is best-effort and NEVER blocks report loading or PDF actions.
-  void Promise.resolve(task).then(()=>{
-   if(revision!==renderRevision||!projectId||!userId||
-      !['reportCenter','safetyWalkReport','incidentReport','equipmentInspectionReport','disciplineReport'].includes(page))return;
-   if(typeof recordPageLoad==='function')void recordPageLoad(db,{projectId,userId,page,duration:Date.now()-started});
-  },err=>{if(revision===renderRevision)renderRecovery(err)});
- });
-}
+function renderPageWithLoading(load,label){const revision=renderRevision;frame(`<section class="card page-loading" role="status" aria-live="polite" aria-busy="true"><span class="page-loading-indicator" aria-hidden="true"></span><span>${esc(label)}</span></section>`);requestAnimationFrame(()=>{if(revision!==renderRevision)return;void load()})}
 function renderPage(){if(!db)return frame(`<section class="card"><h1>${tr('Setup required','Configuración necesaria')}</h1><p>${tr('Create a Supabase project and copy .env.example to .env with its URL and publishable key.','Cree un proyecto de Supabase y copie .env.example a .env con la URL y clave pública.')}</p></section>`);if(!state.session){if(!sessionStorage.getItem('ge_splash_seen'))return splash();return login();}if(state.page==='setPassword')return setPassword();if(state.page==='profile')return profilePage();if(!state.profile)return frame(`<section class="card"><h1>${tr('Access pending','Acceso pendiente')}</h1><p>${tr('An administrator must approve your account and assign a jobsite and role.','Un administrador debe aprobar su cuenta y asignarle un jobsite y un rol.')}</p></section>`);startAppPresence();if(!state.projects.length&&state.profile.role==='safety_director'&&state.page==='home')state.page='projectAccess';if(!state.projects.length&&!['admin','safety_director'].includes(state.profile.role))return frame(`<section class="card"><h1>${tr('Waiting for project access','Esperando acceso al proyecto')}</h1><p>${tr('Your account can access the app after an administrator approves your role and jobsite.','Podrás acceder al app cuando un administrador apruebe tu rol y jobsite.')}</p></section>`);if(['safetyTool','safetyToolForm','safetyToolReport'].includes(state.page)&&isAdminOnlyTool(state.detail)&&!canAccessAdminOnlyPage(state.profile.role,'admin'))return restrictedAdminAccess();if(state.page==='safetyTool')return safetyTools.list(state.detail);if(state.page==='safetyToolForm')return safetyTools.form(state.detail);if(state.page==='safetyToolReport')return renderPageWithLoading(async()=>{
   await safetyTools.report(state.detail);
   // Medical follow-ups live in a confidential table and previously produced PDF
