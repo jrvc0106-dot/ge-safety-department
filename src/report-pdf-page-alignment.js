@@ -124,3 +124,30 @@ export function alignGeneralReportPdfEvidence(container,pageHeight){
  }
  return moved;
 }
+
+
+// Clean up redundant pagination placeholders in the disposable export clone.
+// Never remove report text, signatures, images, or intentionally blank form fields.
+export function removeRedundantPdfAlignmentSpacers(container){
+ if(!container?.querySelectorAll)return 0;
+ let removed=0;
+ const spacers=[...container.querySelectorAll('.ge-pdf-page-alignment-spacer,.ge-pdf-evidence-alignment-spacer')];
+ for(const spacer of spacers){
+  if(!spacer.parentNode)continue;
+  const height=parseFloat(spacer.style?.height||'');
+  if(!Number.isFinite(height)||height<=0){
+   spacer.remove();removed++;continue;
+  }
+  const previous=spacer.previousElementSibling;
+  if(previous?.matches?.('.ge-pdf-page-alignment-spacer,.ge-pdf-evidence-alignment-spacer')){
+   // Both placeholders are generated offsets, not user content. Keep the
+   // larger offset; summing them can produce an entirely blank extra page.
+   const before=parseFloat(previous.style?.height||'');
+   if(Number.isFinite(before)&&before>=0){
+    previous.style.height=Math.max(before,height)+'px';
+    spacer.remove();removed++;
+   }
+  }
+ }
+ return removed;
+}
