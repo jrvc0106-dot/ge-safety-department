@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {renderPaginatedPdf,pdfCanvasPageIsBlank} from '../src/pdf-export.js';
+import {renderPaginatedPdf,pdfCanvasPageIsBlank,indexPdfEvidencePositions,pdfPageRasterChoice} from '../src/pdf-export.js';
 const options={jsPDF:{unit:'in',format:'letter'},margin:[.25,.25,.3,.25],html2canvas:{useCORS:true}};
 const pageSize={inner:{width:8,px:{height:1003}}};
 test('long exports keep 200 DPI on every page with high-quality JPEG and release memory',async()=>{
@@ -139,4 +139,22 @@ test('JHA must retain a genuine opening page with its report title/header',async
   assert.equal(count,2,'No real report heading or signatures may be dropped');
   assert.equal(pages,2);
  }finally{globalThis.document=original}
+});
+
+test('image page classification measures evidence once without changing raster quality',()=>{
+ let measured=0,selected=0;
+ const image={getAttribute:()=>'/jobsite-evidence.jpg',getBoundingClientRect(){measured++;return {top:100,bottom:180}}};
+ const logo={getAttribute:()=>'/ge-logo.png',getBoundingClientRect(){throw Error('logo is not evidence')}};
+ const report={querySelectorAll(){selected++;return [logo,image]}};
+ const container={scrollTop:0,querySelector:()=>report,getBoundingClientRect:()=>({top:0})};
+ const index=indexPdfEvidencePositions(container);
+ assert.deepEqual(index,[[100,180]]);
+ for(let page=0;page<5;page++){
+  const raster=pdfPageRasterChoice(container,page*100,100,index);
+  assert.equal(raster.format,page===1?'JPEG':'PNG');
+  if(page===1)assert.equal(raster.quality,0.96,'photos retain original 96% JPEG quality');
+ }
+ assert.equal(measured,1,'image layout is measured once per export, not per page');
+ assert.equal(selected,1);
+ assert.equal(pdfPageRasterChoice(container,100,100).format,'JPEG','original two-argument API works');
 });
