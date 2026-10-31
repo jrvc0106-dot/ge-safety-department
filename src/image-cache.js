@@ -20,7 +20,22 @@ export function createImageCache({limit=64,now=Date.now,revoke=url=>URL.revokeOb
 }
 
 export function createTaskQueue(concurrency=4){
- let active=0;const pending=[];
- function drain(){while(active<concurrency&&pending.length){const {task,resolve,reject}=pending.shift();active++;Promise.resolve().then(task).then(resolve,reject).finally(()=>{active--;drain()})}}
- return task=>new Promise((resolve,reject)=>{pending.push({task,resolve,reject});drain()});
+ // Use an index instead of Array.shift(): large photo batches should not
+ // repeatedly reindex every waiting item while uploads are being prepared.
+ const maxActive=Number.isFinite(concurrency)?Math.max(1,Math.floor(concurrency)):4;
+ let active=0,head=0;
+ const pending=[];
+ function drain(){
+  while(active<maxActive&&head<pending.length){
+   const {task,resolve,reject}=pending[head];
+   pending[head++]=null; // Release completed task closures immediately.
+   if(head===pending.length){pending.length=0;head=0}
+   active++;
+   Promise.resolve().then(task).then(resolve,reject).finally(()=>{active--;drain()});
+  }
+ }
+ return task=>new Promise((resolve,reject)=>{
+  if(typeof task!=='function'){reject(new TypeError('Queue task must be a function'));return}
+  pending.push({task,resolve,reject});drain();
+ });
 }
