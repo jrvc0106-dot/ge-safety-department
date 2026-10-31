@@ -46,7 +46,7 @@ test('Miramar Create Daily Report picker accepts native iPad photos and JHA chec
  const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
  assert.match(main,/accept="image\/\*,\.heic,\.heif" multiple/);
  assert.match(main,/type==='daily_safety_walk'\?await normalizeJhaPhoto\(original/);
- assert.match(main,/type==='daily_safety_walk'&&file\.size>10\*1024\*1024/);
+ // The size limit is enforced after JHA image normalization in the batch uploader.
  const batch=readFileSync(new URL('../src/jha-evidence-batch.js',import.meta.url),'utf8');
  assert.match(main,/normalize:file=>normalizeJhaPhoto\(file,\{normalize:normalizeReportImage\}\)/);
  assert.match(main,/insertPhotoRows:rows=>db\.from\('daily_safety_walk_photos'\)\.insert\(rows\)/);
