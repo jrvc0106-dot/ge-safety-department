@@ -44,3 +44,15 @@ test('date formatting remains identical in both languages while reusing formatte
  for(const lang of ['en','es']){state.lang=lang;const value='2026-09-30T19:00:00Z';const expected=new Intl.DateTimeFormat(lang==='es'?'es-US':'en-US',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value));for(let i=0;i<100;i++)assert.equal(context.formatDate(value),expected)}
  assert.equal(context.formatterCount(),2);assert.equal(context.formatDate(null),'');
 });
+
+test('daily JHA revision query starts before evidence image downloads, preserving PDF content',()=>{
+ const file=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ const start=file.indexOf('async function safetyWalkReport()');
+ const end=file.indexOf('async function ',start+10);
+ const body=file.slice(start,end<0?undefined:end);
+ const lookup=body.indexOf('const revisionPromise=db.from(\'report_documents\')');
+ const photos=body.indexOf("signedDisplayImage('daily-safety-walks'");
+ const wait=body.indexOf('const revisionQuery=await revisionPromise');
+ assert.ok(lookup>0&&photos>lookup&&wait>photos);
+ assert.match(body,/if\(urls\.some\(url=>!url\)\)throw/,'all evidence must remain loaded before the final report');
+});
