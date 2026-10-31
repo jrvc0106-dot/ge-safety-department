@@ -69,22 +69,33 @@ export function pdfCanvasPageIsTrulyEmpty(canvas,{documentRef=globalThis.documen
  finally{if(sample){sample.width=0;sample.height=0}}
 }
 
-export function pdfPageRasterChoice(container,top,height){
+const evidencePhotoSelector=
+ 'figure img:not([data-signature-strokes]),.report-photos img,.ir-photos img,.report-photo-grid img,'+
+ '.dr-photo-grid img,.inventory-evidence img,.registered-orientation-evidence img,'+
+ '.eq-photo-frame img,.ewr-photo-card img';
+
+// The final PDF clone is already laid out and aligned at this point. Read
+// evidence image positions once instead of repeating layout work on every page.
+// If layout cannot be measured, the original page raster behavior is retained.
+export function indexPdfEvidencePositions(container){
  const report=container?.querySelector?.('article.report:not(.quick-safety-orientation-report)');
- if(!report)return {format:'JPEG',mime:'image/jpeg',quality:0.92};
+ if(!report)return null;
  const root=container.getBoundingClientRect?.();
- if(!root||!Number.isFinite(root.top))return {format:'JPEG',mime:'image/jpeg',quality:0.92};
- const images=report.querySelectorAll(
-  'figure img:not([data-signature-strokes]),.report-photos img,.ir-photos img,.report-photo-grid img,'+
-  '.dr-photo-grid img,.inventory-evidence img,.registered-orientation-evidence img,'+
-  '.eq-photo-frame img,.ewr-photo-card img'
- );
- for(const img of images){
+ if(!root||!Number.isFinite(root.top))return null;
+ const positions=[];
+ for(const img of report.querySelectorAll(evidencePhotoSelector)){
   if(img.getAttribute?.('src')?.includes('ge-logo.png'))continue;
   const box=img.getBoundingClientRect?.();
   if(!box||!Number.isFinite(box.top)||!Number.isFinite(box.bottom))continue;
-  const y=box.top-root.top+(container.scrollTop||0);
-  const end=box.bottom-root.top+(container.scrollTop||0);
+  positions.push([box.top-root.top+(container.scrollTop||0),
+   box.bottom-root.top+(container.scrollTop||0)]);
+ }
+ return positions;
+}
+export function pdfPageRasterChoice(container,top,height,evidencePositions){
+ const positions=Array.isArray(evidencePositions)?evidencePositions:indexPdfEvidencePositions(container);
+ if(positions===null)return {format:'JPEG',mime:'image/jpeg',quality:0.92};
+ for(const [y,end] of positions){
   if(end>top+1&&y<top+height-1)
    return {format:'JPEG',mime:'image/jpeg',quality:0.96};
  }
@@ -133,6 +144,9 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
   alignCriticalReportPdfBlocks(container,pageHeight);
   alignGeneralReportPdfEvidence(container,pageHeight);
   const totalHeight=Math.max(1,container.scrollHeight);
+  // Preserve exactly the same lossless-text / high-quality-photo page choice
+  // while avoiding O(pages * photos) repeated DOM layout measurements.
+  const evidencePositions=indexPdfEvidencePositions(container);
   const pdf=new Pdf({...options.jsPDF,compress:true});
   let pagesAdded=0;
   for(let top=0,index=0;top<totalHeight;top+=pageHeight,index++){
@@ -151,7 +165,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
       if(!(strictlyEmpty||(options.skipBlankLeadingPage&&pagesAdded===0&&
           pdfCanvasPageIsBlank(canvas)))){
         if(pagesAdded)pdf.addPage();
-        const raster=pdfPageRasterChoice(container,top,height);
+        const raster=pdfPageRasterChoice(container,top,height,evidencePositions);
         const encoded=raster.format==='PNG'
           ?canvas.toDataURL(raster.mime)
           :canvas.toDataURL(raster.mime,raster.quality);
