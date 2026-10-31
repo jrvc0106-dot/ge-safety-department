@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas';
+import {validatePdfEvidenceImages} from './report-pdf-quality.js';
 import {jsPDF} from 'jspdf';
 import {alignCriticalReportPdfBlocks,alignGeneralReportPdfEvidence} from './report-pdf-page-alignment.js';
 import {applyAdaptiveReportPdfLayout,deviceKindFromWindow} from './report-device-pdf.js';
@@ -138,6 +139,9 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
     sourceDevice:typeof window==='undefined'?'desktop':deviceKindFromWindow(window)
   });
   stabilizeNonQuickPdfColumns(container);
+  // Ensure all evidence has decoded before taking any PDF page snapshot.
+  // A failed image aborts export rather than creating an incomplete safety record.
+  if(render===html2canvas)await validatePdfEvidenceImages(container);
   // html2canvas slices fixed-height images; ordinary CSS page-break rules do
   // not stop a signature or corrective-action panel from being sliced.
   // Align intact blocks in the temporary PDF clone before measuring its height.
