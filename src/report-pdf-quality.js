@@ -74,8 +74,20 @@ export async function validatePdfEvidenceImages(container){
   try{
    if(typeof image.decode==='function')await image.decode();
    else if(image.complete===false)await new Promise((resolve,reject)=>{
-    image.addEventListener('load',resolve,{once:true});
-    image.addEventListener('error',()=>reject(new Error('Image loading failed')),{once:true});
+    let settled=false;
+    const finish=error=>{
+     if(settled)return;
+     settled=true;clearTimeout(timer);
+     image.removeEventListener('load',onLoad);
+     image.removeEventListener('error',onError);
+     error?reject(error):resolve();
+    };
+    const onLoad=()=>finish();
+    const onError=()=>finish(new Error('Image loading failed'));
+    const timer=setTimeout(()=>finish(new Error('Image loading timed out')),12000);
+    image.addEventListener('load',onLoad);
+    image.addEventListener('error',onError);
+    if(image.complete)finish(image.naturalWidth?null:new Error('Image loading failed'));
    });
    if(image.naturalWidth===0||image.naturalHeight===0)
     throw new Error('Image has no decoded dimensions');
