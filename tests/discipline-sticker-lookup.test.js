@@ -324,3 +324,31 @@ test('discipline form uses bright white field bars with dark readable text',()=>
  assert.match(css,/\.discipline-shell #discipline-form \.discipline-simple-fields select,/);
  assert.match(css,/background:#fff!important;color:#14212c!important/);
 });
+
+test('sticker linking selector stays hidden for normal verified stickers and unlinked manual records',async()=>{
+ const t=await setup();
+ const selector=t.doc.querySelector('#discipline-sticker-disambiguation');
+ assert.equal(selector.hidden,true);
+ t.doc.querySelector('#discipline-sticker-number').value='0781';
+ t.doc.querySelector('#discipline-sticker-verify').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(selector.hidden,true);
+ assert.equal(t.form.elements.employee_orientation_id.value,traditional.id);
+ t.dom.window.close();
+});
+
+test('duplicate stickers temporarily reveal safe employee selection and hide after choosing',async()=>{
+ const t=await setup({old:[{...traditional,sticker_number:'0585'}]});
+ const selector=t.doc.querySelector('#discipline-sticker-disambiguation');
+ const input=t.doc.querySelector('#discipline-sticker-number');
+ input.value='0585';
+ t.doc.querySelector('#discipline-sticker-verify').click();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(selector.hidden,false);
+ assert.equal(t.form.elements.employee_orientation_id.value,'');
+ t.form.elements.employee_orientation_id.value='quick:'+quick.id;
+ t.form.elements.employee_orientation_id.onchange();
+ assert.equal(selector.hidden,true);
+ assert.equal(t.form.elements.employee_name.value,'Quick Worker');
+ t.dom.window.close();
+});
