@@ -1,7 +1,7 @@
 import html2canvas from 'html2canvas';
 import {validatePdfEvidenceImages} from './report-pdf-quality.js';
 import {jsPDF} from 'jspdf';
-import {alignCriticalReportPdfBlocks,alignGeneralReportPdfEvidence} from './report-pdf-page-alignment.js';
+import {alignCriticalReportPdfBlocks,alignGeneralReportPdfEvidence,removeRedundantPdfAlignmentSpacers} from './report-pdf-page-alignment.js';
 import {applyAdaptiveReportPdfLayout,deviceKindFromWindow} from './report-device-pdf.js';
 
 // 200 DPI keeps text, signatures and photos clear while holding each letter page
@@ -147,6 +147,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
   // Align intact blocks in the temporary PDF clone before measuring its height.
   alignCriticalReportPdfBlocks(container,pageHeight);
   alignGeneralReportPdfEvidence(container,pageHeight);
+  removeRedundantPdfAlignmentSpacers(container);
   const totalHeight=Math.max(1,container.scrollHeight);
   // Preserve exactly the same lossless-text / high-quality-photo page choice
   // while avoiding O(pages * photos) repeated DOM layout measurements.
