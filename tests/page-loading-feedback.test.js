@@ -20,7 +20,7 @@ test('async page loading feedback paints before route work starts', () => {
     requestAnimationFrame: callback => frames.push(callback),
   });
 
-  vm.runInContext(helper, context);
+  vm.runInContext('let renderRevision=1;\n'+helper, context);
   context.renderPageWithLoading(() => { loaded = true; }, 'Loading inventory…');
 
   assert.equal(rendered.length, 1);
