@@ -2201,7 +2201,10 @@ async function detail(viewReceipt=null){const formProjectId=state.project,formUs
 async function reportCenter(){
  const viewCurrent=captureView(),project=state.projects.find(p=>p.id===state.project)||{};
  const [walks,disc,corrections,docs,incidents,equipment,inventory,trashQuery]=await Promise.all([
-  db.from('daily_safety_walks').select('id,created_at,overall_status,created_by,notes,creator:profiles!daily_safety_walks_created_by_fkey(name),items:daily_safety_walk_items!daily_safety_walk_items_walk_id_fkey(status,correction)').eq('project_id',state.project).order('created_at',{ascending:false}),
+  // Report Center is a listing, not the JHA detail view. Avoid downloading
+  // every checklist item and note here; the full signed report fetches its own
+  // items, findings, corrections and photos only when it is opened.
+  db.from('daily_safety_walks').select('id,created_at,overall_status,created_by,creator:profiles!daily_safety_walks_created_by_fkey(name)').eq('project_id',state.project).order('created_at',{ascending:false}),
   db.from('safety_discipline').select('id,employee_name,violation_type,action_level,incident_date,created_by,issuer:profiles!safety_discipline_created_by_fkey(name)').eq('project_id',state.project).order('incident_date',{ascending:false}),
   db.from('corrective_actions').select('id,observation_id,comment,created_at,created_by,author:profiles!corrective_actions_created_by_fkey(name),observation:observations!inner(id,project_id,area,category,status,priority,description)').eq('observation.project_id',state.project).order('created_at',{ascending:false}),
   db.from('report_documents').select('id,project_id,report_type,source_id,report_number,title,document_status,version,pdf_path,created_at,finalized_at,snapshot').eq('project_id',state.project).order('created_at',{ascending:false}),
@@ -2598,7 +2601,6 @@ async function reportCenter(){
    const adminLine=el.closest('.report-center-admin-entry');if(adminLine)adminLine.style.display=show?'':'none';
   });
  }
- function walkRecordStatus(x){const d=registered.find(item=>item.report_type==='daily_safety_walk'&&item.source_id===x.id);if(d?.document_status!=='final')return tr('NOT FINALIZED','NO FINALIZADO');const status=effectiveWalkStatus(x.overall_status,x.items);return status==='unsafe'?tr('Unsafe','No seguro'):status==='needs_attention'?tr('Needs Attention','Necesita atención'):tr('Safe','Seguro')}
  function draw(key){
   if(trashOpen&&trashPanel){trashOpen=false;trashPanel.hidden=true;list.hidden=false;filterBar.hidden=false;if(trashToggle)trashToggle.setAttribute('aria-pressed','false')}
   currentCategory=key;document.querySelectorAll('.report-category').forEach(x=>x.classList.toggle('selected',x.dataset.category===key));const cat=cats.find(x=>x.key===key);title.textContent=cat?.title||'';if(key==='walks'){library.classList.add('report-creator-mode');libraryHead.append(filterBar)}else{library.classList.remove('report-creator-mode');library.insertBefore(filterBar,list)}
