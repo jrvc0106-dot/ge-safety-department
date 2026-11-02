@@ -28,3 +28,45 @@
   }
 }
 /* Keep the current iPad and phone designs intact, including PDF print rules. */
+
+/* Persistent executive navigation only on genuine desktop layout. */
+#ge-desktop-sidebar{display:none}
+@media screen and (min-width:1100px){
+ html[data-ge-device="desktop"] #ge-desktop-sidebar{
+   display:flex;position:fixed;top:83px;left:0;bottom:0;width:244px;
+   flex-direction:column;z-index:18;background:#232d3b;color:#f8fafc;
+   overflow-y:auto;overscroll-behavior:contain;padding:16px 12px 24px;
+   box-shadow:3px 0 14px rgba(25,39,54,.08)
+ }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-logo{
+   display:flex;align-items:center;gap:10px;padding:4px 9px 16px;
+   border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:13px;font-size:20px;
+ }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-logo img{
+   width:42px;height:42px;object-fit:contain
+ }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar nav{display:grid;align-content:start;gap:3px}
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link{
+   display:flex;align-items:center;gap:12px;width:100%;border-radius:8px;text-align:left;
+   padding:12px 13px;font-size:13px;font-weight:600;color:#e6edf5;background:transparent;
+   line-height:1.35;min-height:43px
+ }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link:hover,
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link:focus-visible{
+   background:#394a5e;outline:2px solid transparent
+ }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link.is-active{
+   background:#1762b0;color:white
+ }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-icon{
+   font-size:18px;line-height:1;min-width:21px;text-align:center
+ }
+ html[data-ge-device="desktop"] #app>main{
+   margin-left:calc(244px + max(24px,(100vw - 1680px)/2));
+   margin-right:24px;width:auto;max-width:none;
+   padding:0 18px;min-width:0
+ }
+ html[data-ge-device="desktop"] #app>main .home-shell{max-width:1480px;margin-inline:auto}
+ html[data-ge-device="desktop"] #app>main .home-actions{gap:14px}
+}
+@media print{#ge-desktop-sidebar{display:none!important}}
