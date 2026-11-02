@@ -1,0 +1,30 @@
+/* Desktop-only presentation. Existing tablet/mobile rules and PDF output stay untouched. */
+@media screen and (min-width: 1100px) {
+  html[data-ge-device="desktop"] body {
+    background: #eef2f6;
+  }
+  html[data-ge-device="desktop"] body > #app > header,
+  html[data-ge-device="desktop"] #app > header {
+    padding-inline: max(28px, calc((100vw - 1500px) / 2));
+  }
+  html[data-ge-device="desktop"] #app > main {
+    width: min(100% - 64px, 1440px);
+    max-width: 1440px;
+    margin-inline: auto;
+  }
+  html[data-ge-device="desktop"] #app > main .cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  html[data-ge-device="desktop"] #app > main .card {
+    min-width: 0;
+  }
+  html[data-ge-device="desktop"] #app > main input,
+  html[data-ge-device="desktop"] #app > main select,
+  html[data-ge-device="desktop"] #app > main textarea {
+    max-width: 100%;
+  }
+  html[data-ge-device="desktop"] #app > main img {
+    max-width: 100%;
+  }
+}
+/* Keep the current iPad and phone designs intact, including PDF print rules. */
