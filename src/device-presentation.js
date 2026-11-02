@@ -15,8 +15,9 @@ function isTabletPlatform() {
 export function getDevicePresentation() {
   // Hardware input is used in addition to screen size so large iPads don't
   // accidentally get the laptop layout. Windows touch laptops retain desktop.
-  if (mobile.matches) return 'mobile';
   if (isTabletPlatform()) return 'tablet';
+  // A narrow laptop window must not be mistaken for a phone.
+  if (mobile.matches && (coarse.matches || !fine.matches)) return 'mobile';
   if (wide.matches && (fine.matches || !coarse.matches)) return 'desktop';
   return 'tablet';
 }
