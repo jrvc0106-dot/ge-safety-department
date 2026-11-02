@@ -25,6 +25,7 @@ export function mountDesktopNavigation({doc=document,authenticated=false,page='h
  const list=doc.createElement('nav');
  for(const [target,icon,en,es] of links){
   if(target==='cloudBackup' && role!=='admin') continue;
+  if(target==='discipline' && !['admin','safety_director','safety'].includes(role)) continue;
   const btn=doc.createElement('button');btn.type='button';btn.className='ge-desktop-link';
   if(page===target)btn.classList.add('is-active');
   btn.innerHTML='<span class="ge-desktop-icon" aria-hidden="true">'+icon+'</span><span>'+ (lang==='es'?es:en)+'</span>';
