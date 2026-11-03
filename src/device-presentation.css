@@ -51,9 +51,11 @@
    padding:12px 13px;font-size:13px;font-weight:600;color:#e6edf5;background:transparent;
    line-height:1.35;min-height:43px
  }
- html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link:hover,
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link:hover{
+   background:#394a5e
+ }
  html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link:focus-visible{
-   background:#394a5e;outline:2px solid transparent
+   background:#394a5e;outline:2px solid #fff;outline-offset:-2px
  }
  html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link.is-active{
    background:#1762b0;color:white
