@@ -798,9 +798,6 @@ async function runPdfAction(action,button){
     }
     // Download a ready JHA directly during the click, preserving Safari activation.
     if(action==='download'&&(isJha||report?.dataset?.pdfViewMode==='ready-first')&&prepared){
-      if(nativeReportArchiveAvailable()&&prepared.localArchive){
-        confirmAction(tr('Saved in iPad Files: ','Guardado en Archivos del iPad: ')+prepared.localArchive.path);return;
-      }
       downloadReportPdf(prepared.blob,prepared.filename);
       confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+prepared.filename);return;
     }
@@ -892,8 +889,8 @@ async function runPdfAction(action,button){
     pdfActionBusy=false;
     if(button){button.disabled=false;button.innerHTML=original}
     if(readyFirstView&&button&&report&&preparedReportPdf(report,true))button.textContent='◉ '+tr('View PDF now','Ver PDF ahora');
-    const saveButton=document.querySelector('.pdf-save');
-    if(saveButton&&report&&preparedReportPdf(report,true))saveButton.textContent='▣ '+tr('Save PDF now','Guardar PDF ahora');
+    const downloadButton=document.querySelector('.pdf-document-actions .pdf-download');
+    if(downloadButton&&report&&preparedReportPdf(report,true))downloadButton.textContent='↓ '+tr('Download PDF','Descargar PDF');
     const shareButton=document.querySelector('.pdf-share');
     if(shareButton&&report&&preparedReportPdf(report,true))shareButton.textContent='↗ '+tr('Share PDF now','Compartir PDF ahora');
   }
@@ -906,9 +903,9 @@ function installReportDocumentActions(){
   bar.dataset.pdfActions='1';
   const actions=document.createElement('div');actions.className='pdf-document-actions';
   // One consistent set of three PDF actions for every final report.
-  actions.innerHTML='<button type="button" class="pdf-save">▣ '+tr('Save PDF','Guardar PDF')+'</button>'+
-    '<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>'+
-    '<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>';
+  actions.innerHTML='<button type="button" class="secondary pdf-view">◉ '+tr('View PDF','Ver PDF')+'</button>'+
+    '<button type="button" class="pdf-download">↓ '+tr('Download PDF','Descargar PDF')+'</button>'+
+    '<button type="button" class="secondary pdf-share">↗ '+tr('Share PDF','Compartir PDF')+'</button>';
   bar.appendChild(actions);
   {activeJhaPdfReport=report;attachJhaPdfActions(actions,report,{
     run:runPdfAction,
