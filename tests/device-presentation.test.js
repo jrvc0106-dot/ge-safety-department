@@ -26,3 +26,6 @@ test('iPadOS with desktop user-agent stays tablet',()=>check({ua:'Macintosh',wid
 test('Android tablet stays tablet',()=>check({ua:'Mozilla/5.0 Android 14; Tablet',width:1280,fine:false,coarse:true},'tablet'));
 test('iPhone stays mobile',()=>check({ua:'iPhone',width:390,fine:false,coarse:true},'mobile'));
 test('Android phone stays mobile',()=>check({ua:'Android Mobile',width:412,fine:false,coarse:true},'mobile'));
+
+test('iPhone with Bluetooth mouse remains mobile',()=>check({ua:'iPhone',width:390,fine:true,coarse:false},'mobile'));
+test('Android phone in desktop-sized browser viewport remains mobile',()=>check({ua:'Android Mobile',width:1200,fine:true,coarse:false},'mobile'));
