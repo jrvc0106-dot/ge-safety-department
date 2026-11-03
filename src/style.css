@@ -2360,3 +2360,14 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .incident-reference .ir-involved-person dd{
  font-weight:800;color:#18252e;
 }
+
+/* Clear, prominent investigation label only in the Accidents & Incidents PDF. */
+.incident-reference .ir-title > small{
+ display:block;
+ font-size:14px;
+ font-weight:900;
+ line-height:1.3;
+ letter-spacing:.055em;
+ color:#253543;
+ text-transform:uppercase;
+}
