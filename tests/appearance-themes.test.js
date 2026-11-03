@@ -146,51 +146,30 @@ test('Color Mix assigns 24 unique WCAG-accessible module colors, including safet
 });
 
 
-test('existing Dark user preference upgrades in place to Midnight Blue without data migration',()=>{
+test('retired Dark preference safely falls back to Original without affecting saved project',()=>{
  const {dom,doc,tr}=fixture();
  dom.window.localStorage.setItem(APPEARANCE_KEY,'dark');
+ dom.window.localStorage.setItem('ge_selected_project_v1:worker','rivage');
  const appearance=installAppearanceTheme({win:dom.window,doc});
- assert.equal(appearance.getTheme(),'dark');
- assert.equal(doc.documentElement.dataset.geTheme,'gray');
- assert.equal(APPEARANCE_THEMES.dark.name,'Midnight Blue');
- assert.equal(APPEARANCE_THEMES.dark.nameEs,'Azul Medianoche');
- assert.equal(doc.querySelector('meta[name="theme-color"]').content,'#0a1628');
+ assert.equal(appearance.getTheme(),'original');
+ assert.equal(doc.documentElement.dataset.geTheme,'original');
+ assert.equal(doc.querySelector('meta[name="theme-color"]').content,APPEARANCE_THEMES.original.bg);
  mountAppearanceSettings({doc,appearance,tr});
- assert.match(doc.querySelector('[data-theme="dark"]').textContent,/Midnight Blue/);
- assert.equal(doc.querySelector('[data-theme="gray"]').getAttribute('aria-pressed'),'true');
- // This theme replacement does not affect the other three options.
- for(const id of ['original','gray','mix'])
-  assert.ok(doc.querySelector('[data-theme="'+id+'"]'));
+ assert.equal(doc.querySelectorAll('.ge-theme-choice').length,3);
+ assert.equal(doc.querySelector('[data-theme="original"]').getAttribute('aria-pressed'),'true');
+ assert.equal(dom.window.localStorage.getItem('ge_selected_project_v1:worker'),'rivage');
  dom.window.close();
 });
 
-test('Midnight Blue secondary text, focus accents, and every module card meet WCAG AA',()=>{
- const css=readFileSync(new URL('../src/appearance-themes.css',import.meta.url),'utf8');
- const midnight=css.slice(css.indexOf('/* MIDNIGHT BLUE PREMIUM'));
- assert.ok(midnight.includes('MIDNIGHT BLUE PREMIUM'));
- assert.ok(midnight.includes('--ge-midnight-tile'));
- const dark=APPEARANCE_THEMES.dark;
- for(const bg of [dark.bg,dark.surface,dark.subtle,dark.bar,dark.border]){
-  assert.ok(contrastRatio(dark.text,bg)>=4.5,'Midnight title too dim '+bg);
-  assert.ok(contrastRatio(dark.muted,bg)>=4.5,'Midnight secondary labels too dim '+bg);
+test('supported themes have AA readable primary and secondary text on all surfaces',()=>{
+ for(const [id,theme] of Object.entries(APPEARANCE_THEMES)){
+  for(const bg of [theme.bg,theme.surface,theme.subtle,theme.bar,theme.border]){
+   assert.ok(contrastRatio(theme.text,bg)>=4.5,id+' primary text against '+bg);
+  }
+  for(const bg of [theme.bg,theme.surface,theme.subtle,theme.bar]){
+   assert.ok(contrastRatio(theme.muted,bg)>=4.5,id+' secondary text against '+bg);
+  }
  }
- assert.ok(contrastRatio('#ffffff','#2461b3')>=4.5,'Midnight primary button illegible');
- const matches=[...midnight.matchAll(/html\[data-ge-theme="dark"\] #app > main \.home-shell \.home-actions > \.home-action(#[a-z0-9-]+|\[data-safety-tool="[a-z_]+"\])\{--ge-midnight-tile:(#[0-9A-Fa-f]{6});\}/g)];
- const mapped=new Map(matches.map(m=>[m[1],m[2]]));
- assert.equal(mapped.size,24,'Midnight Blue should tint every known Home tile');
- assert.equal(new Set(mapped.values()).size,24,'Each module uses an individual harmonious color');
- for(const [selector,bg] of mapped){
-  assert.ok(contrastRatio('#ffffff',bg)>=4.5,'Unreadable white label on '+selector);
-  // The gradient only lightens the top edge by 4%; check that too.
-  const channel=i=>parseInt(bg.slice(i,i+2),16);
-  const top='#'+[1,3,5].map(i=>Math.round(channel(i)*.96+255*.04).toString(16).padStart(2,'0')).join('');
-  assert.ok(contrastRatio('#ffffff',top)>=4.5,'Unreadable bright gradient at '+selector+' '+top);
- }
- assert.equal(mapped.get('#home-incident').toLowerCase(),'#b52236');
- for(const id of ['#home-new','#home-safety-walk','#home-report','#home-equipment','#home-inventory','#home-team','#home-settings'])
-  assert.ok(mapped.has(id),'Missing Midnight Blue card '+id);
- assert.match(midnight,/\.home-action :is\(\.action-icon,\.action-icon svg,span,small,strong,\.admin-only-lock\)/);
- assert.match(midnight,/data-ge-theme="dark".*ge-theme-preview-stat-0/);
 });
 
 test('Midnight Blue customization changes no other theme, layout, print, or PDF template',()=>{
