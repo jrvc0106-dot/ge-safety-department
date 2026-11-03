@@ -118,3 +118,35 @@
  html[data-ge-device="desktop"][data-ge-command-collapsed="true"] #ge-command-toggle{right:14px}
 }
 @media print{#ge-desktop-command,#ge-command-toggle{display:none!important}}
+
+/* Command panel owns its own column: center content never sits beneath it. */
+@media screen and (min-width:1500px){
+ html[data-ge-device="desktop"]:not([data-ge-command-collapsed="true"]) #app > main{
+  box-sizing:border-box;
+  margin-left:268px;
+  margin-right:318px;
+  width:calc(100% - 586px);
+  max-width:none;
+  min-width:0;
+  padding-inline:12px;
+ }
+ html[data-ge-device="desktop"] #app > main .cards,
+ html[data-ge-device="desktop"] #app > main .home-actions{
+  min-width:0;
+ }
+ html[data-ge-device="desktop"]:not([data-ge-command-collapsed="true"]) #app > main .cards{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+ }
+ html[data-ge-device="desktop"]:not([data-ge-command-collapsed="true"]) #app > main .card{
+  max-width:100%;
+  min-width:0;
+ }
+ html[data-ge-device="desktop"] #ge-command-toggle:focus-visible{
+  outline:3px solid #1762b0;outline-offset:2px;
+ }
+}
+@media screen and (min-width:1900px){
+ html[data-ge-device="desktop"]:not([data-ge-command-collapsed="true"]) #app > main .cards{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+ }
+}
