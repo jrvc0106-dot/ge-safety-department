@@ -49,3 +49,28 @@ test('a response arriving after invalidation does not poison the cache',async()=
  assert.equal((await cache.get('worker',async()=>({count:8}))).count,0);
  assert.equal(fresh.count,0);
 });
+
+test('cache evicts expired records before fresh badge data',async()=>{
+ let time=0;
+ const cache=createExpiringRequestCache({ttl:100,limit:2,now:()=>time});
+ let calls=0;
+ await cache.get('expired',async()=>({count:++calls}));
+ time=110;
+ await cache.get('fresh',async()=>({count:++calls}));
+ await cache.get('newest',async()=>({count:++calls}));
+ assert.equal(cache.size,2);
+ assert.equal((await cache.get('fresh',async()=>({count:++calls}))).count,2);
+ assert.equal(calls,3);
+});
+test('cache prefers in-flight requests over completed entries when capacity is full',async()=>{
+ const cache=createExpiringRequestCache({limit:2});
+ let finish;
+ const work=cache.get('still-loading',()=>new Promise(resolve=>{finish=resolve}));
+ await Promise.resolve();
+ await cache.get('complete',async()=>({count:1}));
+ await cache.get('new',async()=>({count:2}));
+ const duplicate=cache.get('still-loading',()=>({count:100}));
+ assert.strictEqual(duplicate,work);
+ finish({count:3});
+ assert.equal((await duplicate).count,3);
+});
