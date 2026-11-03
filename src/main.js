@@ -3,7 +3,7 @@ import {mountDesktopNavigation} from './desktop-navigation.js';
 import {mountReportCenterTrainingStatistics} from './report-center-training-statistics.js';
 import './report-center-training-statistics.css';
 import {mountSafetyIntelligence} from './safety-intelligence.js';
-import {isValidPdfBlob,protectPdfReportLogos} from './report-pdf-quality.js';
+import {isValidPdfBlob,protectPdfReportLogos,validatePdfEvidenceImages} from './report-pdf-quality.js';
 import {reportExportFilename,originalReportDateFromElement} from './report-export-filename.js';
 import {indexFinalPdfDocuments,openArchivedPdf,downloadArchivedPdf,archivedPdfLink,archivedPdfFilename} from './finalized-pdf-direct.js';
 import {reservePdfDestination,savePdfToDevice,fileShareSupported} from './pdf-save-location.js';
@@ -642,6 +642,7 @@ async function buildReportPdf(highQuality=false){
   const container=await worker.get('container');
   // Preserve the approved layout while preventing logo distortion in the PDF clone.
   protectPdfReportLogos(container,{photos:true});
+  await validatePdfEvidenceImages(container);
   try{await rasterizePdfSignatures(container)}catch(err){(await worker.get('overlay'))?.remove();throw err}
   let blob;
   if(report.classList?.contains?.('quick-safety-orientation-report')){
