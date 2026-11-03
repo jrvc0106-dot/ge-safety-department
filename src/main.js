@@ -642,8 +642,10 @@ async function buildReportPdf(highQuality=false){
   const container=await worker.get('container');
   // Preserve the approved layout while preventing logo distortion in the PDF clone.
   protectPdfReportLogos(container,{photos:true});
-  await validatePdfEvidenceImages(container);
-  try{await rasterizePdfSignatures(container)}catch(err){(await worker.get('overlay'))?.remove();throw err}
+  try{
+    await validatePdfEvidenceImages(container);
+    await rasterizePdfSignatures(container);
+  }catch(err){(await worker.get('overlay'))?.remove();throw err}
   let blob;
   if(report.classList?.contains?.('quick-safety-orientation-report')){
     try{
