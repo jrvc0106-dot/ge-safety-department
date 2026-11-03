@@ -24,7 +24,7 @@ test('report logo proportions are protected without changing its source',()=>{
  assert.equal(values['object-fit'],'contain');assert.equal(values['aspect-ratio'],'auto');
 });
 test('PDF filename removes filesystem-unsafe characters',()=>{
- assert.equal(pdfSafeFilename('Incident:/Test?.pdf'),'Incident--Test-.pdf');
+ assert.equal(pdfSafeFilename('Incident:/Test?.pdf'),'Incident-Test-.pdf');
 });
 test('saving a PDF uses the same source blob, with no image recompression',async()=>{
  let blobSeen=null,nameSeen=null;
