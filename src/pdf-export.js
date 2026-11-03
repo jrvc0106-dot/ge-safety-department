@@ -163,6 +163,9 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
       if(!canvas.width||!canvas.height)throw new Error('Unable to render PDF page '+(index+1));
       // Only JHA opts into removing an empty FIRST slice; all other
       // documents keep their approved pagination byte-for-byte.
+      // GE ONE PDF PROTOCOL: never publish a completely blank page. Keep all
+      // meaningful white space needed for readable text, signatures and
+      // uncropped evidence; never enlarge or stretch photos just to fill paper.
       // A genuinely empty raster is never appended to a final report.
       // Do not remove faint content: the strict scan retains any detectable
       // logo, text, border, evidence, or signature.
