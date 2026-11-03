@@ -45,6 +45,15 @@
  html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-logo img{
    width:42px;height:42px;object-fit:contain
  }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-search{
+   box-sizing:border-box;width:100%;min-height:40px;margin:0 0 12px;
+   border:1px solid #738399;border-radius:8px;padding:8px 11px;
+   background:#f8fafc;color:#192634;font:inherit;font-size:14px
+ }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-search:focus-visible{
+   outline:3px solid #90c2ff;outline-offset:2px
+ }
+ html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link[hidden]{display:none}
  html[data-ge-device="desktop"] #ge-desktop-sidebar nav{display:grid;align-content:start;gap:3px}
  html[data-ge-device="desktop"] #ge-desktop-sidebar .ge-desktop-link{
    display:flex;align-items:center;gap:12px;width:100%;border-radius:8px;text-align:left;
