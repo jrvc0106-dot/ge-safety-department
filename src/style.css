@@ -2332,3 +2332,31 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .discipline-shell #discipline-form label#discipline-custom-violation-field[hidden]{
  display:none!important;
 }
+
+
+/* Incident PDF identity and original logo: isolated from every other report. */
+.incident-reference .ir-head{
+ grid-template-columns:76px minmax(0,1fr);
+ align-items:center;
+}
+.incident-reference .ir-head>img[src*="ge-logo.png"]{
+ width:72px;height:72px;max-width:100%;object-fit:contain;
+ object-position:center;aspect-ratio:auto;image-rendering:auto;
+}
+.incident-reference .ir-head>div:nth-child(2){min-width:0}
+.incident-reference .ir-title{
+ grid-column:1/-1;text-align:center;border-left:0;border-top:1px solid #cbd4da;
+ padding:10px 0 0;min-width:0;
+}
+.incident-reference .ir-title h1{
+ font-size:clamp(11px,1.65vw,15px);font-weight:800;letter-spacing:-.02em;
+ white-space:nowrap;line-height:1.25;margin:4px 0 5px;
+}
+.incident-reference .ir-title .ir-person-name{
+ display:block;font-size:15px;line-height:1.35;font-weight:900;
+ color:#bf1422;overflow-wrap:anywhere;margin:4px 0;
+}
+.incident-reference .ir-title b{display:block}
+.incident-reference .ir-involved-person dd{
+ font-weight:800;color:#18252e;
+}
