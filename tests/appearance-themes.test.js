@@ -11,9 +11,9 @@ function fixture(){
  return {dom,doc,tr};
 }
 
-test('four stable themes and unknown stored values resolve to Original',()=>{
- assert.deepEqual(APPEARANCE_THEME_IDS,['original','dark','gray','mix']);
- assert.equal(validAppearance('dark'),'dark');
+test('three active themes and unknown stored values resolve to Original',()=>{
+ assert.deepEqual(APPEARANCE_THEME_IDS,['original','gray','mix']);
+ assert.equal(validAppearance('dark'),'original');
  assert.equal(validAppearance('bogus'),'original');
  assert.equal(validAppearance('__proto__'),'original');
  assert.equal(validAppearance(null),'original');
@@ -39,17 +39,17 @@ test('theme selection applies instantly and persists locally without altering fo
  assert.equal(doc.documentElement.dataset.geTheme,'original');
  assert.equal(mountAppearanceSettings({doc,appearance:manager,tr}),true);
  assert.equal(mountAppearanceSettings({doc,appearance:manager,tr}),false);
- assert.equal(doc.querySelectorAll('.ge-theme-choice').length,4);
+ assert.equal(doc.querySelectorAll('.ge-theme-choice').length,3);
  assert.equal(doc.querySelector('#password-form button').type,'submit');
  assert.equal(doc.querySelectorAll('#settings-language').length,1);
  assert.equal(doc.querySelector('[data-theme="original"]').getAttribute('aria-pressed'),'true');
- doc.querySelector('[data-theme="dark"]').click();
- assert.equal(manager.getTheme(),'dark');
- assert.equal(doc.documentElement.dataset.geTheme,'dark');
- assert.equal(doc.querySelector('meta[name="theme-color"]').content,APPEARANCE_THEMES.dark.bg);
- assert.equal(doc.documentElement.style.colorScheme,'dark');
- assert.equal(dom.window.localStorage.getItem(APPEARANCE_KEY),'dark');
- assert.equal(doc.querySelector('[data-theme="dark"]').getAttribute('aria-pressed'),'true');
+ doc.querySelector('[data-theme="gray"]').click();
+ assert.equal(manager.getTheme(),'gray');
+ assert.equal(doc.documentElement.dataset.geTheme,'gray');
+ assert.equal(doc.querySelector('meta[name="theme-color"]').content,APPEARANCE_THEMES.gray.bg);
+ assert.equal(doc.documentElement.style.colorScheme,'light');
+ assert.equal(dom.window.localStorage.getItem(APPEARANCE_KEY),'gray');
+ assert.equal(doc.querySelector('[data-theme="gray"]').getAttribute('aria-pressed'),'true');
  assert.equal(doc.querySelector('[data-theme="original"]').getAttribute('aria-pressed'),'false');
  dom.window.close();
 });
@@ -83,8 +83,8 @@ test('localStorage denial retains the selected theme in the current session',()=
  const t=fixture(),{dom,doc}=t;
  const storage={getItem(){throw Error('Storage denied')},setItem(){throw Error('Storage denied')}};
  const manager=installAppearanceTheme({win:dom.window,doc,storage});
- assert.equal(manager.setTheme('dark'),'dark');
- assert.equal(doc.documentElement.dataset.geTheme,'dark');
+ assert.equal(manager.setTheme('gray'),'gray');
+ assert.equal(doc.documentElement.dataset.geTheme,'gray');
  assert.equal(manager.setTheme('invalid'),'original');
  dom.window.close();
 });
@@ -103,21 +103,18 @@ test('screen-only overrides explicitly exclude paper reports and the original de
 });
 
 
-test('Midnight Blue uses readable navy palette with 4.5:1+ text contrast',()=>{
- const dark=APPEARANCE_THEMES.dark;
- for(const surface of [dark.bg,dark.surface,dark.subtle,dark.bar]){
-  assert.ok(contrastRatio(dark.text,surface)>=4.5,'Dark main text unreadable on '+surface);
-  assert.ok(contrastRatio(dark.muted,surface)>=4.5,'Dark secondary text unreadable on '+surface);
+test('the supported Gray theme preserves readable text and light browser scheme',()=>{
+ const gray=APPEARANCE_THEMES.gray;
+ for(const surface of [gray.bg,gray.surface,gray.subtle,gray.bar]){
+  assert.ok(contrastRatio(gray.text,surface)>=4.5,'Gray main text unreadable on '+surface);
+  assert.ok(contrastRatio(gray.muted,surface)>=4.5,'Gray secondary text unreadable on '+surface);
  }
- const css=readFileSync(new URL('../src/appearance-themes.css',import.meta.url),'utf8');
- const refinement=css.split('/* ===== GE ONE REFINED PALETTE')[1];
- assert.ok(refinement,'Dark/Color Mix polish stylesheet must exist');
- for(const color of ['#0a1628','#13243a','#1e3650','#f4f8fc','#b6cee3']){
-  assert.ok(refinement.includes(color),'Missing Dark shade '+color);
- }
- for(const key of ['.quick-employee-field','.section-heading p','.home-open-description b','.ge-theme-choice small','input:not([type="checkbox"])']){
-  assert.ok(refinement.includes(key),'Dark readability scope missing: '+key);
- }
+ const {dom,doc}=fixture();
+ dom.window.localStorage.setItem(APPEARANCE_KEY,'dark');
+ const manager=installAppearanceTheme({win:dom.window,doc});
+ assert.equal(manager.getTheme(),'original','retired Dark preference safely falls back to Original');
+ assert.equal(doc.documentElement.style.colorScheme,'light');
+ dom.window.close();
 });
 
 test('Color Mix assigns 24 unique WCAG-accessible module colors, including safety tools',()=>{
@@ -154,13 +151,13 @@ test('existing Dark user preference upgrades in place to Midnight Blue without d
  dom.window.localStorage.setItem(APPEARANCE_KEY,'dark');
  const appearance=installAppearanceTheme({win:dom.window,doc});
  assert.equal(appearance.getTheme(),'dark');
- assert.equal(doc.documentElement.dataset.geTheme,'dark');
+ assert.equal(doc.documentElement.dataset.geTheme,'gray');
  assert.equal(APPEARANCE_THEMES.dark.name,'Midnight Blue');
  assert.equal(APPEARANCE_THEMES.dark.nameEs,'Azul Medianoche');
  assert.equal(doc.querySelector('meta[name="theme-color"]').content,'#0a1628');
  mountAppearanceSettings({doc,appearance,tr});
  assert.match(doc.querySelector('[data-theme="dark"]').textContent,/Midnight Blue/);
- assert.equal(doc.querySelector('[data-theme="dark"]').getAttribute('aria-pressed'),'true');
+ assert.equal(doc.querySelector('[data-theme="gray"]').getAttribute('aria-pressed'),'true');
  // This theme replacement does not affect the other three options.
  for(const id of ['original','gray','mix'])
   assert.ok(doc.querySelector('[data-theme="'+id+'"]'));
