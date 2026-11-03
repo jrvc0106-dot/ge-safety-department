@@ -32,9 +32,9 @@ test('Emergency contact is displayed compactly in the completed report and safel
  assert.match(hostile,/&lt;img src=x onerror=alert\(1\)&gt;/);
 });
 
-test('Old reports without emergency contact are unchanged and labels localize',()=>{
+test('Old reports show a clear missing-contact indicator and labels localize',()=>{
  const oldMarkup=quickSafetyOrientationReport(record,options);
- assert.doesNotMatch(oldMarkup,/quick-report-emergency-contact/);
+ assert.match(oldMarkup,/<div class="quick-report-emergency-contact"><span>Contact in case of emergency<\/span><b>—<\/b><\/div>/);
  const spanish=quickSafetyOrientationReport({...record,emergency_contact:'Madre: (305) 555-0187'},{...options,tr:es});
  assert.match(spanish,/Contacto en caso de emergencia/);
 });
@@ -46,4 +46,9 @@ test('Compact emergency row preserves existing photo containment and existing si
  const report=quickSafetyOrientationReport({...record,emergency_contact:'Mother (305) 555-0199'},{...options,photos:[{url:'https://example.test/photo.png'}]});
  assert.match(report,/class="quick-report-photos"/);
  assert.match(report,/Signed/);
+});
+
+test('archive PDF generator retains the same emergency contact field even when blank',()=>{
+ const backend=readFileSync(new URL('../supabase/functions/backfill-quick-orientation-pdfs/index.ts',import.meta.url),'utf8');
+ assert.match(backend,/field\("Emergency contact",String\(record\.emergency_contact\|\|""\)\.trim\(\)\|\|"-",42,559,420\)/);
 });
