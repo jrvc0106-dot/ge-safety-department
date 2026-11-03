@@ -78,7 +78,7 @@ async function createPdf(record:any,project:string){
  field("Project / Jobsite",project,42,595,202);
  const at=new Date(record.orientation_at||record.created_at);
  field("Orientation date",Number.isFinite(at.getTime())?at.toLocaleDateString("en-US",{timeZone:"America/New_York"}):"-",274,595,184);
- if(record.emergency_contact)field("Emergency contact",record.emergency_contact,42,559,420);
+ field("Emergency contact",String(record.emergency_contact||"").trim()||"-",42,559,420);
  if(record.employee_phone)field("Employee phone",record.employee_phone,274,559,180);
  const path=record.face_photo_path||(Array.isArray(record.photo_paths)?record.photo_paths[0]:"");
  if(!path)throw Error("Employee identification photo is missing");
