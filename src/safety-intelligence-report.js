@@ -7,6 +7,21 @@ const safetyTrendDelta=(current,previous)=>current-previous;
 // read employee data, modify reports, or create a second scheduled analysis.
 const PALETTE={ink:[35,42,49],muted:[93,105,116],rule:[208,214,221],paper:[246,247,248],dark:[55,63,72],white:[255,255,255]};
 const number=x=>Number.isFinite(Number(x))?Math.max(0,Number(x)):0;
+const coveragePct=(part,total)=>total>0?Math.round(1000*part/total)/10:null;
+export function reportCoverageAssessment(current={},previous={}){
+ const keys=['observations','daily_reports','incidents','equipment_inspections','disciplinary_actions','safety_tools'];
+ const total=keys.reduce((n,k)=>n+number(current[k]?.count),0);
+ const prior=keys.reduce((n,k)=>n+number(previous[k]?.count),0);
+ const daily=number(current.daily_reports?.count);
+ const unsafe=number(current.daily_reports?.unsafe);
+ const limited=keys.filter(k=>current[k]?.sample_limited||previous[k]?.sample_limited);
+ const active=keys.filter(k=>number(current[k]?.count)>0).length;
+ return {total,prior,activeSources:active,sourceCount:keys.length,dailyReports:daily,
+  dailyShare:coveragePct(daily,total),unsafeWalks:unsafe,unsafeShare:limited.includes('daily_reports')?null:coveragePct(unsafe,daily),
+  changeRate:prior?Math.round(1000*(total-prior)/prior)/10:null,
+  limitedSources:limited,comparability:prior===0?'no_baseline':limited.length?'partial':'count_only'};
+}
+
 const clean=(x,limit=1000)=>String(x??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,limit);
 const getDate=x=>{const d=new Date(x);return Number.isNaN(d.getTime())?'—':new Intl.DateTimeFormat('en-US',{year:'numeric',month:'short',day:'numeric',timeZone:'UTC'}).format(d)};
 export const PERIODIC_REPORT_AUTHOR='Jairo Valdivia';
@@ -38,6 +53,7 @@ export const safetyPdfFilename=(project,run)=>{
 export function safetyReportSnapshot(run,project){
  const m=run?.metrics||{},current=m.current||{},previous=m.previous||{};
  const total=safetyTrendTotal(current),prior=safetyTrendTotal(previous);
+ const coverage=reportCoverageAssessment(current,previous);
  const breakdown=[
   ['Safety observations / Observaciones','observations'],
   ['Daily Safety Walks / Recorridos diarios','daily_reports'],
@@ -50,7 +66,7 @@ export function safetyReportSnapshot(run,project){
   project:clean(project,160)||'Unspecified project / Proyecto no especificado',
   cadence:run?.cadence==='monthly'?'monthly':'weekly',
   periodStart:run?.period_start,periodEnd:run?.period_end,computedAt:run?.computed_at,
-  total,prior,change:safetyTrendDelta(total,prior),
+  total,prior,change:safetyTrendDelta(total,prior),coverage,
   openObservations:Number.isFinite(Number(m.open_observations_now))?number(m.open_observations_now):null,
   highPriority:number(current.observations?.high),
   closedObservations:number(current.observations?.closed),
@@ -176,6 +192,17 @@ export async function createSafetyIntelligencePdf(run,projectName){
   y+=27;
  });
  y+=10;
+ // Scope diagnostics use existing aggregate records only; no invented staffing,
+ // scheduled-day compliance, report completeness or corrective-action rates.
+ heading('COVERAGE ASSESSMENT  /  EVALUACIÓN DE COBERTURA');
+ infoLine('DATA SOURCES / FUENTES',model.coverage.activeSources+' / '+model.coverage.sourceCount+' with records / con registros');
+ infoLine('DAILY SAFETY WALKS',model.coverage.dailyReports+' records · '+(model.coverage.dailyShare===null?'—':model.coverage.dailyShare+'%')+' of all registered activity');
+ infoLine('PERIOD CHANGE / CAMBIO',model.coverage.changeRate===null?'No prior-period baseline / Sin base anterior':(model.coverage.changeRate>0?'+':'')+model.coverage.changeRate+'% of previous record volume');
+ infoLine('UNSAFE DAILY WALKS',model.coverage.unsafeShare===null?'Unavailable due to sampled source / No disponible por muestra limitada':model.coverage.unsafeWalks+' / '+model.coverage.dailyReports+' ('+(model.coverage.unsafeShare===null?'—':model.coverage.unsafeShare+'%')+')');
+ if(model.coverage.limitedSources.length)paragraph('SAMPLE WARNING / MUESTRA: detailed breakdowns may omit records above the 1,000-row source limit: '+model.coverage.limitedSources.join(', ')+'. Aggregate counts are retained; sampled status/category subtotals are not exhaustive.',8.4);
+ if(model.coverage.total===0)paragraph('NO ACTIVITY / SIN ACTIVIDAD: No records found for this project and saved period. No conclusion about site conditions can be drawn.',8.5);
+ paragraph('INTERPRETATION / INTERPRETACIÓN: coverage means the number of records filed in this project and period, not the number of scheduled inspections completed. A source with zero entries is not automatically missing or non-compliant. Daily-walk UNSAFE is a report-level flag, not a count of individual hazards.',8.4);
+ paragraph('NOT YET MEASURED / AÚN NO MEDIDO: reporting consistency against workdays, form completeness, duplicates, photo evidence, corrective-action closure and a confidence score require validated source-level fields. They are not estimated from record counts.',8.4);
  heading('OBSERVATIONS  /  OBSERVACIONES');
  need(45);
  text('High priority in period / Prioridad alta: '+model.highPriority,M,y+8,9);
