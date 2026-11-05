@@ -1,3 +1,4 @@
+import {HIRING_SOURCE_FIELDS,HIRING_EMPLOYER_FIELDS,HIRING_SIGNATURE_FIELDS} from './hiring-form-schema.js';
 export function employeeHiringMarkup(tr=(en)=>en){
  const url='https://ge-safety-department.vercel.app/apply.html';
  return '<section class="card employee-hiring"><header><small>G&E FLORIDA CONTRACTORS · HUMAN RESOURCES</small><h1>'+tr('Employee Application & Hiring','Solicitudes y contratación')+'</h1><p>'+tr('Scan the QR to open the first-stage employment application.','Escanee el QR para abrir la solicitud laboral inicial.')+'</p></header>'+
@@ -6,6 +7,7 @@ export function employeeHiringMarkup(tr=(en)=>en){
  '<div class="hiring-status" role="status"><strong>'+tr('APPLICATION INTAKE · limited to basic details','RECEPCIÓN DE SOLICITUDES · datos básicos')+'</strong><p>'+tr('The QR opens a real first-stage application. Basic information is sent to the private HR inbox; official documents are not yet collected. Do not enter Social Security numbers, identity or tax information.','El QR abre una solicitud laboral inicial. Los datos básicos llegan a la bandeja privada de HR; los documentos oficiales aún no se reciben. No introduzca Seguro Social, identificaciones ni información fiscal.')+'</p><p>'+tr('Full onboarding will be enabled after secure document storage, signatures and legal form checks.','La contratación completa se habilitará tras verificar almacenamiento privado, firmas y formularios oficiales.')+'</p></div></div>'+
  '<p><a href="/hiring-57.html" target="_blank" rel="noopener">'+tr('Open 57-field onboarding form','Abrir formulario de 57 campos')+'</a></p>'+ 
  '<p><a href="/hiring-field-review.html" target="_blank" rel="noopener">'+tr('Review the eight-page field checklist','Revisar los campos de las ocho páginas')+'</a></p>'+ 
+ '<section id="hiring-pdf-preview" style="margin-top:22px" hidden><h2>'+tr('Eight-page original PDF draft','Borrador PDF original de ocho páginas')+'</h2><p>'+tr('Fill the fields below and export an editable draft based on the approved eight-page PDF. This does not create legal signatures or a completed employee file.','Complete los campos y exporte un borrador basado en el PDF original aprobado. No crea firmas legales ni un expediente completo.')+'</p><div id="hiring-pdf-preview-fields"></div><button type="button" id="hiring-preview-download">'+tr('Generate original PDF draft','Generar borrador PDF original')+'</button><p id="hiring-preview-status" role="status"></p></section>'+ 
  '<section id="hiring-template-panel" style="margin-top:22px" hidden><h2>'+tr('Approved original PDF','PDF original aprobado')+'</h2><p>'+tr('Only the verified 8-page original may be stored. The uploaded master is never edited.','Solo se admite el original verificado de ocho páginas. El archivo maestro nunca se modifica.')+'</p><input type="file" id="hiring-master-upload" accept="application/pdf,.pdf" aria-label="Approved original PDF"><button type="button" id="hiring-master-submit" class="secondary">'+tr('Verify and store PDF','Verificar y guardar PDF')+'</button><p id="hiring-master-status" role="status"></p></section>'+ 
  '<section style="margin-top:22px"><h2>'+tr('Received Applications','Solicitudes recibidas')+'</h2><p id="hiring-list-message" role="status">'+tr('Loading…','Cargando…')+'</p><div id="hiring-applications"></div><button id="hiring-refresh" type="button" class="secondary">'+tr('Refresh applications','Actualizar solicitudes')+'</button></section>'+ 
  '<button type="button" id="hiring-existing-settings" class="secondary" style="margin-top:20px">'+tr('Application settings','Configuración de la aplicación')+'</button></section>';
@@ -86,4 +88,40 @@ export function mountHiringMaster(db,tr=(en)=>en,role=''){
    status.textContent=tr('Verified PDF stored privately. SHA-256: ','PDF verificado y guardado en privado. SHA-256: ')+result.sha256;
   }catch(e){status.textContent=e.message||String(e)}finally{button.disabled=false}
  });
+}
+
+export function mountHiringPdfPreview(db,tr=(en)=>en,role=''){
+ if(!['admin','safety_director'].includes(role))return;
+ const section=document.querySelector('#hiring-pdf-preview'),root=document.querySelector('#hiring-pdf-preview-fields'),status=document.querySelector('#hiring-preview-status'),button=document.querySelector('#hiring-preview-download');
+ if(!section||!root||!button)return;section.hidden=false;
+ const controls={};
+ for(const [page,names] of Object.entries(HIRING_SOURCE_FIELDS)){
+  if(!names.length)continue;
+  const group=document.createElement('details');group.style.cssText='border:1px solid #d8e0e7;border-radius:9px;padding:12px;margin:10px 0';
+  const summary=document.createElement('summary');summary.textContent=tr('Page ','Página ')+page+' · '+names.length+tr(' fields',' campos');group.append(summary);
+  for(const name of names){
+   const label=document.createElement('label');label.style.cssText='display:block;margin:12px 0;font-size:13px';
+   const strong=document.createElement('strong');strong.textContent=name.replaceAll('_',' ')+' · '+(HIRING_EMPLOYER_FIELDS.has(name)?'G&E':tr('Applicant','Solicitante'));
+   label.append(strong);
+   if(HIRING_SIGNATURE_FIELDS.has(name)){
+    const p=document.createElement('small');p.style.cssText='display:block;color:#8b2a22';p.textContent=tr('Requires a separate valid e-signature; not generated by this draft.','Requiere firma electrónica válida por separado; este borrador no la genera.');label.append(p);
+   }else{
+    const input=document.createElement('input');input.type=/SSN|Birth_Date|DOB/.test(name)?'password':'text';input.autocomplete='off';input.maxLength=256;input.style.cssText='display:block;width:100%;padding:10px;box-sizing:border-box;margin-top:6px;border:1px solid #b0bdc7;border-radius:6px';
+    input.placeholder=tr('Value for original PDF','Valor para PDF original');controls[name]=input;label.append(input);
+   }
+   group.append(label);
+  }root.append(group);
+ }
+ button.onclick=async()=>{
+  button.disabled=true;status.textContent=tr('Generating PDF from verified master…','Generando PDF desde original verificado…');
+  try{
+   const token=(await db.auth.getSession()).data.session?.access_token;if(!token)throw Error(tr('Sign in required.','Inicie sesión.'));
+   const values={};for(const [key,input] of Object.entries(controls)){if(input.value.trim())values[key]=input.value.trim()}
+   const response=await fetch('https://uubgrpdknxheflbkwkzf.supabase.co/functions/v1/employee-hiring-pdf-preview',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action:'preview',values})});
+   if(!response.ok){const error=await response.json();throw Error(error.error||'PDF generation failed')}
+   const blob=await response.blob();if(blob.type!=='application/pdf')throw Error('Invalid PDF response');
+   const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download='GE-Employee-Hiring-DRAFT.pdf';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),15000);
+   status.textContent=tr('PDF draft generated. All eight original pages preserved; signatures are not included.','Borrador generado. Se conservaron las ocho páginas originales; no incluye firmas.');
+  }catch(e){status.textContent=String(e.message||e)}finally{button.disabled=false}
+ };
 }
