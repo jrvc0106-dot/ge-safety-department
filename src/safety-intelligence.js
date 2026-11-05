@@ -64,7 +64,7 @@ export function mountSafetyIntelligence({db,profile,projectId,tr}){
   const coverageInfo=el('div','si-facts');
   coverageInfo.append(el('p','',t('Report coverage: ','Cobertura de registros: ')+coverage.activeSources+'/'+coverage.sourceCount+' '+t('sources with records','fuentes con registros')));
   coverageInfo.append(el('p','',t('Daily report share: ','Participación de reportes diarios: ')+(coverage.dailyShare===null?'—':coverage.dailyShare+'%')+' · '+t('UNSAFE walks: ','Recorridos UNSAFE: ')+(coverage.unsafeShare===null?t('Unavailable (limited sample)','No disponible (muestra limitada)'):coverage.unsafeShare+'%')));
-  coverageInfo.append(el('p','',t('Change in volume: ','Cambio en volumen: ')+(coverage.changeRate===null?t('No prior-period baseline','Sin base en período anterior'):(coverage.changeRate>0?'+':'')+coverage.changeRate+'%'));
+  coverageInfo.append(el('p','',t('Change in volume: ','Cambio en volumen: ')+(coverage.changeRate===null?t('No prior-period baseline','Sin base en período anterior'):(coverage.changeRate>0?'+':'')+coverage.changeRate+'%')));
   if(coverage.limitedSources.length)coverageInfo.append(el('p','si-warning',t('Some category/status breakdowns are sampled; do not interpret them as complete.','Algunos desgloses de categorías/estados son muestras y no representan todos los registros.')));
   coverageInfo.append(el('p','si-footnote',t('Coverage is documented activity, not scheduled inspection compliance or a safety score.','Cobertura significa actividad documentada, no cumplimiento de inspecciones programadas ni puntuación de seguridad.')));
   body.append(facts,coverageInfo);
