@@ -2371,3 +2371,10 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
  color:#253543;
  text-transform:uppercase;
 }
+
+/* Incident PDF: emphasize critical facts without changing its approved page layout. */
+.incident-reference .ir-person-name{font-size:18px;font-weight:900;color:#b4232d;letter-spacing:.015em}
+.incident-reference .ir-key-description{border-left:4px solid #b4232d;background:#f8f9fa;padding:12px 14px}
+.incident-reference .ir-key-description h3{font-size:11px;font-weight:900;color:#333d46}
+.incident-reference .ir-key-description p{font-size:12px;line-height:1.55;font-weight:800;color:#222d35}
+.incident-reference .ir-meta span:nth-child(2) b{font-size:12px;font-weight:900;color:#263745}
