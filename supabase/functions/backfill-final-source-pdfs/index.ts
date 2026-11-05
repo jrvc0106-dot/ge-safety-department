@@ -148,6 +148,12 @@ async function complete(task:any){
   if(observation.project_id!==task.project_id)throw Error("Correction project does not match observation");
   record.original_observation=observation;
  }else if(record.project_id!==task.project_id)throw Error("Project does not match source");
+ // Never publish a simplified recovery document as a finalized professional report.
+ // Preserve the source record and let the dedicated report renderer recreate a
+ // validated original PDF. The recovery queue records this as an actionable error.
+ if(task.source_type==="incident"){
+  throw Error("Professional incident PDF required: generic RECOVERED layout is not permitted. Re-export through Incident Report.");
+ }
  const bytes=await createPdf(record,project.name,task.source_type,photos);
  const version=prior.reduce((n:number,x:any)=>Math.max(n,Number(x.version||0)),0)+1;
  const number=record.report_number||task.source_type.toUpperCase().replaceAll("_","-")+"-"+task.source_id.slice(0,8).toUpperCase();
