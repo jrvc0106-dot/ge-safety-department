@@ -4,6 +4,7 @@ export function employeeHiringMarkup(tr=(en)=>en){
  '<div style="display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));align-items:start">'+
  '<div style="padding:20px;border:1px solid #d3dce2;border-radius:14px;background:white;text-align:center"><div id="hiring-qr" style="min-height:220px;display:grid;place-items:center">QR</div><a href="'+url+'" target="_blank" rel="noopener noreferrer">Open mobile application / Abrir formulario</a><div style="margin-top:12px"><button type="button" id="hiring-download-qr">Download QR / Descargar QR</button></div></div>'+
  '<div class="hiring-status" role="status"><strong>'+tr('APPLICATION INTAKE · limited to basic details','RECEPCIÓN DE SOLICITUDES · datos básicos')+'</strong><p>'+tr('The QR opens a real first-stage application. Basic information is sent to the private HR inbox; official documents are not yet collected. Do not enter Social Security numbers, identity or tax information.','El QR abre una solicitud laboral inicial. Los datos básicos llegan a la bandeja privada de HR; los documentos oficiales aún no se reciben. No introduzca Seguro Social, identificaciones ni información fiscal.')+'</p><p>'+tr('Full onboarding will be enabled after secure document storage, signatures and legal form checks.','La contratación completa se habilitará tras verificar almacenamiento privado, firmas y formularios oficiales.')+'</p></div></div>'+
+ '<section id="hiring-template-panel" style="margin-top:22px" hidden><h2>'+tr('Approved original PDF','PDF original aprobado')+'</h2><p>'+tr('Only the verified 8-page original may be stored. The uploaded master is never edited.','Solo se admite el original verificado de ocho páginas. El archivo maestro nunca se modifica.')+'</p><input type="file" id="hiring-master-upload" accept="application/pdf,.pdf" aria-label="Approved original PDF"><button type="button" id="hiring-master-submit" class="secondary">'+tr('Verify and store PDF','Verificar y guardar PDF')+'</button><p id="hiring-master-status" role="status"></p></section>'+ 
  '<section style="margin-top:22px"><h2>'+tr('Received Applications','Solicitudes recibidas')+'</h2><p id="hiring-list-message" role="status">'+tr('Loading…','Cargando…')+'</p><div id="hiring-applications"></div><button id="hiring-refresh" type="button" class="secondary">'+tr('Refresh applications','Actualizar solicitudes')+'</button></section>'+ 
  '<button type="button" id="hiring-existing-settings" class="secondary" style="margin-top:20px">'+tr('Application settings','Configuración de la aplicación')+'</button></section>';
 }
@@ -58,4 +59,29 @@ export async function mountHiringApplications(db,tr=(en)=>en,role=''){
   }catch(e){message.textContent=tr('Unable to load applications: ','No se pudieron cargar solicitudes: ')+e.message}
  };
  document.querySelector('#hiring-refresh')?.addEventListener('click',load);await load();
+}
+
+export function mountHiringMaster(db,tr=(en)=>en,role=''){
+ const panel=document.querySelector('#hiring-template-panel');
+ if(!panel||role!=='admin')return;
+ panel.hidden=false;
+ const status=document.querySelector('#hiring-master-status'),button=document.querySelector('#hiring-master-submit'),input=document.querySelector('#hiring-master-upload');
+ button?.addEventListener('click',async()=>{
+  const file=input.files?.[0];
+  if(!file)return status.textContent=tr('Choose the original PDF.','Seleccione el PDF original.');
+  if(file.size>5242880||file.size<1000||file.type!=='application/pdf')return status.textContent=tr('Only PDF files under 5 MB are accepted.','Solo se aceptan PDF menores de 5 MB.');
+  button.disabled=true;status.textContent=tr('Verifying original…','Verificando original…');
+  try{
+   const bytes=new Uint8Array(await file.arrayBuffer());
+   const sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(x=>x.toString(16).padStart(2,'0')).join('');
+   const approved=new Set(['9d603d9dbcb1bb7bc426cb1846eac632375398ff2364812d4241445774333f6d','910b4504131a28d54d648a174568cc6f8312baf2d79b625c29eab788a76e5f0b']);
+   if(!approved.has(sha))throw Error(tr('This PDF is not the approved original.','Este PDF no coincide con el original aprobado.'));
+   const session=(await db.auth.getSession()).data.session;
+   if(!session)throw Error(tr('Sign in required.','Inicie sesión.'));
+   let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+   const response=await fetch('https://uubgrpdknxheflbkwkzf.supabase.co/functions/v1/employee-hiring-intake',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({action:'upload_master',base64:btoa(binary)})});
+   const result=await response.json();if(!response.ok||!result.ok)throw Error(result.error||'Upload failed');
+   status.textContent=tr('Verified PDF stored privately. SHA-256: ','PDF verificado y guardado en privado. SHA-256: ')+result.sha256;
+  }catch(e){status.textContent=e.message||String(e)}finally{button.disabled=false}
+ });
 }
