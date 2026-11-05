@@ -1,4 +1,4 @@
-import {createSafetyIntelligencePdf,safetyPdfFilename} from './safety-intelligence-report.js';
+import {createSafetyIntelligencePdf,safetyPdfFilename,reportCoverageAssessment} from './safety-intelligence-report.js';
 /** Read-only Safety Intelligence dashboard; only director/admin may change cadence. */
 export const safetyTrendTotal = entries => Object.values(entries||{}).reduce((n,v)=>n+Number(v?.count||0),0);
 export const safetyTrendDelta = (current,previous) => Number(current||0)-Number(previous||0);
@@ -60,7 +60,14 @@ export function mountSafetyIntelligence({db,profile,projectId,tr}){
    t('Equipment inspections: ','Inspecciones de equipos: ')+(current.equipment_inspections?.count||0)+' · '+
    t('Disciplinary reports: ','Reportes disciplinarios: ')+(current.disciplinary_actions?.count||0)+' · '+
    t('Safety tools: ','Herramientas de Safety: ')+(current.safety_tools?.count||0)));
-  body.append(facts);
+  const coverage=reportCoverageAssessment(current,previous);
+  const coverageInfo=el('div','si-facts');
+  coverageInfo.append(el('p','',t('Report coverage: ','Cobertura de registros: ')+coverage.activeSources+'/'+coverage.sourceCount+' '+t('sources with records','fuentes con registros')));
+  coverageInfo.append(el('p','',t('Daily report share: ','Participación de reportes diarios: ')+(coverage.dailyShare===null?'—':coverage.dailyShare+'%')+' · '+t('UNSAFE walks: ','Recorridos UNSAFE: ')+(coverage.unsafeShare===null?t('Unavailable (limited sample)','No disponible (muestra limitada)'):coverage.unsafeShare+'%')));
+  coverageInfo.append(el('p','',t('Change in volume: ','Cambio en volumen: ')+(coverage.changeRate===null?t('No prior-period baseline','Sin base en período anterior'):(coverage.changeRate>0?'+':'')+coverage.changeRate+'%'));
+  if(coverage.limitedSources.length)coverageInfo.append(el('p','si-warning',t('Some category/status breakdowns are sampled; do not interpret them as complete.','Algunos desgloses de categorías/estados son muestras y no representan todos los registros.')));
+  coverageInfo.append(el('p','si-footnote',t('Coverage is documented activity, not scheduled inspection compliance or a safety score.','Cobertura significa actividad documentada, no cumplimiento de inspecciones programadas ni puntuación de seguridad.')));
+  body.append(facts,coverageInfo);
   if(canViewFindings){
   const ai=el('div','si-insights');
   ai.append(el('h3','',t('AI findings','Conclusiones de IA')));
