@@ -19,7 +19,7 @@ export function mountHiringQR(){
  document.querySelector('#hiring-download-qr')?.addEventListener('click',()=>window.open(qr,'_blank','noopener'));
 }
 
-export async function mountHiringApplications(db,tr=(en)=>en){
+export async function mountHiringApplications(db,tr=(en)=>en,role=''){
  const root=document.querySelector('#hiring-applications'),message=document.querySelector('#hiring-list-message');if(!root||!message)return;
  const load=async()=>{
   message.textContent=tr('Loading applications…','Cargando solicitudes…');
@@ -38,7 +38,22 @@ export async function mountHiringApplications(db,tr=(en)=>en){
      const option=document.createElement('option');option.value=status;option.textContent=status.replaceAll('_',' ');option.selected=row.status===status;select.append(option);
     }
     select.onchange=async()=>{select.disabled=true;try{const response=await fetch('https://uubgrpdknxheflbkwkzf.supabase.co/functions/v1/employee-hiring-intake',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'status',id:row.id,status:select.value})});if(!response.ok)throw Error((await response.json()).error||'Update failed');message.textContent=tr('Status updated.','Estado actualizado.')}catch(e){message.textContent=e.message;select.value=row.status}finally{select.disabled=false}};
-    card.append(title,info,select);root.append(card);
+    card.append(title,info,select);
+    if(role==='admin'){
+     const del=document.createElement('button');del.type='button';del.className='secondary';del.style.cssText='margin-top:10px;border:1px solid #a42424;color:#a42424';del.textContent=tr('Permanently Delete Application','Borrar solicitud definitivamente');
+     del.onclick=async()=>{
+      const approved=window.confirm(tr('Permanently delete the application for '+row.applicant_name+'? This cannot be undone.','¿Borrar definitivamente la solicitud de '+row.applicant_name+'? Esta acción no se puede deshacer.'));
+      if(!approved)return;
+      del.disabled=true;
+      try{
+       const response=await fetch('https://uubgrpdknxheflbkwkzf.supabase.co/functions/v1/employee-hiring-intake',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action:'delete',id:row.id})});
+       const result=await response.json();if(!response.ok||!result.ok)throw Error(result.error||'Deletion failed');
+       card.remove();message.textContent=tr('Application permanently deleted.','Solicitud eliminada definitivamente.');
+      }catch(e){message.textContent=tr('Deletion failed: ','No se pudo borrar: ')+e.message;del.disabled=false}
+     };
+     card.append(del);
+    }
+    root.append(card);
    }
   }catch(e){message.textContent=tr('Unable to load applications: ','No se pudieron cargar solicitudes: ')+e.message}
  };
