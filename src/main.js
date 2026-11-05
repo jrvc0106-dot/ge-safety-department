@@ -1803,7 +1803,31 @@ async function incidentReportForm(){const formProjectId=state.project,formUserId
 async function incidentReportView(){const viewCurrent=captureView();
  const id=state.detail;if(!id)return navigate('home',null,{replace:true});
  const q=await db.from('incident_reports').select('*,project:projects(name,address,general_contractor),creator:profiles!incident_reports_created_by_fkey(name),photos:incident_report_photos(id,path,caption)').eq('id',id).eq('project_id',state.project).single();if(!viewCurrent())return;if(q.error)return error(q.error);
- const r=q.data;try{const photos=await Promise.all((r.photos||[]).map(async p=>{const url=await signedDisplayImage('incident-evidence',p.path,3600);if(!url)throw Error(tr('An evidence photo could not be loaded. Please reopen the report to retry.','No se pudo cargar una foto de evidencia. Vuelva a abrir el reporte para reintentar.'));return {url,caption:p.caption}}));if(!viewCurrent())return;const orientation=orientationSnapshot(r.employee_orientation_snapshot),employeePhotos=orientation?await orientationEvidence(orientation,signedDisplayImage,tr):[];if(employeePhotos.some(p=>!p.url))throw Error(tr('An employee orientation image could not be loaded. Reopen the report to retry.','No se pudo cargar una imagen de orientación del empleado. Vuelva a abrir el reporte para reintentar.'));if(!viewCurrent())return;frame(renderIncidentReport(r,photos,{tr,esc,fmt,employeePhotos}));const exported=document.querySelector('article.report');if(exported)exported.dataset.geReportDate=r.incident_at||r.created_at;}catch(err){if(viewCurrent())error(err)}
+ const r=q.data;try{const photos=await Promise.all((r.photos||[]).map(async p=>{const url=await signedDisplayImage('incident-evidence',p.path,3600);if(!url)throw Error(tr('An evidence photo could not be loaded. Please reopen the report to retry.','No se pudo cargar una foto de evidencia. Vuelva a abrir el reporte para reintentar.'));return {url,caption:p.caption}}));if(!viewCurrent())return;const orientation=orientationSnapshot(r.employee_orientation_snapshot),employeePhotos=orientation?await orientationEvidence(orientation,signedDisplayImage,tr):[];if(employeePhotos.some(p=>!p.url))throw Error(tr('An employee orientation image could not be loaded. Reopen the report to retry.','No se pudo cargar una imagen de orientación del empleado. Vuelva a abrir el reporte para reintentar.'));if(!viewCurrent())return;frame(renderIncidentReport(r,photos,{tr,esc,fmt,employeePhotos}));const exported=document.querySelector('article.report');if(exported){
+ exported.dataset.geReportDate=r.incident_at||r.created_at;
+ // Final incident records require the genuine professional template in cloud storage.
+ // Do not wait for an optional PDF click: background recovery previously supplied a
+ // generic RECOVERED document that did not match the signed field-investigation PDF.
+ if(r.status==='final'){
+  const thisReport=exported;
+  void (async()=>{
+   try{
+    const docs=await db.from('report_documents').select('id,pdf_path,snapshot')
+      .eq('report_type','incident').eq('source_id',r.id).eq('document_status','final')
+      .order('created_at',{ascending:false}).limit(10);
+    if(docs.error)throw docs.error;
+    const professional=(docs.data||[]).some(item=>item.pdf_path&&!item.pdf_path.includes('-RECOVERED-')&&item.snapshot?.source_page!=='recoveredSourceReport');
+    if(professional||!viewCurrent()||document.querySelector('article.report')!==thisReport)return;
+    // This also upgrades previously recovered incidents without overwriting originals.
+    await buildReportPdf(true);
+   }catch(e){
+    console.error('[Incident professional PDF archive]',e);
+    if(viewCurrent()&&document.querySelector('article.report')===thisReport)
+      confirmAction(tr('The incident is saved, but its professional PDF still needs verification. Use Download PDF to retry.','El incidente está guardado, pero aún falta verificar su PDF profesional. Use Descargar PDF para reintentar.'),'error');
+   }
+  })();
+ }
+} }catch(err){if(viewCurrent())error(err)}
 }
 
 function weatherCodeLabel(code){
