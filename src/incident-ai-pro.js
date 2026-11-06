@@ -5,14 +5,12 @@ export const INCIDENT_AI_FIELDS=[
   ['activity_before','Activity before event','Actividad antes del evento'],
   ['what_happened','What happened','Qué sucedió'],
   ['injury_illness_description','Injury / illness description','Descripción de lesión / enfermedad'],
-  ['medical_treatment','Documented treatment','Tratamiento documentado'],
   ['w1_statement','Witness 1 statement','Declaración del testigo 1'],
   ['w2_statement','Witness 2 statement','Declaración del testigo 2'],
   ['immediate_actions','Immediate actions taken','Acciones inmediatas tomadas'],
   ['root_causes','Root causes','Causas raíz'],
   ['contributing_factors','Contributing factors','Factores contribuyentes'],
-  ['corrective_actions','Corrective actions','Acciones correctivas'],
-  ['employee_statement','Employee statement','Declaración del empleado']
+  ['corrective_actions','Corrective actions','Acciones correctivas']
 ];
 const LABELS=new Map(INCIDENT_AI_FIELDS.map(([key,en,es])=>[key,{en,es}]));
 const SAFETY_FIELDS=new Set(['potential_outcome','what_happened','immediate_actions','root_causes','contributing_factors','corrective_actions']);
@@ -33,7 +31,7 @@ export function incidentMissingFields(form){
   if(kind==='injury'||kind==='illness')items.push(['injury_illness_description','Injury / illness description','Descripción de lesión / enfermedad']);
   if(valueOf(form,'w1_name'))items.push(['w1_statement','Witness 1 statement','Declaración del testigo 1']);
   if(valueOf(form,'w2_name'))items.push(['w2_statement','Witness 2 statement','Declaración del testigo 2']);
-  if(fieldOf(form,'emergency_room')?.checked||fieldOf(form,'hospitalized_overnight')?.checked)items.push(['medical_treatment','Documented treatment','Tratamiento documentado']);
+  if(fieldOf(form,'emergency_room')?.checked||fieldOf(form,'hospitalized_overnight')?.checked)items.push(['medical_treatment_choice','Treatment selection','Selección de tratamiento']);
   return items.filter(([name])=>!valueOf(form,name)).map(([field,en,es])=>({field,en,es,messageEn:'Missing factual information; complete or explain that it is pending.',messageEs:'Falta información factual; complétela o explique que está pendiente.'}));
 }
 export function attachIncidentAI(form,{db,url,key,project,tr}){
@@ -42,10 +40,9 @@ export function attachIncidentAI(form,{db,url,key,project,tr}){
   const panel=document.createElement('section');
   panel.className='incident-card incident-ai-pro';
   panel.dataset.incidentAi='true';
-  panel.innerHTML='<div class="incident-ai-head"><span aria-hidden="true">✨</span><div><h2>Improve Writing PRO – Incident / Accident Report</h2><p>'+tr('AI Writing Assistant · Review before completing the report.','Asistente de redacción IA · Revise antes de completar el reporte.')+'</p></div></div><label class="incident-ai-language">'+tr('Final writing language','Idioma final de redacción')+'<select data-incident-ai-language><option value="en">English</option><option value="es">Español</option></select></label><div class="incident-ai-options"><button type="button" data-incident-ai-action="all">'+tr('Improve Full Incident Report','Mejorar todo el reporte de incidente')+'<small>'+tr('Edit all filled narratives in one review.','Mejorar todos los textos completados en una revisión.')+'</small></button><button type="button" data-incident-ai-action="missing">'+tr('Find Missing Information','Encontrar información faltante')+'<small>'+tr('Mark fields in red and jump to each one.','Marcar campos en rojo y abrirlos directamente.')+'</small></button><button type="button" data-incident-ai-action="professional">'+tr('Professional Safety Writing','Redacción profesional de seguridad')+'<small>'+tr('Focus on event facts, investigation and corrective actions.','Enfocar hechos, investigación y acciones correctivas.')+'</small></button></div><p class="incident-ai-privacy">'+tr('Only written incident notes are sent to the configured Gemini service. Avoid unnecessary employee identifiers. AI cannot establish root causes, certify facts, or determine OSHA recordability.','Solo las notas escritas del incidente se envían al servicio Gemini configurado. Evite identificadores innecesarios del empleado. La IA no puede determinar causas raíz, certificar hechos ni decidir la recordabilidad OSHA.')+'</p><div class="incident-ai-status" role="status" aria-live="polite"></div><div class="incident-ai-issues" aria-live="polite"></div>';
+  panel.innerHTML='<div class="incident-ai-head"><div><h2>AI QUICK REVIEW &amp; IMPROVE</h2><p>One action: flag missing information, check written facts, and suggest clearer English.</p></div></div><div class="incident-ai-options"><button type="button" data-incident-ai-action="quick">AI QUICK REVIEW &amp; IMPROVE</button></div><p class="incident-ai-privacy">Local checks run first. One optional AI request reviews only incident narrative notes. No photographs, identities, signatures or medical identifiers are sent. Suggested edits require your approval. Reports can be saved without AI.</p><div class="incident-ai-status" role="status" aria-live="polite"></div><div class="incident-ai-issues" aria-live="polite"></div>';
   form.querySelector('.incident-submit')?.before(panel);
-  const lang=panel.querySelector('[data-incident-ai-language]');
-  lang.value=tr('en','es');
+  const lang={value:'en'};
   const status=panel.querySelector('.incident-ai-status'),issues=panel.querySelector('.incident-ai-issues');
   const buttons=[...panel.querySelectorAll('[data-incident-ai-action]')];
   let busy=false;
@@ -78,7 +75,7 @@ export function attachIncidentAI(form,{db,url,key,project,tr}){
     if(!token)throw Error(tr('Please sign in again to use AI.','Inicie sesión de nuevo para usar IA.'));
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),32000);
     try{
-      const response=await fetch(url+'/functions/v1/improve-writing',{method:'POST',headers:{Authorization:'Bearer '+token,apikey:key,'Content-Type':'application/json'},body:JSON.stringify({...payload,action:'incident_pro',project_id:project,incident_type:valueOf(form,'incident_type'),language:lang.value}),signal:controller.signal});
+      const response=await fetch(url+'/functions/v1/improve-writing',{method:'POST',headers:{Authorization:'Bearer '+token,apikey:key,'Content-Type':'application/json'},body:JSON.stringify({...payload,action:'incident_pro',project_id:project,incident_type:valueOf(form,'incident_type'),language:'en'}),signal:controller.signal});
       const body=await response.json().catch(()=>({}));
       if(!response.ok)throw Error(body.error||tr('AI could not complete this request. Your draft is unchanged.','La IA no pudo completar la solicitud. Su borrador no cambió.'));
       return body;
@@ -121,29 +118,27 @@ export function attachIncidentAI(form,{db,url,key,project,tr}){
     footer.append(apply,discard);dialog.append(title,explanation,list,notice,footer);
     dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
   }
-  async function run(action){
-    if(busy)return;busy=true;buttons.forEach(b=>b.disabled=true);
-    const mode=action==='professional'?'professional':'all',fields=filledFields(mode);
+  async function run(){
+    if(busy)return;
+    busy=true;buttons.forEach(b=>b.disabled=true);
+    const local=incidentMissingFields(form);
+    showIssues(local);
+    const fields=filledFields('all');
     try{
-      if(action==='missing'){
-        const local=incidentMissingFields(form);showIssues(local);
-        if(!fields.length){note('Fields requiring attention are marked in red.','Los campos que requieren atención están marcados en rojo.');return}
-        note('Checking the written facts for unclear details…','Revisando los hechos escritos para detectar detalles poco claros…');
-        const remote=await request({mode:'review',fields,style:'all'});
-        const more=(Array.isArray(remote.suggestions)?remote.suggestions:[]).filter(x=>typeof x.field==='string'&&typeof x.message==='string').map(x=>({field:x.field,en:languageLabel(x.field,'en'),es:languageLabel(x.field,'es'),message:x.message}));
-        showIssues([...local,...more]);if(local.length||more.length)note('Select an issue to go directly to that field.','Seleccione un aviso para ir directamente al campo.');
-      }else{
-        if(!fields.length){note('Write at least one narrative field before requesting AI improvements.','Escriba al menos un campo narrativo antes de solicitar mejoras con IA.');return}
-        note('Preparing professional writing proposals…','Preparando propuestas de redacción profesional…');
-        const originals=new Map(fields.map(x=>[x.field,fieldOf(form,x.field)?.value]));
-        const response=await request({mode:'rewrite',fields,style:mode});
-        if(fields.some(x=>fieldOf(form,x.field)?.value!==originals.get(x.field))){note('The draft changed while AI was preparing. Run the review again.','El borrador cambió mientras se preparaba la IA. Repita la revisión.');return}
-        proposalReview(fields,response.entries||[]);
+      if(!fields.length){note('Missing fields are marked in red. Enter incident facts to improve writing.','Los campos faltantes aparecen en rojo.');return}
+      note('Missing fields checked. Preparing writing suggestions…','Revisando redacción…');
+      const originals=new Map(fields.map(item=>[item.field,fieldOf(form,item.field)?.value]));
+      const result=await request({mode:'rewrite',fields,style:'all'});
+      if(fields.some(item=>fieldOf(form,item.field)?.value!==originals.get(item.field))){
+        note('Report changed during the review. Run quick review again.','El reporte cambió. Revíselo de nuevo.');return;
       }
-    }catch(err){note(err?.name==='AbortError'?'AI request timed out. The draft was not changed.':'AI could not complete the request. The draft was not changed.',err?.name==='AbortError'?'La solicitud de IA agotó el tiempo. El borrador no cambió.':'La IA no pudo completar la solicitud. El borrador no cambió.');const details=document.createElement('small');details.textContent=err.message||'';status.append(details)}
-    finally{busy=false;buttons.forEach(b=>b.disabled=false)}
+      if(local.length)note(local.length+' field(s) need attention. Review suggestions before applying.','Revise los campos pendientes.');
+      proposalReview(fields,result.entries||[]);
+    }catch(err){
+      note(err?.name==='AbortError'?'AI timed out. Missing fields are marked; the draft was not changed.':'AI unavailable. Missing fields are marked; you can complete the report normally.','IA no disponible. El borrador permanece intacto.');
+    }finally{busy=false;buttons.forEach(b=>b.disabled=false)}
   }
-  buttons.forEach(button=>button.addEventListener('click',()=>run(button.dataset.incidentAiAction)));
+  buttons.forEach(button=>button.addEventListener('click',run));
   form.addEventListener('input',event=>{if(event.target?.classList?.contains('incident-ai-missing')){event.target.classList.remove('incident-ai-missing');event.target.removeAttribute('aria-invalid')}});
   return panel;
 }
