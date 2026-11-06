@@ -5,7 +5,7 @@ import {ACCIDENT_MECHANISMS,attachIncidentOptions} from '../src/incident-options
 import {orientationSnapshot} from '../src/incident-employee.js';
 import {renderIncidentReport} from '../src/incident-report-template.js';
 const tr=(en,es)=>en,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-test('accident mechanisms have unique stable values and bilingual labels',()=>{assert.equal(ACCIDENT_MECHANISMS.length,24);assert.equal(new Set(ACCIDENT_MECHANISMS.map(x=>x[0])).size,23);assert.ok(ACCIDENT_MECHANISMS.every(x=>x.every(Boolean)))});
+test('accident mechanisms have unique stable values and bilingual labels',()=>{assert.equal(ACCIDENT_MECHANISMS.length,24);assert.equal(new Set(ACCIDENT_MECHANISMS.map(x=>x[0])).size,24);assert.ok(ACCIDENT_MECHANISMS.every(x=>x.every(Boolean)))});
 test('Near Miss controls follow restored classification without clearing fields',()=>{
  const type={value:'near_miss'},potential={hidden:true},label={},buttons=['injury','near_miss'].map(value=>({dataset:{eventMode:value},setAttribute(k,v){this[k]=v}}));let update;
  const form={elements:{namedItem:()=>type},querySelectorAll:()=>buttons,querySelector:s=>s==='[data-near-miss]'?potential:label,addEventListener(_,f){update=f}};
