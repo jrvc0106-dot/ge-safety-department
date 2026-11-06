@@ -5,7 +5,7 @@ import {ACCIDENT_MECHANISMS,attachIncidentOptions} from '../src/incident-options
 import {orientationSnapshot} from '../src/incident-employee.js';
 import {renderIncidentReport} from '../src/incident-report-template.js';
 const tr=(en,es)=>en,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-test('accident mechanisms have unique stable values and bilingual labels',()=>{assert.equal(ACCIDENT_MECHANISMS.length,23);assert.equal(new Set(ACCIDENT_MECHANISMS.map(x=>x[0])).size,23);assert.ok(ACCIDENT_MECHANISMS.every(x=>x.every(Boolean)))});
+test('accident mechanisms have unique stable values and bilingual labels',()=>{assert.equal(ACCIDENT_MECHANISMS.length,24);assert.equal(new Set(ACCIDENT_MECHANISMS.map(x=>x[0])).size,23);assert.ok(ACCIDENT_MECHANISMS.every(x=>x.every(Boolean)))});
 test('Near Miss controls follow restored classification without clearing fields',()=>{
  const type={value:'near_miss'},potential={hidden:true},label={},buttons=['injury','near_miss'].map(value=>({dataset:{eventMode:value},setAttribute(k,v){this[k]=v}}));let update;
  const form={elements:{namedItem:()=>type},querySelectorAll:()=>buttons,querySelector:s=>s==='[data-near-miss]'?potential:label,addEventListener(_,f){update=f}};
@@ -34,3 +34,12 @@ test('saved final incident survives a later draft cleanup failure',async()=>{con
 
 test('incident save retains the selected employee orientation snapshot',async()=>{const t=setup({employee_orientation_snapshot:JSON.stringify({sticker_number:'GE42',employee_name:'Worker',employee_position:'Carpenter',certificate_photo_paths:['certificate']})});await t.submit();assert.deepEqual(t.errors,[]);const snapshot=t.writes.find(x=>x.payload).payload.employee_orientation_snapshot;assert.equal(snapshot.sticker_number,'GE42');assert.deepEqual(snapshot.certificate_photo_paths,['certificate'])});
 
+
+test('custom accident classification is offered without replacing historical event options',()=>{
+ assert.ok(ACCIDENT_MECHANISMS.some(([value])=>value==='custom'));
+ assert.ok(ACCIDENT_MECHANISMS.some(([value])=>value==='other'));
+ assert.ok(formSource.includes('name="incident_type_custom"'));
+ assert.ok(formSource.includes('name="medical_treatment_choice"'));
+ assert.ok(!formSource.includes('name="date_hired"'));
+ assert.ok(!formSource.includes('name="employee_statement"'));
+});
