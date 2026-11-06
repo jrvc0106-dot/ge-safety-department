@@ -61,7 +61,7 @@ const thumb=(doc,id)=>{
 
 export function mountAppearanceSettings({doc=document,appearance,tr=(en)=>en,invitation=false}={}){
  if(!appearance||invitation||doc.querySelector('#ge-theme-settings'))return false;
- const language=doc.querySelector('#settings-language');
+ const language=doc.querySelector('.app-language-fixed');
  if(!language)return false;
  const section=doc.createElement('section');
  section.id='ge-theme-settings';
@@ -119,6 +119,6 @@ export function mountAppearanceSettings({doc=document,appearance,tr=(en)=>en,inv
   update();
  }));
  update();
- language.closest('label')?.after(section);
+ language.after(section);
  return true;
 }
