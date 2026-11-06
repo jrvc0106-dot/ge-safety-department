@@ -1926,7 +1926,7 @@ async function captureJobsiteWeather(project){
 
 
 function homeTodaySummary(weather){
- const now=new Date(),locale=state.lang==='es'?'es-US':'en-US';
+ const now=new Date(),locale='en-US';
  const day=new Intl.DateTimeFormat(locale,{weekday:'long'}).format(now);
  const date=new Intl.DateTimeFormat(locale,{month:'short',day:'numeric',year:'numeric'}).format(now);
  const available=weather?.temperature_f!=null&&Number.isFinite(Number(weather.temperature_f));
