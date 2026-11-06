@@ -21,7 +21,8 @@ export const ACCIDENT_MECHANISMS=[
  ['tool','Power tool / machinery','Herramienta eléctrica / maquinaria'],
  ['confined_space','Confined space / oxygen deficiency','Espacio confinado / falta de oxígeno'],
  ['weather','Lightning / severe weather','Rayos / clima severo'],
- ['other','Other / describe in narrative','Otro / describir en los hechos']
+ ['other','Other / describe in narrative','Otro / describir en los hechos'],
+ ['custom','Custom / Other — specify','Personalizado / Otro — especificar']
 ];
 export function accidentMechanismLabel(value,tr){const row=ACCIDENT_MECHANISMS.find(x=>x[0]===value);return row?tr(row[1],row[2]):value||tr('Not specified','Sin especificar')}
 export function incidentTypeLabel(value,tr){const labels={injury:['Injury / accident','Lesión / accidente'],illness:['Occupational illness','Enfermedad ocupacional'],near_miss:['Near Miss / Close Call','Near Miss / Casi accidente'],property_damage:['Property damage','Daño a propiedad'],environmental:['Environmental incident','Incidente ambiental']};return labels[value]?tr(...labels[value]):value||tr('Not specified','Sin especificar')}
