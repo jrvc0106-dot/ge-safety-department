@@ -88,7 +88,7 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  const moveHidden=old=>{const label=old.closest('label');old.type='hidden';form.append(old);label?.remove()};
  moveHidden(originalTopic);moveHidden(originalInstructor);
  const languageSelect=make('select');languageSelect.name='language';
- for(const [value,label] of [['en','English']]{const option=make('option','',label);option.value=value;languageSelect.append(option)}
+ for(const [value,label] of [['en','English']]){const option=make('option','',label);option.value=value;languageSelect.append(option)}
  languageSelect.value='en';
  languageSelect.disabled=true;
  const hiddenLanguage=make('input');hiddenLanguage.type='hidden';hiddenLanguage.name='language';hiddenLanguage.value='en';
