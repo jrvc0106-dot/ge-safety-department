@@ -2434,7 +2434,7 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 }
 
 /* Incident PDF final visual standard: gray headings and proportionate enlarged logo. */
-.incident-reference .ir-head>img{width:65px!important;height:65px!important;max-width:65px!important;flex:0 0 65px!important;object-fit:contain!important;object-position:center!important}
+.incident-reference .ir-head>img{width:96px!important;height:65px!important;max-width:96px!important;flex:0 0 96px!important;object-fit:contain!important;object-position:left center!important}
 .incident-reference .ir-section h2{background:#d8dee2!important;color:#263640!important}
 .incident-reference .ir-title{border-bottom-color:#9aa5ad!important}
 .incident-reference footer{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between}
