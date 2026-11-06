@@ -2438,3 +2438,10 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .incident-reference .ir-section h2{background:#d8dee2!important;color:#263640!important}
 .incident-reference .ir-title{border-bottom-color:#9aa5ad!important}
 .incident-reference footer{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between}
+
+/* Incident photo evidence: fill page width without cropping or distortion. */
+.incident-pdf .ir-photos{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:4px;align-items:start}
+.incident-pdf .ir-photos figure{break-inside:avoid;page-break-inside:avoid}
+.incident-pdf .ir-photos figure:only-child{grid-column:1/-1}
+.incident-pdf .ir-photos img{width:100%;height:auto;max-height:310px;object-fit:contain;background:transparent}
+.incident-pdf .ir-photos figcaption{padding:4px 6px}
