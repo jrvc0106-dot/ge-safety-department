@@ -88,8 +88,11 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  const moveHidden=old=>{const label=old.closest('label');old.type='hidden';form.append(old);label?.remove()};
  moveHidden(originalTopic);moveHidden(originalInstructor);
  const languageSelect=make('select');languageSelect.name='language';
- for(const [value,label] of [['en','English'],['es','Español']]){const option=make('option','',label);option.value=value;languageSelect.append(option)}
- languageSelect.value=tr('en','es')==='es'?'es':'en';
+ for(const [value,label] of [['en','English']]){const option=make('option','',label);option.value=value;languageSelect.append(option)}
+ languageSelect.value='en';
+ languageSelect.disabled=true;
+ const hiddenLanguage=make('input');hiddenLanguage.type='hidden';hiddenLanguage.name='language';hiddenLanguage.value='en';
+ languageSelect.name='toolbox_display_language';languageSelect.after(hiddenLanguage);
  originalLanguage.replaceWith(languageSelect);
  const topicsBox=make('section','st-toolbox-topics'),heading=make('h3','',tr('Safety topics (choose several)','Temas de seguridad (seleccione varios)'));
  // Keep the full checklist hidden behind a single select-like control until requested.
