@@ -9,7 +9,7 @@ function form(values={}){
   return {elements:{namedItem(name){return name in fields?{value:fields[name],checked:fields[name]===true}:null}}};
 }
 test('incident assistant covers narrative fields but never OSHA classification, signature or identifiers',()=>{
-  assert.equal(INCIDENT_AI_FIELDS.length,12);
+  assert.equal(INCIDENT_AI_FIELDS.length,10);
   const fieldNames=INCIDENT_AI_FIELDS.map(x=>x[0]);
   for(const field of ['what_happened','immediate_actions','root_causes','corrective_actions','w1_statement','potential_outcome'])assert.ok(fieldNames.includes(field));
   for(const forbidden of ['recordability_review','severity','death','employee_dob','employee_address','approvals','incident_type','osha_case_number'])assert.ok(!fieldNames.includes(forbidden));
@@ -23,7 +23,7 @@ test('incident missing-data check targets factual details, including Near Miss c
 });
 test('injury with witness and hospital response prompts for supporting narratives',()=>{
   const items=incidentMissingFields(form({incident_type:'injury',w1_name:'Witness',hospitalized_overnight:true,what_happened:'Employee fell'}));
-  for(const field of ['w1_statement','medical_treatment','injury_illness_description'])assert.ok(items.some(x=>x.field===field),field);
+  for(const field of ['w1_statement','medical_treatment_choice','injury_illness_description'])assert.ok(items.some(x=>x.field===field),field);
   assert.ok(!items.some(x=>x.field==='potential_outcome'));
 });
 test('assistant mounts only on incident form and does not change PDF template',()=>{
@@ -36,4 +36,14 @@ test('incident AI API enforces project membership, bounded structured review, qu
   const section=api.slice(start,end);
   for(const token of ['project_members','claim_ai_writing_request','responseFormat','maxOutputTokens','INVALID_INPUT','fields.map','Preserve all factual claims','Do not fabricate'])assert.ok(section.includes(token),token);
   assert.doesNotMatch(section,/\.from\(["']incident_reports["']\)\.(?:insert|update|upsert)/);
+});
+
+test('quick review keeps one action, no automatic edits and no AI requirement to submit',()=>{
+ const source=readFileSync(new URL('../src/incident-ai-pro.js',import.meta.url),'utf8');
+ assert.equal((source.match(/data-incident-ai-action=/g)||[]).length,1);
+ assert.ok(source.includes('AI QUICK REVIEW &amp; IMPROVE'));
+ assert.ok(source.includes("showIssues(local)"));
+ assert.ok(source.includes("mode:'rewrite'"));
+ assert.ok(source.includes('proposalReview(fields,result.entries||[])'));
+ assert.ok(!source.includes('employee_statement'));
 });
