@@ -1,5 +1,5 @@
 // GE ONE: cache only public application resources, never reports or user data.
-const CACHE='ge-safety-v5';
+const CACHE='ge-safety-v6';
 const SHELL=['/','/index.html','/manifest.webmanifest','/ge-logo.png'];
 const STATIC_ASSET=/^\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/;
 const PUBLIC_FILES=new Set(['/manifest.webmanifest','/ge-logo.png']);
