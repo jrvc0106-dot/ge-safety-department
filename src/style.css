@@ -2461,3 +2461,10 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .inventory-report .inventory-evidence-grid figcaption{font-size:9px;line-height:1.35;overflow-wrap:anywhere}
 .inventory-report .inventory-evidence-item{break-inside:auto;page-break-inside:auto}
 .inventory-report .inventory-report-notes{margin-top:8px;margin-bottom:8px}
+
+
+/* Inventory signature uses full form width on tablet and desktop. */
+.inventory-form > .jha-approval-fields{grid-column:1/-1;width:100%;max-width:100%;margin:8px 0}
+.inventory-form > .jha-approval-fields .jha-approval{width:100%;min-width:0}
+.inventory-form > .jha-approval-fields canvas{width:100%;min-height:110px;max-height:190px;object-fit:contain}
+@media(max-width:760px){.inventory-form > .jha-approval-fields{grid-template-columns:1fr}}
