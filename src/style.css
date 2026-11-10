@@ -2445,3 +2445,19 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .incident-pdf .ir-photos figure:only-child{grid-column:1/-1}
 .incident-pdf .ir-photos img{width:100%;height:auto;max-height:310px;object-fit:contain;background:transparent}
 .incident-pdf .ir-photos figcaption{padding:4px 6px}
+
+
+/* Inventory: compact, legible field entry and uncropped high-quality PDF evidence. */
+.inventory-save-guidance{grid-column:1/-1;margin:8px 0 0;color:#435763;font-size:12px;line-height:1.45}
+.inventory-form input:required:invalid{border-color:#a75b54}
+.inventory-form input:required:focus{outline-offset:2px}
+.inventory-form .inventory-photo-box,.inventory-form .inventory-safety-note{min-width:0}
+.inventory-report .inventory-records{gap:9px;margin-top:8px;margin-bottom:8px}
+.inventory-report .inventory-record header{padding:7px 10px}
+.inventory-report .inventory-record dl>div{padding:6px 10px}
+.inventory-report .inventory-evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.inventory-report .inventory-evidence-grid figure{margin:0;min-width:0;break-inside:avoid;page-break-inside:avoid}
+.inventory-report .inventory-evidence-grid img{display:block;width:100%;height:165px;max-width:100%;object-fit:contain;object-position:center;background:#f6f8f9}
+.inventory-report .inventory-evidence-grid figcaption{font-size:9px;line-height:1.35;overflow-wrap:anywhere}
+.inventory-report .inventory-evidence-item{break-inside:auto;page-break-inside:auto}
+.inventory-report .inventory-report-notes{margin-top:8px;margin-bottom:8px}
