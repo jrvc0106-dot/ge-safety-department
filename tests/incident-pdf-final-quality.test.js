@@ -12,7 +12,7 @@ const report={
  corrective_actions:'Barricade area and inspect',witnesses:[],
  approvals:{}
 };
-for(const count of [0,1,2,3,6,7]){
+for(const count of [0,1,2,3,4,6,7]){
  test('incident final PDF template keeps compact sequential sections and evidence, photos='+count,()=>{
   const photos=Array.from({length:count},(_,i)=>({url:'https://example.invalid/evidence'+i+'.jpg',caption:'Evidence '+(i+1)}));
   const html=renderIncidentReport(report,photos,{tr,esc,fmt});
