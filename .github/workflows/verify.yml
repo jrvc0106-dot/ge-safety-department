@@ -13,8 +13,17 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npm test
+      - name: Incident PDF and evidence focused tests
+        id: focused
+        continue-on-error: true
+        run: node --test tests/incident-pdf-final-quality.test.js tests/pdf-professional-quality.test.js tests/pdf-evidence-validation.test.js tests/photo-optimizer.test.js
+      - name: Full regression suite
+        id: regression
+        continue-on-error: true
+        run: npm test
       - name: Test real PDF layout in Chromium
+        id: visual
+        continue-on-error: true
         run: node scripts/pdf-browser-smoke.mjs
       - name: Upload verified PDF sample
         if: always()
@@ -23,7 +32,18 @@ jobs:
           name: ge-one-pdf-visual-quality
           path: artifacts/pdf-quality/*.pdf
           if-no-files-found: ignore
-      - run: npm run build
+      - name: Build production app
+        id: bundle
+        continue-on-error: true
+        run: npm run build
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder
+      - name: Enforce all quality gates
+        if: always()
+        run: |
+          echo "Focused: ${{ steps.focused.outcome }} | Regression: ${{ steps.regression.outcome }} | Visual: ${{ steps.visual.outcome }} | Build: ${{ steps.bundle.outcome }}"
+          test "${{ steps.focused.outcome }}" = success
+          test "${{ steps.regression.outcome }}" = success
+          test "${{ steps.visual.outcome }}" = success
+          test "${{ steps.bundle.outcome }}" = success
