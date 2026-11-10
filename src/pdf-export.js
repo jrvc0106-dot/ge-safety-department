@@ -120,8 +120,8 @@ export function stabilizeNonQuickPdfColumns(container){
   'article.report:not(.quick-safety-orientation-report) .dr-photo-grid,',
   'article.report:not(.quick-safety-orientation-report) .registered-orientation-evidence-grid',
   '{grid-template-columns:repeat(2,minmax(0,1fr))!important;}',
-  'article.report:not(.quick-safety-orientation-report) .inventory-evidence-grid',
-  '{grid-template-columns:repeat(3,minmax(0,1fr))!important;}',
+  'article.report.inventory-report .inventory-evidence-grid',
+  '{grid-template-columns:repeat(2,minmax(0,1fr))!important;}',
   'article.report:not(.quick-safety-orientation-report) figure{min-width:0!important;}',
   'article.report:not(.quick-safety-orientation-report) figcaption',
   '{overflow-wrap:anywhere!important;white-space:normal!important;}'
