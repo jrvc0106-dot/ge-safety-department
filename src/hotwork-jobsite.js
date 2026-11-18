@@ -19,7 +19,7 @@ const area=(label,name)=>`<label class="hw-wide">${label}<textarea name="hw_${na
 const choice=(name,values)=>`<fieldset class="hw-choice"><legend>${name.replaceAll('_',' ').toUpperCase()}</legend>${values.map(v=>`<label><input type="radio" name="hw_${name}" value="${v}">${v.toUpperCase()}</label>`).join('')}</fieldset>`;
 export function hotworkFormMarkup(){
  return `<section class="equipment-card hw-fields" id="hotwork-fields" hidden>
- <h2 class="hw-red">HOT WORK PERMIT · JOBSITE CONTROL</h2>
+ <h2 class="hw-red">HOTWORK JOBSIDE · HOT WORK PERMIT</h2>
  <p class="hw-note">OSHA 29 CFR 1926.350–.353. Work may not start before approval. All applicable NO answers require corrections before approval.</p>
  <h3>01 · JOBSITE / WORK INFORMATION</h3><div class="equipment-grid">
  ${field('Contractor / Subcontractor','contractor','text',true)}
@@ -87,7 +87,33 @@ export function setHotworkPresentation(form,enabled){
  const unit=form.elements.namedItem('equipment_name');
  if(unit){if(enabled){if(!unit.value.trim())unit.value='HOT WORK PERMIT';unit.closest('label').hidden=true}else{unit.closest('label').hidden=false;if(unit.value==='HOT WORK PERMIT')unit.value=''}}
  for(const n of ['asset_id','manufacturer','model','serial_number']){const el=form.elements.namedItem(n);if(el)el.closest('label').hidden=enabled}
- const action=form.querySelector('.equipment-submit');if(action)action.textContent=enabled?'Complete HOT WORK PERMIT':'Complete Equipment Inspection';
+ const cards=[...form.querySelectorAll('.equipment-card')];
+ const firstTitle=cards[0]?.querySelector('h2');
+ const inspectorTitle=cards[1]?.querySelector('h2');
+ const checklistTitle=cards[2]?.querySelector('h2');
+ const evidenceTitle=cards[3]?.querySelector('h2');
+ if(firstTitle)firstTitle.textContent=enabled?'1. HOTWORK JOBSIDE · JOB INFORMATION':'1. Select Equipment';
+ if(inspectorTitle)inspectorTitle.textContent=enabled?'2. SAFETY / PERMIT AUTHORIZER':'2. Inspector Information';
+ if(checklistTitle)checklistTitle.textContent=enabled?'3. HOT WORK · PRE-WORK SAFETY CHECKLIST':'3. Inspection Checklist';
+ if(evidenceTitle)evidenceTitle.textContent=enabled?'4. HOT WORK · PHOTO EVIDENCE & CONTROLS':'4. Evidence & Corrective Action';
+ const hero=form.closest('.equipment-shell')?.querySelector('.equipment-hero');
+ if(hero){const heading=hero.querySelector('h1'),subtitle=hero.querySelector('p');
+  if(heading)heading.textContent=enabled?'HOTWORK JOBSIDE':'Equipment Inspections';
+  if(subtitle)subtitle.textContent=enabled?'Complete the Hot Work permit, fire prevention checklist, authorization, digital signatures and closeout.':'Select equipment, complete the inspection, document defects and create the final PDF.';
+ }
+ const evidenceFields=form.querySelector('.equipment-evidence-field');
+ const findings=evidenceFields?.closest('.equipment-card');
+ if(findings){
+  for(const name of ['assigned_to','due_date']){
+   const control=form.elements.namedItem(name);
+   if(control){control.closest('label').hidden=enabled;control.disabled=enabled}
+  }
+  for(const name of ['defects_found','corrective_action']){
+   const control=form.elements.namedItem(name);
+   if(control){const label=control.closest('label');if(label)label.hidden=enabled;control.disabled=enabled}
+  }
+ }
+ const action=form.querySelector('.equipment-submit');if(action)action.textContent=enabled?'Finalize HOTWORK JOBSIDE Permit':'Complete Equipment Inspection';
  const safety=form.querySelector('[data-jha-signature="safety"]')?.closest('section');
  const operator=form.querySelector('[data-jha-signature="foreman"]')?.closest('section');
  if(safety)safety.querySelector('label').firstChild.textContent=enabled?'SAFETY / PERMIT AUTHORIZER':'Assigned Safety';
@@ -100,7 +126,7 @@ export function renderHotworkReport(r,photos,esc,signatureHtml,reportDate){
  const safe=v=>val(v,esc),mark=v=>v?'YES':'NO';
  const section=(num,title)=>`<h2 class="hw-section">${num} · ${title}</h2>`;
  return `<article data-ge-report-date="${esc(r.inspection_at||r.created_at)}" class="report professional-report equipment-pdf hotwork-pdf">
- <header class="hw-pdf-header"><img src="/ge-logo.png" alt="G&E Florida Contractors"><div><b>G&E FLORIDA CONTRACTORS</b><small>SAFETY DEPARTMENT · CONSTRUCTION</small></div><div class="hw-header-title"><h1>HOT WORK PERMIT</h1><b>WELDING · CUTTING · GRINDING · HEATING</b></div></header>
+ <header class="hw-pdf-header"><div class="hw-header-company"><b>G&E FLORIDA CONTRACTORS</b><small>SAFETY DEPARTMENT · CONSTRUCTION</small></div><div class="hw-header-title"><h1>HOTWORK JOBSIDE</h1><b>HOT WORK PERMIT · WELDING · CUTTING · GRINDING · HEATING</b></div><img src="/ge-logo.png" alt="G&E Florida Contractors" class="hw-header-logo"></header>
  ${section('01','JOBSITE / WORK INFORMATION')}
  <div class="hw-pdf-grid">${row('PROJECT / JOBSITE',r.project?.name,esc)}${row('PERMIT NO.',r.report_number,esc)}${row('EXACT LOCATION / FLOOR / AREA',r.location,esc)}${row('DATE',reportDate,esc)}${row('CONTRACTOR / SUBCONTRACTOR',h.contractor,esc)}${row('FOREMAN / SUPERVISOR',h.supervisor,esc)}${row('START TIME',h.start,esc)}${row('EXPECTED END',h.end,esc)}${row('PERMIT EXPIRES',h.expires,esc)}${row('TYPE OF HOT WORK',(h.types||[]).join(', ').toUpperCase(),esc)}</div>
  <div class="hw-pdf-description"><small>WORK DESCRIPTION / MATERIALS</small><p>${safe(h.description)}</p></div>
