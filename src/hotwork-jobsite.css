@@ -46,3 +46,14 @@
 .hotwork-pdf .hw-header-title b{font-size:8px;line-height:1.4;display:block}
 #equipment-form [hidden]{display:none!important}
 @media print{.hotwork-pdf .hw-pdf-header{display:grid!important}}
+
+/* HOTWORK-only fast checklist: display optional notes when NO / FAIL is selected. */
+.equipment-shell:has(#equipment-type option:checked[value="hotwork_jobsite"]) .equipment-check .equipment-note{display:none}
+.equipment-shell:has(#equipment-type option:checked[value="hotwork_jobsite"]) .equipment-check:has(input[value="fail"]:checked) .equipment-note{display:block;border:2px solid #bb1717;background:#fff8f8;margin-top:6px}
+.equipment-shell:has(#equipment-type option:checked[value="hotwork_jobsite"]) .equipment-competent{display:none}
+.equipment-shell:has(#equipment-type option:checked[value="hotwork_jobsite"]) .equipment-legend .pass{font-size:0}
+.equipment-shell:has(#equipment-type option:checked[value="hotwork_jobsite"]) .equipment-legend .pass::after{content:"YES";font-size:13px}
+.equipment-shell:has(#equipment-type option:checked[value="hotwork_jobsite"]) .equipment-legend .fail{font-size:0}
+.equipment-shell:has(#equipment-type option:checked[value="hotwork_jobsite"]) .equipment-legend .fail::after{content:"NO";font-size:13px}
+.hw-fields .equipment-grid input,.hw-fields .equipment-grid textarea{min-height:38px}
+.hw-fields .hw-choice{padding:8px 12px}
