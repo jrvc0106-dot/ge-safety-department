@@ -51,7 +51,7 @@ export function hotworkFormMarkup(){
  <h3>06 · COMPLETION / CLOSEOUT</h3>
  <div class="hw-choice">${[['work_complete','Work complete'],['area_rechecked','Area rechecked'],['no_embers','No smoke / embers']].map(([n,l])=>`<label><input type="checkbox" name="hw_${n}">${l}</label>`).join('')}</div>
  ${area('Final Inspection / Comments / Findings / Corrective Actions','closeout_notes')}
- <p class="hw-note">Digital signatures below: Safety/Permit Authorizer and Hot Work Operator. Fire Watch and Closeout signatures may be recorded when work is completed.</p>
+ <p class="hw-note">Safety and Hot Work Operator must authorize before work. Fire Watch and Supervisor sign closeout when work is complete.</p><div id="hotwork-closeout-signatures"></div>
  </section>`;
 }
 export function collectHotworkDetails(d){
@@ -117,6 +117,7 @@ export function renderHotworkReport(r,photos,esc,signatureHtml,reportDate){
  ${signatureHtml.replace('Responsible Foreman / Supervisor','Hot Work Operator')}
  ${section('06','COMPLETION / CLOSEOUT')}
  <div class="hw-pdf-grid">${row('WORK COMPLETE',mark(h.work_complete),esc)}${row('AREA RECHECKED',mark(h.area_rechecked),esc)}${row('NO SMOKE / EMBERS',mark(h.no_embers),esc)}${row('FINAL INSPECTION / CORRECTIVE ACTIONS',h.closeout_notes,esc)}</div>
+ ${h.closeout_signatures_html||''}
  ${photos.length?`<section class="hw-evidence">${section('07','PHOTO EVIDENCE')}<div class="eq-photos">${photos.map((src,i)=>`<figure><div class="eq-photo-frame"><img src="${esc(src)}" alt="Hot Work Evidence ${i+1}"></div><figcaption>Evidence ${i+1}</figcaption></figure>`).join('')}</div></section>`:''}
  <footer>G&E SAFETY DEPARTMENT · HOT WORK CONTROL · OSHA 29 CFR 1926 <b>${esc(r.report_number)}</b></footer>
  </article>`;
