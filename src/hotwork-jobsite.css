@@ -1,0 +1,38 @@
+/* HOTWORK permit only: styles do not affect ordinary equipment PDFs */
+.hw-fields[hidden],.equipment-final[hidden]{display:none!important}
+.hw-red,.hotwork-pdf .hw-header-title h1{color:#bd1717!important;font-weight:900}
+.hw-fields h3{margin:18px 0 10px;font-size:15px;letter-spacing:.04em}
+.hw-fields .hw-note,.hotwork-pdf .hw-note{font-size:12px;line-height:1.4;color:#46505b}
+.hw-choice{display:flex;flex-wrap:wrap;gap:12px;border:1px solid #c9cdd3;padding:10px;margin:10px 0;border-radius:6px}
+.hw-choice legend{font-size:12px;font-weight:bold;padding:0 6px}
+.hw-choice label{display:flex;align-items:center;gap:6px;font-weight:600}
+.hw-wide{grid-column:1/-1}
+.hotwork-pdf{font-family:Arial,Helvetica,sans-serif;color:#1d2730}
+.hotwork-pdf .hw-pdf-header{display:flex;align-items:center;gap:14px;border-bottom:3px solid #b5b8bd;padding:9px 4px 15px}
+.hotwork-pdf .hw-pdf-header img{width:92px;height:67px;object-fit:contain}
+.hotwork-pdf .hw-pdf-header>div:nth-child(2){flex:1}
+.hotwork-pdf .hw-pdf-header b{display:block;font-size:13px}
+.hotwork-pdf .hw-pdf-header small{display:block;color:#616b74;font-size:10px;margin-top:5px}
+.hotwork-pdf .hw-header-title{text-align:right}
+.hotwork-pdf .hw-header-title h1{margin:0;font-size:23px;white-space:nowrap}
+.hotwork-pdf .hw-header-title b{font-size:8px;letter-spacing:.04em;margin-top:5px}
+.hotwork-pdf .hw-section{background:#e9eaec;color:#222b35;font-size:13px;margin:13px 0 7px;padding:8px 11px;break-after:avoid;page-break-after:avoid}
+.hotwork-pdf .hw-pdf-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 15px}
+.hotwork-pdf .hw-pdf-grid span{border-bottom:1px solid #c8cdd3;padding:3px 4px 6px;min-height:25px;overflow-wrap:anywhere}
+.hotwork-pdf .hw-pdf-grid small,.hotwork-pdf .hw-pdf-description small{font-size:8px;display:block;color:#66717c;font-weight:bold;letter-spacing:.05em}
+.hotwork-pdf .hw-pdf-grid b{display:block;font-size:11px;margin-top:3px;font-weight:600;white-space:pre-wrap}
+.hotwork-pdf .hw-pdf-description{padding:6px 3px;border-bottom:1px solid #c8cdd3}
+.hotwork-pdf .hw-pdf-description p{font-size:11px;margin:3px 0}
+.hotwork-pdf .hw-table{font-size:9.2px;width:100%;border-collapse:collapse}
+.hotwork-pdf .hw-table td,.hotwork-pdf .hw-table th{padding:5px 6px!important;vertical-align:top}
+.hotwork-pdf .hw-table td:nth-child(1){width:22px}
+.hotwork-pdf .hw-table td:nth-child(3){width:64px}
+.hotwork-pdf .hw-fail{color:#bd1717}
+.hotwork-pdf .hw-stop{border:1px solid #b41818;padding:8px;color:#a10d0d;font-size:10px;font-weight:bold}
+.hotwork-pdf .hw-permit-status{padding:10px;margin:7px 0;font-weight:900;color:#842525;background:#fff1f0;border:1px solid #d9b0b0}
+.hotwork-pdf .hw-permit-status.approved{color:#126234;background:#eff8f1;border-color:#9dcca9}
+.hotwork-pdf .jha-signed-approvals{break-inside:avoid;page-break-inside:avoid}
+.hotwork-pdf .hw-evidence{break-inside:auto}
+.hotwork-pdf .eq-photos img{object-fit:contain!important;object-position:center!important}
+.hotwork-pdf footer{margin-top:14px;border-top:1px solid #bbb;font-size:9px;color:#67737d;padding-top:8px}
+@media print{.hotwork-pdf .hw-section,.hotwork-pdf .hw-pdf-grid span{break-inside:avoid}.hotwork-pdf .hw-pdf-header{break-inside:avoid}}
