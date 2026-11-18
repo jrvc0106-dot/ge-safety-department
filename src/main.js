@@ -37,6 +37,7 @@ import {renderProjectAccess} from './project-access.js';
 import {createPdfLoader} from './pdf-loader.js';
 import {optimizePhoto} from './photo-optimizer.js';
 import {HOTWORK_TYPE,HOTWORK_CHECKS,HOTWORK_OSHA,hotworkFormMarkup,collectHotworkDetails,validateHotwork,setHotworkPresentation,renderHotworkReport} from './hotwork-jobsite.js';
+import './hotwork-jobsite.css';
 import {normalizeJhaPhoto} from './jha-image-recovery.js';
 import {uploadJhaPhotoBatch} from './jha-evidence-batch.js';
 import {rasterizePdfSignatures} from './pdf-signatures.js';
