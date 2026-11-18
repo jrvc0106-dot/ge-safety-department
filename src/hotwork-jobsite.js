@@ -27,10 +27,10 @@ export function hotworkFormMarkup(){
  ${field('Work Start (planned)','start','datetime-local',true)}
  ${field('Expected End','end','datetime-local',true)}
  ${field('Permit Expires','expires','datetime-local',true)}
- ${area('Work Description / Materials','description')}
+ ${area('Work Description / Materials (optional notes)','description')}
  </div>
  <fieldset class="hw-choice"><legend>TYPE OF HOT WORK</legend>${['welding','cutting','grinding','heating','other'].map(v=>`<label><input type="checkbox" name="hw_type" value="${v}">${v.toUpperCase()}</label>`).join('')}</fieldset>
- <h3>03 · SPECIAL CONDITIONS</h3>
+ <h3>03 · SPECIAL CONDITIONS · QUICK CHECKLIST</h3>
  <div class="equipment-grid">
  ${choice('combustibles_35ft',['yes','no','na'])}
  ${choice('confined_space',['yes','no'])}
@@ -38,7 +38,7 @@ export function hotworkFormMarkup(){
  ${area('Gas Test / Measurements / Ventilation','gas_details')}
  ${area('Additional Controls / Special Hazards','controls')}
  </div>
- <h3>04 · FIRE WATCH</h3><div class="equipment-grid">
+ <h3>04 · FIRE WATCH · CONTACT / TIMES</h3><div class="equipment-grid">
  ${field('Fire Watch Name','watch_name')}
  ${field('Fire Watch Contact / Radio','watch_contact')}
  ${field('Fire Watch Start','watch_start','datetime-local')}
@@ -48,10 +48,10 @@ export function hotworkFormMarkup(){
  <p class="hw-note">Observe adjacent/lower levels. Keep fire watch after work for a sufficient period; follow the jobsite's minimum 30-minute rule if adopted. 35-ft clearance and 30-minute watch are site safeguards, not universal numeric requirements of 29 CFR 1926.352.</p>
  <h3>05 · PERMIT AUTHORIZATION</h3>
  ${choice('permit_status',['approved','not_approved','on_hold'])}
- <h3>06 · COMPLETION / CLOSEOUT</h3>
+ <h3>06 · COMPLETION / CLOSEOUT · QUICK CHECKLIST</h3>
  <div class="hw-choice">${[['work_complete','Work complete'],['area_rechecked','Area rechecked'],['no_embers','No smoke / embers']].map(([n,l])=>`<label><input type="checkbox" name="hw_${n}">${l}</label>`).join('')}</div>
  ${area('Final Inspection / Comments / Findings / Corrective Actions','closeout_notes')}
- <p class="hw-note">Safety and Hot Work Operator must authorize before work. Fire Watch and Supervisor sign closeout when work is complete.</p><div id="hotwork-closeout-signatures"></div>
+ <p class="hw-note">Only two mandatory digital signatures: the Safety completing the report and the responsible Foreman. Fire Watch is documented by name, not a third signature.</p>
  </section>`;
 }
 export function collectHotworkDetails(d){
@@ -64,8 +64,8 @@ export function collectHotworkDetails(d){
  work_complete:bool('work_complete'),area_rechecked:bool('area_rechecked'),no_embers:bool('no_embers'),closeout_notes:v('closeout_notes')};
 }
 export function validateHotwork(details,checks){
- if(!details.contractor||!details.supervisor||!details.start||!details.end||!details.expires||!details.description||!details.types.length||!details.permit_status)
-  throw Error('HOTWORK: complete contractor, supervisor, work description, hot work type, dates, and permit decision.');
+ if(!details.contractor||!details.supervisor||!details.start||!details.end||!details.expires||!details.types.length||!details.permit_status)
+  throw Error('HOTWORK: complete contractor, supervisor, hot work type, dates, and permit decision.');
  if(new Date(details.end)<=new Date(details.start)||new Date(details.expires)<=new Date(details.start))
   throw Error('HOTWORK: planned end and permit expiration must be later than the start.');
  if(!details.combustibles_35ft||!details.confined_space||!details.atmosphere_test)
@@ -117,7 +117,7 @@ export function setHotworkPresentation(form,enabled){
  const safety=form.querySelector('[data-jha-signature="safety"]')?.closest('section');
  const operator=form.querySelector('[data-jha-signature="foreman"]')?.closest('section');
  if(safety)safety.querySelector('label').firstChild.textContent=enabled?'SAFETY / PERMIT AUTHORIZER':'Assigned Safety';
- if(operator)operator.querySelector('label').firstChild.textContent=enabled?'HOT WORK OPERATOR':'Responsible Foreman / Supervisor';
+ if(operator)operator.querySelector('label').firstChild.textContent=enabled?'RESPONSIBLE FOREMAN':'Responsible Foreman / Supervisor';
 }
 const val=(v,e)=>e(v||'—');
 const row=(a,b,e)=>`<span><small>${a}</small><b>${val(b,e)}</b></span>`;
@@ -140,10 +140,9 @@ export function renderHotworkReport(r,photos,esc,signatureHtml,reportDate){
  <p class="hw-note">Fire watch must monitor affected areas and stay for a sufficient post-work period. Follow site-specific safeguards.</p>
  ${section('05','AUTHORIZATION BEFORE WORK')}
  <div class="hw-permit-status ${esc(decision)}">PERMIT STATUS: ${esc(decision.replaceAll('_',' ').toUpperCase())}</div>
- ${signatureHtml.replace('Responsible Foreman / Supervisor','Hot Work Operator')}
+ ${signatureHtml.replace('Responsible Foreman / Supervisor','Responsible Foreman')}
  ${section('06','COMPLETION / CLOSEOUT')}
  <div class="hw-pdf-grid">${row('WORK COMPLETE',mark(h.work_complete),esc)}${row('AREA RECHECKED',mark(h.area_rechecked),esc)}${row('NO SMOKE / EMBERS',mark(h.no_embers),esc)}${row('FINAL INSPECTION / CORRECTIVE ACTIONS',h.closeout_notes,esc)}</div>
- ${h.closeout_signatures_html||''}
  ${photos.length?`<section class="hw-evidence">${section('07','PHOTO EVIDENCE')}<div class="eq-photos">${photos.map((src,i)=>`<figure><div class="eq-photo-frame"><img src="${esc(src)}" alt="Hot Work Evidence ${i+1}"></div><figcaption>Evidence ${i+1}</figcaption></figure>`).join('')}</div></section>`:''}
  <footer>G&E SAFETY DEPARTMENT · HOT WORK CONTROL · OSHA 29 CFR 1926 <b>${esc(r.report_number)}</b></footer>
  </article>`;
