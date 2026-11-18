@@ -90,7 +90,7 @@ export function setHotworkPresentation(form,enabled){
  if(firstTitle)firstTitle.textContent=enabled?'1. HOTWORK JOBSIDE · JOB INFORMATION':'1. Select Equipment';
  if(inspectorTitle)inspectorTitle.textContent=enabled?'2. SAFETY / PERMIT AUTHORIZER':'2. Inspector Information';
  if(checklistTitle)checklistTitle.textContent=enabled?'3. HOT WORK · PRE-WORK SAFETY CHECKLIST':'3. Inspection Checklist';
- if(evidenceTitle)evidenceTitle.textContent=enabled?'4. HOT WORK · PHOTO EVIDENCE & CONTROLS':'4. Evidence & Corrective Action';
+ if(evidenceTitle)evidenceTitle.textContent=enabled?'4. HOT WORK · PHOTO EVIDENCE':'4. Evidence & Corrective Action';
  const hero=form.closest('.equipment-shell')?.querySelector('.equipment-hero');
  if(hero){const heading=hero.querySelector('h1'),subtitle=hero.querySelector('p');
   if(heading)heading.textContent=enabled?'HOTWORK JOBSIDE':'Equipment Inspections';
@@ -221,7 +221,7 @@ export function renderHotworkReport(r,photos,esc,signatureHtml,reportDate){
  ${signatureHtml.replace('Responsible Foreman / Supervisor','Responsible Foreman')}
  ${section('06','COMPLETION / CLOSEOUT')}
  <div class="hw-pdf-grid">${row('WORK COMPLETE',mark(h.work_complete),esc)}${row('AREA RECHECKED',mark(h.area_rechecked),esc)}${row('NO SMOKE / EMBERS',mark(h.no_embers),esc)}${row('FINAL INSPECTION / CORRECTIVE ACTIONS',h.closeout_notes,esc)}</div>
- ${photos.length?`<section class="hw-evidence">${section('07','PHOTO EVIDENCE')}<div class="eq-photos">${photos.map((src,i)=>`<figure><div class="eq-photo-frame"><img src="${esc(src)}" alt="Hot Work Evidence ${i+1}"></div><figcaption>Evidence ${i+1}</figcaption></figure>`).join('')}</div></section>`:''}
+ ${Array.from({length:Math.ceil(photos.length/6)},(_,page)=>`<section class="hw-evidence" data-equipment-pdf-page>${section('07',page?'PHOTO EVIDENCE · CONTINUED':'PHOTO EVIDENCE')}<div class="eq-photos">${photos.slice(page*6,page*6+6).map((src,i)=>`<figure><div class="eq-photo-frame"><img src="${esc(src)}" alt="Hot Work Evidence ${page*6+i+1}"></div><figcaption>Evidence ${page*6+i+1}</figcaption></figure>`).join('')}</div></section>`).join('')}
  <footer>G&E SAFETY DEPARTMENT · HOT WORK CONTROL · OSHA 29 CFR 1926 <b>${esc(r.report_number)}</b></footer>
  </article>`;
 }
