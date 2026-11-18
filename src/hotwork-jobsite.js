@@ -118,7 +118,86 @@ export function setHotworkPresentation(form,enabled){
  const operator=form.querySelector('[data-jha-signature="foreman"]')?.closest('section');
  if(safety)safety.querySelector('label').firstChild.textContent=enabled?'SAFETY / PERMIT AUTHORIZER':'Assigned Safety';
  if(operator)operator.querySelector('label').firstChild.textContent=enabled?'RESPONSIBLE FOREMAN':'Responsible Foreman / Supervisor';
+ const safetyName=form.elements.namedItem('jha_safety_name');
+ if(safetyName){safetyName.readOnly=enabled;safetyName.setAttribute('aria-readonly',String(enabled));if(enabled){safetyName.title='Automatically filled from the signed-in Safety profile. Sign only.'}else{safetyName.removeAttribute('title')}}
 }
+
+export function hotworkQuickReview(form){
+ const d=new FormData(form),problems=[];
+ const add=(element,message)=>{if(element)problems.push({element,message});};
+ const control=name=>form.elements.namedItem(name);
+ const required=[
+ ['location','Enter the exact jobsite location or floor.'],
+ ['inspection_at','Confirm the inspection date and time.'],
+ ['inspector_name','Safety profile name is missing.'],
+ ['hw_contractor','Enter the contractor or subcontractor.'],
+ ['hw_supervisor','Enter the responsible Foreman.'],
+ ['hw_start','Set the work start time.'],
+ ['hw_end','Set the planned work end time.'],
+ ['hw_expires','Set the permit expiration time.']
+ ];
+ for(const [name,message] of required)if(!String(d.get(name)||'').trim())add(control(name),message);
+ if(!d.getAll('hw_type').length)add(control('hw_type')?.[0]||form.querySelector('[name="hw_type"]'),'Select at least one type of hot work.');
+ for(const key of ['combustibles_35ft','confined_space','atmosphere_test']){
+  if(!d.get('hw_'+key))add(form.querySelector('[name="hw_'+key+'"]'),'Complete '+key.replaceAll('_',' ')+' (YES / NO / N/A).');
+ }
+ const start=d.get('hw_start'),end=d.get('hw_end'),expires=d.get('hw_expires');
+ if(start&&end&&new Date(end)<=new Date(start))add(control('hw_end'),'End time must be later than start time.');
+ if(start&&expires&&new Date(expires)<=new Date(start))add(control('hw_expires'),'Permit expiration must be after start.');
+ const checks=[...form.querySelectorAll('#equipment-checklist .equipment-check')];
+ for(const [i,item] of checks.entries()){
+  const checked=item.querySelector('input[type="radio"]:checked');
+  if(!checked)add(item,'Checklist '+(i+1)+': select YES / NO / N/A.');
+  if(checked?.value==='fail')add(item,'Checklist '+(i+1)+' is NO. Correct the hazard before approval.');
+ }
+ const decision=d.get('hw_permit_status');
+ if(!decision)add(form.querySelector('[name="hw_permit_status"]'),'Choose APPROVED, NOT APPROVED or ON HOLD.');
+ if(decision==='approved'){
+  if(d.get('hw_confined_space')==='yes')add(form.querySelector('[name="hw_confined_space"]'),'Confined space selected. Complete separate entry and hazard review before authorization.');
+  if(d.get('hw_atmosphere_test')==='yes'&&!String(d.get('hw_gas_details')||'').trim())add(control('hw_gas_details'),'Record gas test results / ventilation controls.');
+  const fireWatchNeeded=checks[3]?.querySelector('input:checked')?.value==='pass'||checks[4]?.querySelector('input:checked')?.value==='pass';
+  if(fireWatchNeeded&&!String(d.get('hw_watch_name')||'').trim())add(control('hw_watch_name'),'Identify the Fire Watch before approving.');
+ }
+ if(d.has('hw_work_complete')&&(!d.has('hw_area_rechecked')||!d.has('hw_no_embers')))add(form.querySelector('[name="hw_area_rechecked"]'),'Complete the area-recheck and no-embers closeout checks.');
+ for(const role of ['safety','foreman']){
+  if(!String(d.get('jha_'+role+'_name')||'').trim())add(control('jha_'+role+'_name'),role==='safety'?'Safety profile name is unavailable.':'Enter the Foreman name.');
+  try{const strokes=JSON.parse(String(d.get('jha_'+role+'_signature')||'[]'));if(!Array.isArray(strokes)||!strokes.length)add(form.querySelector('[data-jha-signature="'+role+'"]'),(role==='safety'?'Safety':'Foreman')+' digital signature is missing.')}
+  catch{add(form.querySelector('[data-jha-signature="'+role+'"]'),'Digital signature data is invalid; sign again.')}
+ }
+ return problems;
+}
+export function attachHotworkQuickReview(form){
+ const container=form.querySelector('#hotwork-ai-review');
+ if(!container)return;
+ const output=container.querySelector('[data-hotwork-review-results]');
+ const button=container.querySelector('[data-hotwork-review-button]');
+ const run=()=>{
+  const enabled=form.elements.namedItem('equipment_type')?.value===HOTWORK_TYPE;
+  form.querySelectorAll('.hw-review-error').forEach(el=>{el.classList.remove('hw-review-error');el.removeAttribute('aria-invalid')});
+  if(!enabled){container.hidden=true;return []}
+  container.hidden=false;
+  const problems=hotworkQuickReview(form);
+  output.replaceChildren();
+  if(!problems.length){const message=document.createElement('p');message.className='hw-review-ok';message.textContent='No missing checklist information detected. Safety and Foreman must still verify conditions at the jobsite.';output.append(message);return []}
+  const heading=document.createElement('strong');heading.textContent=problems.length+' item(s) to review before finalizing:';
+  const list=document.createElement('ol');
+  for(const issue of problems){
+   const target=issue.element?.closest('.equipment-check,.jha-approval,.hw-choice,label')||issue.element;
+   target?.classList.add('hw-review-error');
+   issue.element?.setAttribute?.('aria-invalid','true');
+   const item=document.createElement('li'),link=document.createElement('button');link.type='button';link.className='hw-review-link';link.textContent=issue.message;
+   link.onclick=()=>{target?.scrollIntoView?.({behavior:'smooth',block:'center'});issue.element?.focus?.({preventScroll:true})};
+   item.append(link);list.append(item);
+  }
+  output.append(heading,list);
+  return problems;
+ };
+ button?.addEventListener('click',run);
+ form.addEventListener('change',e=>{if(form.elements.namedItem('equipment_type')?.value===HOTWORK_TYPE&&container.dataset.reviewed==='true')run()});
+ button?.addEventListener('click',()=>{container.dataset.reviewed='true'});
+ return {run};
+}
+
 const val=(v,e)=>e(v||'—');
 const row=(a,b,e)=>`<span><small>${a}</small><b>${val(b,e)}</b></span>`;
 export function renderHotworkReport(r,photos,esc,signatureHtml,reportDate){
@@ -126,7 +205,7 @@ export function renderHotworkReport(r,photos,esc,signatureHtml,reportDate){
  const safe=v=>val(v,esc),mark=v=>v?'YES':'NO';
  const section=(num,title)=>`<h2 class="hw-section">${num} · ${title}</h2>`;
  return `<article data-ge-report-date="${esc(r.inspection_at||r.created_at)}" class="report professional-report equipment-pdf hotwork-pdf">
- <header class="hw-pdf-header"><div class="hw-header-company"><b>G&E FLORIDA CONTRACTORS</b><small>SAFETY DEPARTMENT · CONSTRUCTION</small></div><div class="hw-header-title"><h1>HOTWORK JOBSIDE</h1><b>HOT WORK PERMIT · WELDING · CUTTING · GRINDING · HEATING</b></div><img src="/ge-logo.png" alt="G&E Florida Contractors" class="hw-header-logo"></header>
+ <header class="hw-pdf-header"><img src="/ge-logo.png" alt="G&E Florida Contractors" class="hw-header-logo"><div class="hw-header-company"><b>G&E FLORIDA CONTRACTORS</b><small>SAFETY DEPARTMENT · CONSTRUCTION</small></div><div class="hw-header-title"><h1>HOTWORK JOBSIDE</h1><b>HOT WORK PERMIT · WELDING · CUTTING · GRINDING · HEATING</b></div></header>
  ${section('01','JOBSITE / WORK INFORMATION')}
  <div class="hw-pdf-grid">${row('PROJECT / JOBSITE',r.project?.name,esc)}${row('PERMIT NO.',r.report_number,esc)}${row('EXACT LOCATION / FLOOR / AREA',r.location,esc)}${row('DATE',reportDate,esc)}${row('CONTRACTOR / SUBCONTRACTOR',h.contractor,esc)}${row('FOREMAN / SUPERVISOR',h.supervisor,esc)}${row('START TIME',h.start,esc)}${row('EXPECTED END',h.end,esc)}${row('PERMIT EXPIRES',h.expires,esc)}${row('TYPE OF HOT WORK',(h.types||[]).join(', ').toUpperCase(),esc)}</div>
  <div class="hw-pdf-description"><small>WORK DESCRIPTION / MATERIALS</small><p>${safe(h.description)}</p></div>
