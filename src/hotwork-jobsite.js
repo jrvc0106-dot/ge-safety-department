@@ -118,6 +118,7 @@ export function setHotworkPresentation(form,enabled){
  const operator=form.querySelector('[data-jha-signature="foreman"]')?.closest('section');
  if(safety)safety.querySelector('label').firstChild.textContent=enabled?'SAFETY / PERMIT AUTHORIZER':'Assigned Safety';
  if(operator)operator.querySelector('label').firstChild.textContent=enabled?'RESPONSIBLE FOREMAN':'Responsible Foreman / Supervisor';
+ const foremanName=form.elements.namedItem('jha_foreman_name');if(foremanName){foremanName.readOnly=enabled;foremanName.setAttribute('aria-readonly',String(enabled))}
  const safetyName=form.elements.namedItem('jha_safety_name');
  if(safetyName){safetyName.readOnly=enabled;safetyName.setAttribute('aria-readonly',String(enabled));if(enabled){safetyName.title='Automatically filled from the signed-in Safety profile. Sign only.'}else{safetyName.removeAttribute('title')}}
 }
@@ -195,6 +196,7 @@ export function attachHotworkQuickReview(form){
  button?.addEventListener('click',run);
  form.addEventListener('change',e=>{if(form.elements.namedItem('equipment_type')?.value===HOTWORK_TYPE&&container.dataset.reviewed==='true')run()});
  button?.addEventListener('click',()=>{container.dataset.reviewed='true'});
+ form.querySelector('.equipment-submit')?.addEventListener('click',()=>{if(form.elements.namedItem('equipment_type')?.value===HOTWORK_TYPE){container.dataset.reviewed='true';run()}});
  return {run};
 }
 
