@@ -148,7 +148,7 @@ export function hotworkQuickReview(form){
  for(const [i,item] of checks.entries()){
   const checked=item.querySelector('input[type="radio"]:checked');
   if(!checked)add(item,'Checklist '+(i+1)+': select YES / NO / N/A.');
-  if(checked?.value==='fail')add(item,'Checklist '+(i+1)+' is NO. Correct the hazard before approval.');
+  if(checked?.value==='fail'&&d.get('hw_permit_status')==='approved')add(item,'Checklist '+(i+1)+' is NO. Correct the hazard or change permit status to ON HOLD / NOT APPROVED.');
  }
  const decision=d.get('hw_permit_status');
  if(!decision)add(form.querySelector('[name="hw_permit_status"]'),'Choose APPROVED, NOT APPROVED or ON HOLD.');
