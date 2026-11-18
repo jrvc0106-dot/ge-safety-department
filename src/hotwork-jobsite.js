@@ -20,7 +20,7 @@ const choice=(name,values)=>`<fieldset class="hw-choice"><legend>${name.replaceA
 export function hotworkFormMarkup(){
  return `<section class="equipment-card hw-fields" id="hotwork-fields" hidden>
  <h2 class="hw-red">HOTWORK JOBSIDE · HOT WORK PERMIT</h2>
- <p class="hw-note">OSHA 29 CFR 1926.350–.353. Work may not start before approval. All applicable NO answers require corrections before approval.</p>
+ <p class="hw-note">OSHA 29 CFR 1926.350–.353. Work may not start before approval. All applicable NO answers require corrections before approval. If hazardous atmospheric conditions are possible, stop and complete a separate required hazard assessment before authorizing work.</p>
  <h3>01 · JOBSITE / WORK INFORMATION</h3><div class="equipment-grid">
  ${field('Contractor / Subcontractor','contractor','text',true)}
  ${field('Foreman / Supervisor','supervisor','text',true)}
@@ -34,9 +34,6 @@ export function hotworkFormMarkup(){
  <div class="equipment-grid">
  ${choice('combustibles_35ft',['yes','no','na'])}
  ${choice('confined_space',['yes','no'])}
- ${choice('atmosphere_test',['yes','no','na'])}
- ${area('Gas Test / Measurements / Ventilation','gas_details')}
- ${area('Additional Controls / Special Hazards','controls')}
  </div>
  <h3>04 · FIRE WATCH · CONTACT / TIMES</h3><div class="equipment-grid">
  ${field('Fire Watch Name','watch_name')}
@@ -58,8 +55,7 @@ export function collectHotworkDetails(d){
  const v=n=>String(d.get('hw_'+n)||'').trim();
  const bool=n=>d.get('hw_'+n)==='on';
  return {contractor:v('contractor'),supervisor:v('supervisor'),start:v('start'),end:v('end'),expires:v('expires'),description:v('description'),
- types:d.getAll('hw_type').map(String),combustibles_35ft:v('combustibles_35ft'),confined_space:v('confined_space'),atmosphere_test:v('atmosphere_test'),
- gas_details:v('gas_details'),controls:v('controls'),watch_name:v('watch_name'),watch_contact:v('watch_contact'),
+ types:d.getAll('hw_type').map(String),combustibles_35ft:v('combustibles_35ft'),confined_space:v('confined_space'),watch_name:v('watch_name'),watch_contact:v('watch_contact'),
  watch_start:v('watch_start'),work_stop:v('work_stop'),watch_end:v('watch_end'),permit_status:v('permit_status'),
  work_complete:bool('work_complete'),area_rechecked:bool('area_rechecked'),no_embers:bool('no_embers'),closeout_notes:v('closeout_notes')};
 }
@@ -68,13 +64,12 @@ export function validateHotwork(details,checks){
   throw Error('HOTWORK: complete contractor, supervisor, hot work type, dates, and permit decision.');
  if(new Date(details.end)<=new Date(details.start)||new Date(details.expires)<=new Date(details.start))
   throw Error('HOTWORK: planned end and permit expiration must be later than the start.');
- if(!details.combustibles_35ft||!details.confined_space||!details.atmosphere_test)
+ if(!details.combustibles_35ft||!details.confined_space)
   throw Error('HOTWORK: complete the special condition questions.');
  const requiresWatch=checks[3]?.result==='pass'||checks[4]?.result==='pass';
  if(details.permit_status==='approved'){
   if(checks.some(c=>c.result!=='pass'&&c.result!=='na'))throw Error('HOTWORK cannot be approved while any pre-work item is NO / FAIL.');
   if(details.confined_space==='yes')throw Error('HOTWORK in a confined space requires separate entry review; place the permit ON HOLD until resolved.');
-  if(details.atmosphere_test==='yes'&&!details.gas_details)throw Error('HOTWORK: record atmosphere test readings and ventilation controls.');
   if(requiresWatch&&!details.watch_name)throw Error('HOTWORK: enter the required Fire Watch name.');
  }
  if(details.work_complete&&(!details.area_rechecked||!details.no_embers))throw Error('HOTWORK: complete all closeout safety checks.');
@@ -113,6 +108,9 @@ export function setHotworkPresentation(form,enabled){
    if(control){const label=control.closest('label');if(label)label.hidden=enabled;control.disabled=enabled}
   }
  }
+ // Comments in section 4 belong to machinery inspections, not HOTWORK.
+ const comments=form.elements.namedItem('comments');
+ if(comments){comments.closest('label').hidden=enabled;comments.disabled=enabled}
  const action=form.querySelector('.equipment-submit');if(action)action.textContent=enabled?'Finalize HOTWORK JOBSIDE Permit':'Complete Equipment Inspection';
  const safety=form.querySelector('[data-jha-signature="safety"]')?.closest('section');
  const operator=form.querySelector('[data-jha-signature="foreman"]')?.closest('section');
@@ -139,7 +137,7 @@ export function hotworkQuickReview(form){
  ];
  for(const [name,message] of required)if(!String(d.get(name)||'').trim())add(control(name),message);
  if(!d.getAll('hw_type').length)add(control('hw_type')?.[0]||form.querySelector('[name="hw_type"]'),'Select at least one type of hot work.');
- for(const key of ['combustibles_35ft','confined_space','atmosphere_test']){
+ for(const key of ['combustibles_35ft','confined_space']){
   if(!d.get('hw_'+key))add(form.querySelector('[name="hw_'+key+'"]'),'Complete '+key.replaceAll('_',' ')+' (YES / NO / N/A).');
  }
  const start=d.get('hw_start'),end=d.get('hw_end'),expires=d.get('hw_expires');
@@ -155,7 +153,6 @@ export function hotworkQuickReview(form){
  if(!decision)add(form.querySelector('[name="hw_permit_status"]'),'Choose APPROVED, NOT APPROVED or ON HOLD.');
  if(decision==='approved'){
   if(d.get('hw_confined_space')==='yes')add(form.querySelector('[name="hw_confined_space"]'),'Confined space selected. Complete separate entry and hazard review before authorization.');
-  if(d.get('hw_atmosphere_test')==='yes'&&!String(d.get('hw_gas_details')||'').trim())add(control('hw_gas_details'),'Record gas test results / ventilation controls.');
   const fireWatchNeeded=checks[3]?.querySelector('input:checked')?.value==='pass'||checks[4]?.querySelector('input:checked')?.value==='pass';
   if(fireWatchNeeded&&!String(d.get('hw_watch_name')||'').trim())add(control('hw_watch_name'),'Identify the Fire Watch before approving.');
  }
@@ -214,8 +211,8 @@ export function renderHotworkReport(r,photos,esc,signatureHtml,reportDate){
  ${section('02','PRE-WORK SAFETY INSPECTION')}
  <table class="eq-table hw-table"><thead><tr><th>#</th><th>Inspection / Precaution</th><th>YES / NO / N/A</th><th>Finding</th></tr></thead><tbody>${checks.map((c,i)=>`<tr><td>${i+1}</td><td>${esc(c.item)}</td><td><b class="${c.result==='fail'?'hw-fail':''}">${c.result==='pass'?'YES':c.result==='fail'?'NO':'N/A'}</b></td><td>${safe(c.note)}</td></tr>`).join('')}</tbody></table>
  <p class="hw-stop">STOP WORK / NO AUTHORIZATION: any applicable NO, uncontrolled hazard, or missing safeguard.</p>
- ${section('03','SPECIAL CONDITIONS AND CONTROLS')}
- <div class="hw-pdf-grid">${row('COMBUSTIBLES WITHIN 35 FT',h.combustibles_35ft,esc)}${row('CONFINED SPACE REVIEW',h.confined_space,esc)}${row('ATMOSPHERIC TEST REQUIRED',h.atmosphere_test,esc)}${row('ADDITIONAL CONTROLS',h.controls,esc)}${row('GAS TEST / VENTILATION',h.gas_details,esc)}${row('OSHA REFERENCES',r.osha_reference||HOTWORK_OSHA,esc)}</div>
+ ${section('03','SPECIAL CONDITIONS')}
+ <div class="hw-pdf-grid">${row('COMBUSTIBLES WITHIN 35 FT',h.combustibles_35ft,esc)}${row('CONFINED SPACE REVIEW',h.confined_space,esc)}${row('OSHA REFERENCES',r.osha_reference||HOTWORK_OSHA,esc)}</div>
  ${section('04','FIRE WATCH / FIRE PREVENTION')}
  <div class="hw-pdf-grid">${row('FIRE WATCH NAME',h.watch_name,esc)}${row('FIRE WATCH CONTACT / RADIO',h.watch_contact,esc)}${row('FIRE WATCH START',h.watch_start,esc)}${row('HOT WORK STOP',h.work_stop,esc)}${row('FIRE WATCH END',h.watch_end,esc)}</div>
  <p class="hw-note">Fire watch must monitor affected areas and stay for a sufficient post-work period. Follow site-specific safeguards.</p>
