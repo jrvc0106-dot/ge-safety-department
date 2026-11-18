@@ -37,11 +37,12 @@
 .hotwork-pdf footer{margin-top:14px;border-top:1px solid #bbb;font-size:9px;color:#67737d;padding-top:8px}
 @media print{.hotwork-pdf .hw-section,.hotwork-pdf .hw-pdf-grid span{break-inside:avoid}.hotwork-pdf .hw-pdf-header{break-inside:avoid}}
 
-/* Approved HOTWORK JOBSIDE PDF: dominant red title and original logo on top right. */
-.hotwork-pdf .hw-pdf-header{display:grid!important;grid-template-columns:minmax(135px,1fr) minmax(250px,2.5fr) 104px;align-items:center;gap:10px;min-height:90px;break-inside:avoid;page-break-inside:avoid}
+/* HOTWORK JOBSIDE PDF: dominant red title and sharp original logo at top left. */
+.hotwork-pdf .hw-pdf-header{display:grid!important;grid-template-columns:104px minmax(135px,1fr) minmax(250px,2.5fr);align-items:center;gap:10px;min-height:90px;break-inside:avoid;page-break-inside:avoid}
 .hotwork-pdf .hw-header-company{min-width:0}
-.hotwork-pdf .hw-pdf-header .hw-header-logo{grid-column:3;grid-row:1;justify-self:end;align-self:start;display:block;width:100px;height:74px;max-width:100%;object-fit:contain!important;object-position:top right!important;image-rendering:auto}
-.hotwork-pdf .hw-header-title{grid-column:2;grid-row:1;text-align:center;min-width:0}
+.hotwork-pdf .hw-pdf-header .hw-header-logo{grid-column:1;grid-row:1;justify-self:start;align-self:start;display:block;width:100px;height:74px;max-width:100%;object-fit:contain!important;object-position:top left!important;image-rendering:auto}
+.hotwork-pdf .hw-header-title{grid-column:3;grid-row:1;text-align:center;min-width:0}
+.hotwork-pdf .hw-header-company{grid-column:2;grid-row:1}
 .hotwork-pdf .hw-header-title h1{font-size:24px;line-height:1.12;white-space:normal;color:#b80000!important;font-weight:900;letter-spacing:.02em}
 .hotwork-pdf .hw-header-title b{font-size:8px;line-height:1.4;display:block}
 #equipment-form [hidden]{display:none!important}
@@ -57,3 +58,19 @@
 .equipment-shell:has(#equipment-type option:checked[value="hotwork_jobsite"]) .equipment-legend .fail::after{content:"NO";font-size:13px}
 .hw-fields .equipment-grid input,.hw-fields .equipment-grid textarea{min-height:38px}
 .hw-fields .hw-choice{padding:8px 12px}
+
+/* Guided HOTWORK review. Only this equipment-type view is affected. */
+#hotwork-ai-review{border:1px solid #d0d5dd;background:#fafbfc;padding:14px;margin:12px 0}
+#hotwork-ai-review h2{color:#b42318;font-weight:900;margin:0 0 7px;font-size:17px}
+#hotwork-ai-review p{margin:6px 0 10px;font-size:13px}
+#hotwork-ai-review [data-hotwork-review-button]{font-weight:700}
+#hotwork-ai-review [data-hotwork-review-results]{margin-top:10px}
+#hotwork-ai-review [data-hotwork-review-results]>strong{color:#b42318;display:block;margin:8px 0}
+#hotwork-ai-review ol{padding-left:22px;margin:7px 0}
+#hotwork-ai-review li{color:#ad1616;line-height:1.45;margin:5px 0}
+#hotwork-ai-review .hw-review-link{background:transparent;border:0;text-align:left;color:#b42318;text-decoration:underline;font-weight:650;cursor:pointer;padding:2px}
+#hotwork-ai-review .hw-review-ok{color:#137144;font-weight:700}
+#equipment-form .hw-review-error{outline:2px solid #c11623!important;outline-offset:3px;border-radius:4px;background:#fff5f5}
+#equipment-form .hw-review-error input,#equipment-form .hw-review-error textarea{border-color:#c11623!important}
+#equipment-form input[aria-invalid="true"],#equipment-form canvas[aria-invalid="true"]{outline:2px solid #c11623!important}
+#equipment-form input[name="jha_safety_name"][readonly]{background:#f0f3f6;border:1px solid #cad0d7;font-weight:750}
