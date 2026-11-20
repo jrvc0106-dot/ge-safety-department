@@ -36,6 +36,7 @@ import {simplifyInventoryForm} from './inventory-ui.js';
 import {renderProjectAccess} from './project-access.js';
 import {createPdfLoader} from './pdf-loader.js';
 import {optimizePhoto} from './photo-optimizer.js';
+import {optimizeJhaPhoto} from './jha-photo-size.js';
 import {HOTWORK_TYPE,HOTWORK_CHECKS,HOTWORK_OSHA,hotworkFormMarkup,collectHotworkDetails,validateHotwork,setHotworkPresentation,renderHotworkReport,attachHotworkQuickReview} from './hotwork-jobsite.js';
 import './hotwork-jobsite.css';
 import {normalizeJhaPhoto} from './jha-image-recovery.js';
@@ -245,7 +246,7 @@ async function uploadDraftFiles(form,type,key,input){
   // JHA camera originals may be over 10 MB; validate size after resizing,
   // otherwise a valid iPad photo is rejected before optimization can run.
   // Process tablet camera originals before checking the storage size limit.
-  let file=type==='daily_safety_walk'?await normalizeJhaPhoto(original,{normalize:normalizeReportImage}):await normalizeReportImage(original);
+  let file=type==='daily_safety_walk'?await optimizeJhaPhoto(await normalizeJhaPhoto(original,{normalize:normalizeReportImage})):await normalizeReportImage(original);
   if(file.size>10*1024*1024)throw Error(tr('Photo is still larger than 10 MB after processing. Choose a smaller image.','La foto sigue superando 10 MB después de procesarse. Seleccione una imagen más pequeña.'));
   if(!file.type.startsWith('image/'))throw Error(tr('Only supported images can be saved as draft evidence.','Solo imágenes compatibles pueden guardarse como evidencia temporal.'));
   const ext=file.type.split('/')[1]?.replace(/[^a-z0-9]/gi,'')||'jpg';
@@ -1140,6 +1141,7 @@ async function downloadDisplayImage(bucket,path,expires=3600){
     blob=Array.isArray(converted)?converted[0]:converted;
    }catch{}
   }
+  if(bucket==='daily-safety-walks')blob=await optimizeJhaPhoto(blob);
   return URL.createObjectURL(blob);
  }
  const signed=await db.storage.from(bucket).createSignedUrl(path,expires);
@@ -1984,7 +1986,7 @@ async function safetyWalk(){const formProjectId=state.project,formUserId=state.p
  filesByItem:walkPhotoSets,itemIds,
  statuses:SAFETY_WALK_ITEMS.map((_,i)=>d.get('status_'+i)),
  userId:formUserId,
- normalize:file=>normalizeJhaPhoto(file,{normalize:normalizeReportImage}),
+ normalize:async file=>optimizeJhaPhoto(await normalizeJhaPhoto(file,{normalize:normalizeReportImage})),
  storageUpload:(path,file)=>db.storage.from('daily-safety-walks').upload(path,file,{contentType:file.type||'image/jpeg'}),
  insertPhotoRows:rows=>db.from('daily_safety_walk_photos').insert(rows),
  makePath:(itemId,file)=>walkId+'/'+itemId+'/'+crypto.randomUUID()+'.'+(file.name.split('.').pop()||'jpg').toLowerCase(),
