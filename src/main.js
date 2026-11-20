@@ -2378,14 +2378,19 @@ async function reportCenter(){
     const label=document.createElement('span');label.textContent=mode==='view'?tr('View PDF','Ver PDF'):tr('Download PDF','Bajar PDF');
     button.append(icon,label);
     button.setAttribute('aria-label',mode==='view'?tr('View PDF','Ver PDF'):tr('Download PDF','Bajar PDF'));
-    if(!entry&&mode==='download'){
+    if(!entry&&mode==='download'&&reportType!=='daily_safety_walk'){
      button.disabled=true;
      button.title=tr('No saved final PDF yet. Open the report to generate it.','Aún no hay PDF final guardado. Abra el reporte para generarlo.');
+    }
+    if(!entry&&reportType==='daily_safety_walk'){
+     button.title=tr('Open the original JHA to generate the professional PDF.','Abra el JHA original para generar el PDF profesional.');
     }
     button.onclick=async()=>{
      if(button.disabled||!viewCurrent())return;
      if(!entry){
-      if(mode==='view')record.click();
+      if(reportType==='daily_safety_walk'&&mode==='download')
+       confirmAction(tr('Open the original JHA and press Download PDF to generate its approved layout.','Abra el JHA original y pulse Descargar PDF para generar el documento con el diseño aprobado.'));
+      if(mode==='view'||reportType==='daily_safety_walk')record.click();
       return;
      }
      if(state.project!==entry.project_id)return;
