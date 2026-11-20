@@ -4,11 +4,19 @@ import {reportExportFilename} from './report-export-filename.js';
 // This path opens the already-finalized document; it never reconstructs a
 // report, uploads a new revision, or changes source signatures/photos.
 const VALID_TYPES=new Set(['daily_safety_walk','disciplinary_action','observation','incident','near_miss','equipment_inspection']);
+// A RECOVERED JHA is an emergency text dump, not the approved photographic JHA PDF.
+// Keep its source record and archive untouched, but never offer that dump as final.
+export function isRecoveredJhaPdf(entry){
+ if(entry?.report_type!=='daily_safety_walk')return false;
+ return entry?.snapshot?.source_page==='recoveredSourceReport'||
+  /-RECOVERED-/i.test(String(entry?.pdf_path||''));
+}
 export function indexFinalPdfDocuments(rows,projectId){
  const byRecord=new Map();
  for(const entry of rows||[]){
   if(!entry||!VALID_TYPES.has(entry.report_type)||entry.document_status!=='final'||
-    !entry.pdf_path||!entry.source_id||entry.project_id!==projectId)continue;
+    !entry.pdf_path||!entry.source_id||entry.project_id!==projectId||
+    isRecoveredJhaPdf(entry))continue;
   const key=entry.report_type+':'+entry.source_id,prior=byRecord.get(key);
   if(!prior||Number(entry.version)>Number(prior.version)||
     (Number(entry.version)===Number(prior.version)&&
@@ -32,6 +40,7 @@ export function archivedPdfFilename(entry){
 // re-encoding, temporary full-resolution images, and JS Blob memory.
 export async function archivedPdfLink(storage,entry,{download=false,fallback=null}={}){
  if(!entry?.pdf_path||entry.document_status!=='final'||!VALID_TYPES.has(entry.report_type))throw Error('A finalized PDF is not available for this report.');
+ if(isRecoveredJhaPdf(entry))throw Error('This JHA was exported in a technical recovery format. Open the original JHA and export its professional PDF instead.');
  const file=storage.from('final-reports');
  const tasks=[
   file.createSignedUrl(entry.pdf_path,180,download?{download:archivedPdfFilename(entry)}:undefined),
