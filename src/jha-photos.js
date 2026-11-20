@@ -63,7 +63,7 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
   });
   draw();
  }
- const controller={async files(name){await queue;const entries=fields.get(name)||[];if(entries.some(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)))throw entries.find(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)).error;return Promise.all(entries.map(entry=>entry.file||download(entry.item)))}};
+ const controller={async files(name){await queue;const entries=fields.get(name)||[];if(entries.some(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)))throw entries.find(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)).error;return Promise.all(entries.map(async entry=>{if(entry.file)return entry.file;try{return await download(entry.item)}catch(err){const message=String(err?.message||err||'');if(/object not found|not found|404/i.test(message))throw Error('A previously saved JHA draft photo is missing from storage. Please remove that unavailable photo and attach it again before finalizing. Your report text and signatures remain on this screen.');throw err}}))}};
  controllers.set(form,controller);
  const observer=new MutationObserver(()=>{if(form.isConnected)return;for(const entries of fields.values())for(const entry of entries)if(entry.url)URL.revokeObjectURL(entry.url);observer.disconnect()});observer.observe(document.body,{childList:true,subtree:true});
  return controller;
