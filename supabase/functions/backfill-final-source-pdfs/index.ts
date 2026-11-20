@@ -148,9 +148,12 @@ async function complete(task:any){
   if(observation.project_id!==task.project_id)throw Error("Correction project does not match observation");
   record.original_observation=observation;
  }else if(record.project_id!==task.project_id)throw Error("Project does not match source");
- // Never publish a simplified recovery document as a finalized professional report.
- // Preserve the source record and let the dedicated report renderer recreate a
- // validated original PDF. The recovery queue records this as an actionable error.
+ // Never publish a simplified technical recovery document as a professional JHA/incident.
+ // Only the original client renderer can reproduce the approved layout, photos and signatures.
+ // Leave all source rows and evidence intact; retry after a professional export is registered.
+ if(task.source_type==="daily_safety_walk"){
+  throw Error("Professional JHA PDF required: technical RECOVERED layout is not permitted. Re-export through the original Daily Safety Walk JHA report.");
+ }
  if(task.source_type==="incident"){
   throw Error("Professional incident PDF required: generic RECOVERED layout is not permitted. Re-export through Incident Report.");
  }
