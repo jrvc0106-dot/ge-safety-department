@@ -34,7 +34,7 @@ export function optimizeJhaPhoto(file){
    const result=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',jhaPhotoSize.quality));
    if(!result?.size||result.size>=file.size*.9)return file;
    if(typeof File!=='undefined'&&file instanceof File)
-    return new File([result],file.name.replace(/\\.(jpeg|jpg)$/i,'')+'.jpg',{type:'image/jpeg',lastModified:file.lastModified||Date.now()});
+    return new File([result],file.name.replace(/\.(jpeg|jpg)$/i,'')+'.jpg',{type:'image/jpeg',lastModified:file.lastModified||Date.now()});
    return result;
   }catch{return file}
   finally{
