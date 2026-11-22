@@ -16,6 +16,8 @@ test('async page loading feedback paints before route work starts', () => {
   let loaded = false;
   const context = vm.createContext({
     frame: markup => rendered.push(markup),
+    captureView: () => () => true,
+    document: {querySelector: () => null},
     esc: value => value,
     requestAnimationFrame: callback => frames.push(callback),
   });
