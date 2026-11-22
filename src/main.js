@@ -354,7 +354,7 @@ async function restoreDraft(form,type,key='default'){
  const restoreContext=formDraftKey(form,type,key);
  let local=null,cloud=null;
  try{local=JSON.parse(localStorage.getItem('ge_draft_v1:'+formDraftKey(form,type,key))||'null')}catch{}
- if(owner.user&&owner.project){
+ if(owner.user&&owner.project&&globalThis.navigator?.onLine!==false){
   const q=await db.from('form_drafts').select('payload,updated_at,current_field').eq('user_id',owner.user).eq('project_id',owner.project).eq('form_type',type).eq('draft_key',key).eq('status','active').maybeSingle();
   if(!q.error)cloud=q.data;
  }
@@ -984,11 +984,12 @@ async function syncPendingDraftEvidence(){
   const originalDraft=localStorage.getItem(storageKey);
   let record;try{record=JSON.parse(originalDraft||'{}')}catch{continue}
   const parts=storageKey.slice(prefix.length).split(':'),projectId=parts.shift(),type=parts.shift(),draftKey=parts.join(':');
-  if(!allowed.has(projectId)||!record.payload?.__files)continue;
+  if(!allowed.has(projectId)||!record.payload||!record.updated_at||record.synced_at===record.updated_at)continue;
+  const localPhotos=Object.values(record.payload.__files||{}).flat().filter(item=>item?.localId);
   // Stage uploaded changes separately. Never delete local originals before BOTH
   // cloud metadata and the updated local draft have been confirmed.
   const updated=JSON.parse(JSON.stringify(record)),uploaded=[];
-  for(const [field,items] of Object.entries(record.payload.__files)){
+  for(const [field,items] of Object.entries(record.payload.__files||{})){
    for(let index=0;index<(items||[]).length;index++){
     const item=items[index];if(!item?.localId)continue;
     try{
@@ -1000,16 +1001,20 @@ async function syncPendingDraftEvidence(){
     }catch{}
    }
   }
-  if(!uploaded.length)continue;
+  if(uploaded.length!==localPhotos.length)continue;
   // Do not overwrite edits made while photo uploads were in flight.
   if(localStorage.getItem(storageKey)!==originalDraft)continue;
   try{
-   const result=await db.from('form_drafts').upsert({
-    user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,
-    payload:updated.payload,status:'active',updated_at:updated.updated_at||new Date().toISOString()
-   },{onConflict:'user_id,project_id,form_type,draft_key'});
-   if(result.error)continue;
-   if(localStorage.getItem(storageKey)!==originalDraft)continue;
+   const draft={user_id:state.profile.id,project_id:projectId,form_type:type,draft_key:draftKey,
+    payload:updated.payload,status:'active',updated_at:updated.updated_at};
+   const drafts=db.from('form_drafts');
+   const inserted=await drafts.upsert(draft,{onConflict:'user_id,project_id,form_type,draft_key',ignoreDuplicates:true});
+   if(inserted.error||localStorage.getItem(storageKey)!==originalDraft)continue;
+   const saved=await drafts.update({payload:draft.payload,updated_at:draft.updated_at})
+    .eq('user_id',draft.user_id).eq('project_id',projectId).eq('form_type',type).eq('draft_key',draftKey)
+    .eq('status','active').lte('updated_at',draft.updated_at).select('updated_at');
+   if(saved.error||!saved.data?.length||localStorage.getItem(storageKey)!==originalDraft)continue;
+   updated.synced_at=updated.updated_at;
    localStorage.setItem(storageKey,JSON.stringify(updated));
   }catch{continue}
   // Two stores now have the uploaded evidence paths. Cleanup is safe to retry

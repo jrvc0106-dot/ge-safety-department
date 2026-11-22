@@ -10,15 +10,16 @@ const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name==='syncPen
 if(!node)throw Error('Pending GE ONE draft evidence sync not found');
 const syncSource=source.slice(node.start,node.end);
 
-function fixture({cloudError=false,localWriteFails=false,uploadError=false,editDuringUpload=false}={}){
+function fixture({cloudError=false,localWriteFails=false,uploadError=false,editDuringUpload=false,textOnly=false,newerCloud=false}={}){
  const key='ge_draft_v1:safety:job:daily_safety_walk:default';
  const record={updated_at:'2026-10-24T10:00:00Z',payload:{
   notes:'Check fall protection before pour',
   __files:{photos_0:[{localId:'local-evidence',path:'safety/job/daily_safety_walk/photo.jpg',type:'image/jpeg',name:'image.jpg'}]}
  }};
+ if(textOnly)delete record.payload.__files;
  const storage=new Map([[key,JSON.stringify(record)]]);
  const deleted=[],uploaded=[],cloudWrites=[],errors=[];
- const files=new Map([['draft-key',{photos_0:[{...record.payload.__files.photos_0[0]}]}]]);
+ const files=new Map([['draft-key',{photos_0:record.payload.__files?.photos_0||[]}]]);
  const context=vm.createContext({
   state:{profile:{id:'safety'},projects:[{id:'job'}]},
   localStorage:{
@@ -33,7 +34,11 @@ function fixture({cloudError=false,localWriteFails=false,uploadError=false,editD
     if(editDuringUpload){const newer=JSON.parse(storage.get(key));newer.payload.notes='Latest mobile edit';storage.set(key,JSON.stringify(newer))}
     return {error:uploadError?Error('No network'):null}
    }})},
-   from:()=>({upsert:async value=>{cloudWrites.push(value);return {error:cloudError?Error('RLS permission rejected'):null}}})
+   from:()=>({
+    upsert:async(value,options)=>{assert.equal(options.ignoreDuplicates,true);cloudWrites.push(value);return {error:cloudError?Error('RLS permission rejected'):null}},
+    update(){return {eq(){return this},lte(column,value){assert.equal(column,'updated_at');assert.equal(value,record.updated_at);return this},
+     select:async()=>({data:newerCloud?[]:[{updated_at:record.updated_at}]})};}
+   })
   },
   getOfflineDraftFile:async id=>id==='local-evidence'?{name:'image.jpg',type:'image/jpeg',size:8}:null,
   deleteOfflineDraftFiles:async ids=>deleted.push(...ids),
@@ -90,4 +95,21 @@ test('online syncing never replaces a later mobile field edit with an older draf
  assert.equal(t.deleted.length,0);
  assert.equal(t.cloudWrites.length,0);
  assert.equal(t.files.get('draft-key').photos_0[0].localId,'local-evidence');
+});
+
+test('closed text-only drafts sync on reconnection and are not written twice',async()=>{
+ const t=fixture({textOnly:true});
+ await t.context.syncPendingDraftEvidence();
+ await t.context.syncPendingDraftEvidence();
+ assert.equal(t.uploaded.length,0);
+ assert.equal(t.cloudWrites.length,1);
+ assert.equal(JSON.parse(t.storage.get(t.key)).synced_at,t.record.updated_at);
+});
+test('a newer cloud draft leaves the local copy and its photos available',async()=>{
+ const t=fixture({newerCloud:true});
+ await t.context.syncPendingDraftEvidence();
+ assert.equal(t.deleted.length,0);
+ const local=JSON.parse(t.storage.get(t.key));
+ assert.equal(local.synced_at,undefined);
+ assert.equal(local.payload.__files.photos_0[0].localId,'local-evidence');
 });
