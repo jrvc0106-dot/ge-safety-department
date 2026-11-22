@@ -13,14 +13,21 @@ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=
 function fn(name){const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);assert.ok(node,name);return source.slice(node.start,node.end)}
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject}}
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-for(const [statuses,score] of [[['safe','safe','safe','unsafe','na',null],75],[['unsafe','unsafe','na'],0],[['safe','safe','na'],100]]){
+for(const [statuses,score,withMissingPhoto] of [[['safe','safe','safe','unsafe','na',null],75],[['unsafe','unsafe','na'],0],[['safe','safe','na'],100,true]]){
  test('JHA report preserves Unsafe findings and displays '+score+'% for '+statuses.join(', '),async()=>{
   const frames=[],items=statuses.map((status,i)=>({status,category:'Category '+i,item_text:'Check '+i,sort_order:i,hazard:status==='unsafe'?'Original hazard '+i:null,correction:status==='unsafe'?'Documented action '+i:null,photos:[]}));
+  if(withMissingPhoto)items[0].photos=[{path:'missing.jpg'},{path:'present.jpg'}];
   const state={session:{user:{id:'user'}},profile:{id:'user'},project:'job',page:'safetyWalkReport',detail:'walk',lang:'en',projects:[{id:'job',name:'Job'}]};
   const query={select(){return this},eq(){return this},order(){return this},limit:async()=>({data:[]}),single:async()=>({data:{id:'walk',project_id:'job',created_at:'2026-10-02T12:00:00Z',overall_status:'safe',items,creator:{name:'Safety'}}})};
-  const context=vm.createContext({state,effectiveWalkStatus,db:{from:()=>query},frame:html=>frames.push(html),document:{querySelector:()=>({})},back(){},tr:x=>x,esc:x=>x,localDateKey:()=> '2026-10-02',console,error:err=>{throw err}});
+  const context=vm.createContext({state,effectiveWalkStatus,signedDisplayImage:async(_,path)=>{if(path==='missing.jpg')throw new Error('Missing evidence');return 'blob:present';},db:{from:()=>query},frame:html=>frames.push(html),document:{querySelector:()=>({})},back(){},tr:x=>x,esc:x=>x,localDateKey:()=> '2026-10-02',console,error:err=>{throw err}});
   vm.runInContext('let renderRevision=0;'+fn('captureView')+'\n'+fn('safetyWalkReport'),context);await context.safetyWalkReport();
   assert.equal(frames.length,1);assert.ok(frames[0].includes('<strong>'+score+'%</strong>'));
+  if(withMissingPhoto){
+   assert.match(frames[0],/1 evidence photo/);
+   assert.match(frames[0],/data-jha-evidence-missing="true"/);
+   assert.match(frames[0],/src="blob:present"/);
+  }
+
   for(const item of items.filter(x=>x.status==='unsafe')){assert.ok(frames[0].includes('ewr-status unsafe'));assert.ok(frames[0].includes(item.hazard));assert.ok(frames[0].includes(item.correction));}
  });
 }
@@ -65,6 +72,8 @@ test('debounced draft remains attached to its original owner and jobsite',async(
 });
 test('concurrent draft evidence fields retain both sets of photos after a jobsite change',async()=>{
  const t=draftContext(),gate=deferred(),paths=[];t.context.draftOwner(t.form,'daily_safety_walk','default');
+ t.context.optimizeJhaPhoto=async file=>file;
+ t.context.normalizeJhaPhoto=(file,{normalize})=>normalize(file);
  t.context.normalizeReportImage=async file=>{if(file.name==='first.jpg')await gate.promise;return file};t.context.crypto={randomUUID:()=> String(paths.length)};
  t.context.db.storage={from:()=>({upload:async path=>{paths.push(path);return {}},remove:async()=>({})})};
  const file=name=>({name,type:'image/jpeg',size:10});
@@ -87,8 +96,13 @@ for(const checklistStatus of ['safe','unsafe']) test('JHA saves '+checklistStatu
   const weather=deferred(),save=deferred(),calls=[],paths=[],redirects=[],errors=[],filters=[],button={disabled:false},form={dataset:{},querySelector:()=>button};
   const state={session:{user:{id:'user'}},profile:{id:'user',role:'admin'},project:'job-a',page:'safetyWalk',projects:[{id:'job-a',name:'A'}]};
   const items=Array.from({length:40},(_,i)=>['Category '+i,'Check '+i]);
-  const db={from(table){let payload;const q={insert(value){payload=value;calls.push({table,payload});return q},update(value){payload=value;calls.push({table,payload,update:true});return q},eq(column,value){filters.push({table,column,value});return q},select(){return q},single:async()=>{await save.promise;return {data:{id:'walk'}}},then(resolve,reject){return Promise.resolve({data:table==='daily_safety_walk_items'?payload.map(item=>({id:'item-'+item.sort_order,sort_order:item.sort_order})).reverse():null,error:null}).then(resolve,reject)}};return q},storage:{from:()=>({upload:async path=>{paths.push(path);return {}},remove:async()=>({})})}};
-  const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},state,db,document:{querySelector:()=>form},SAFETY_WALK_ITEMS:items,jhaSignatureFields,jhaApprovals,attachDailyReportBulkStatus(){},attachJhaSignatures(){},attachJhaReview(){},frame(){},tr:x=>x,esc:x=>x,fmt:()=>'',FormData:class{get(name){return name==='jha_safety_name'?'Safety A':name==='jha_superintendent_name'?'Superintendent B':name==='jha_safety_signature'?'[[[0.1,0.2],[0.4,0.5]]]':name==='jha_superintendent_signature'?'[[[0.6,0.7]]]':name==='overall_status'?'safe':name.startsWith('status_')?checklistStatus:''}},draftFilesFor:async(_,__,___,name)=>name==='photos_2'?[{type:'image/jpeg',size:10,name:'photo.jpg'}]:[],captureJobsiteWeather:()=>weather.promise,normalizeReportImage:async file=>file,normalizeJhaPhoto:async file=>file,uploadJhaPhotoBatch,crypto:{randomUUID:()=> 'uuid'},clearDraft:async(...args)=>assert.equal(args[2],form),savedAction(){},navigate:(...args)=>redirects.push(args),error:err=>errors.push(err)});
+  const activeSession={user:{id:'user'},expires_at:Math.floor(Date.now()/1000)+3600};
+  const expired=checklistStatus==='unsafe';let renewals=0;
+  const db={auth:{
+   getSession:async()=>({data:{session:expired?{...activeSession,expires_at:1}:activeSession}}),
+   refreshSession:async()=>{renewals++;return {data:{session:activeSession}}}
+  },from(table){let payload;const q={insert(value){assert.equal(renewals,Number(expired));payload=value;calls.push({table,payload});return q},update(value){payload=value;calls.push({table,payload,update:true});return q},eq(column,value){filters.push({table,column,value});return q},select(){return q},single:async()=>{await save.promise;return {data:{id:'walk'}}},then(resolve,reject){return Promise.resolve({data:table==='daily_safety_walk_items'?payload.map(item=>({id:'item-'+item.sort_order,sort_order:item.sort_order})).reverse():null,error:null}).then(resolve,reject)}};return q},storage:{from:()=>({upload:async path=>{paths.push(path);return {}},remove:async()=>({})})}};
+  const context=vm.createContext({error(){},reportApprovals,reportSignaturesReport,mountReportSignatures(){},attachAggregateSignatures:async()=>{},enableAutoDraft(){},clearDraft(){},confirmAction(){},state,db,document:{querySelector:()=>form},SAFETY_WALK_ITEMS:items,jhaSignatureFields,jhaApprovals,attachDailyReportBulkStatus(){},attachJhaSignatures(){},attachJhaReview(){},frame(){},tr:x=>x,esc:x=>x,fmt:()=>'',FormData:class{get(name){return name==='jha_safety_name'?'Safety A':name==='jha_superintendent_name'?'Superintendent B':name==='jha_safety_signature'?'[[[0.1,0.2],[0.4,0.5]]]':name==='jha_superintendent_signature'?'[[[0.6,0.7]]]':name==='overall_status'?'safe':name.startsWith('status_')?checklistStatus:''}},draftFilesFor:async(_,__,___,name)=>name==='photos_2'?[{type:'image/jpeg',size:10,name:'photo.jpg'}]:[],captureJobsiteWeather:()=>weather.promise,normalizeReportImage:async file=>file,normalizeJhaPhoto:async file=>file,optimizeJhaPhoto:async file=>file,uploadJhaPhotoBatch,crypto:{randomUUID:()=> 'uuid'},clearDraft:async(...args)=>assert.equal(args[2],form),savedAction(){},navigate:(...args)=>redirects.push(args),error:err=>errors.push(err)});
   vm.runInContext('let renderRevision=0;'+fn('captureView')+'\n'+fn('safetyWalk'),context);await context.safetyWalk();const pending=form.onsubmit({preventDefault(){},target:form});await tick();state.project='job-b';state.page='home';weather.resolve({condition_code:1});save.resolve();await pending;await tick();
   assert.deepEqual(errors,[]);const saved=calls.find(x=>x.table==='daily_safety_walks'&&!x.update).payload;assert.equal(saved.project_id,'job-a');assert.equal(saved.weather_snapshot,null);assert.equal(saved.approvals.safety.name,'Safety A');assert.equal(saved.approvals.superintendent.name,'Superintendent B');assert.deepEqual(saved.approvals.safety.strokes,[[[.1,.2],[.4,.5]]]);assert.deepEqual(saved.approvals.superintendent.strokes,[[[.6,.7]]]);const checklist=calls.filter(x=>x.table==='daily_safety_walk_items');assert.equal(checklist.length,1);assert.equal(checklist[0].payload.length,40);assert.equal(saved.overall_status,'safe');assert.ok(checklist[0].payload.every(item=>item.status===checklistStatus));assert.equal(button.disabled,false);assert.equal(form.dataset.submitting,undefined);assert.equal(paths.length,1);assert.ok(paths[0].startsWith('walk/item-2/'));assert.deepEqual(redirects,[]);
   const lateUpdate=calls.find(x=>x.table==='daily_safety_walks'&&x.update);assert.deepEqual(lateUpdate.payload.weather_snapshot,{condition_code:1});assert.ok(filters.some(x=>x.table==='daily_safety_walks'&&x.column==='id'&&x.value==='walk'));assert.ok(filters.some(x=>x.table==='daily_safety_walks'&&x.column==='project_id'&&x.value==='job-a'));

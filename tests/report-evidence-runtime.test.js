@@ -13,7 +13,7 @@ function setup(name,{queryError,missingPhoto=false}={}){
  const context=vm.createContext({db,state:{detail:'record',project:'job',projects:[{id:'job'}],profile:{id:'owner',name:'Safety'},lang:'en'},captureView:()=>()=>true,error:e=>errors.push(e.message),frame:html=>frames.push(html),signedDisplayImage:async(_,path)=>{requested.push(path);return missingPhoto?'':'blob:'+path},tr:x=>x,localDateKey:()=> '2026-10-02',esc:x=>x,fmt:x=>x,reportSignaturesReport:()=>'',Intl});
  vm.runInContext(fn(name),context);return {context,frames,errors,requested};
 }
-for(const name of ['equipmentInspectionReport','disciplineReport','observationReport','safetyWalkReport','inventoryReport'])test(`${name} refuses to silently omit a saved evidence photo`,async()=>{
+for(const name of ['equipmentInspectionReport','disciplineReport','observationReport','inventoryReport'])test(`${name} refuses to silently omit a saved evidence photo`,async()=>{
  const t=setup(name,{missingPhoto:true});await assert.rejects(t.context[name](),/evidence photo could not be loaded/);assert.equal(t.frames.length,0);assert.ok(t.requested.length);
 });
 for(const table of ['observation_photos','corrective_actions'])test(`observation report surfaces ${table} failure before displaying a final report`,async()=>{
