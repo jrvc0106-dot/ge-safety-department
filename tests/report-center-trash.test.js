@@ -184,7 +184,8 @@ test('Admin sees a direct Delete permanently button on an active report',async()
  assert.equal(buttons.length,4,'Record, two PDF buttons and one admin control');
  const permanent=wrapper.querySelector('[data-report-action="permanent"]');
  assert.ok(permanent);
- assert.match(permanent.textContent,/Delete PDF/);
+ assert.match(permanent.textContent,/Delete permanently/);
+ assert.equal(t.prompts.length,0);
  permanent.click();await tick();await tick();
  assert.equal(t.rows.safety_discipline.length,0);
  assert.equal(t.rows.report_center_trash[0].state,'permanent');
@@ -192,24 +193,14 @@ test('Admin sees a direct Delete permanently button on an active report',async()
  assert.match(t.doc.body.textContent,/Verified deletion receipt/);
  t.dom.window.close();
 });
-test('canceling direct permanent deletion does not touch Supabase',async()=>{
+test('direct permanent deletion does not ask for confirmation or a typed code',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="discipline"]').click();
- t.dom.window.confirm=()=>false;
- const perm=t.doc.querySelector('[data-report-action="permanent"]');
- perm.click();await tick();
- assert.equal(t.rows.report_center_trash.length,0);
- assert.equal(t.rows.safety_discipline.length,1);
- t.dom.window.close();
-});
-test('incorrect confirmation word does not delete a report',async()=>{
- const t=await setup();
- t.doc.querySelector('[data-category="discipline"]').click();
- t.dom.window.prompt=()=> 'NOT DELETE';
- const perm=t.doc.querySelector('[data-report-action="permanent"]');
- perm.click();await tick();
- assert.equal(t.rows.report_center_trash.length,0);
- assert.equal(t.rows.safety_discipline.length,1);
+ t.dom.window.confirm=()=>assert.fail('unexpected confirmation');
+ t.dom.window.prompt=()=>assert.fail('unexpected typed code');
+ t.doc.querySelector('[data-report-action="permanent"]').click();await tick();
+ assert.equal(t.rows.report_center_trash[0].state,'permanent');
+ assert.equal(t.rows.safety_discipline.length,0);
  t.dom.window.close();
 });
 test('direct permanent operation failure keeps report in Admin Trash and does not claim it is deleted',async()=>{
@@ -259,20 +250,36 @@ test('Admin Trash permanent deletion requires just one confirmation and never a 
  assert.equal(confirmationCount,1);
  assert.equal(promptCount,0);
 });
-test('cancelled Admin Trash confirmation performs no removal',async()=>{
+test('Admin Trash permanent deletion needs no confirmation',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="discipline"]').click();
  await changeReportCenterTrash(t.db,{projectId:proj,kind:'discipline',id:discipline,title:'Worker A',action:'trash'});
  await t.context.reportCenter();
  t.doc.querySelector('.report-center-trash-toggle').click();
- let confirmations=0;
- t.dom.window.confirm=()=>{confirmations++;return false};
+ t.dom.window.confirm=()=>assert.fail('unexpected confirmation');
  t.dom.window.prompt=()=>{throw new Error('No typed DELETE is allowed in Admin Trash')};
  const permanent=t.doc.querySelector('.report-center-trash-controls .report-center-admin-delete');
  permanent.click();
  await tick();
- assert.equal(confirmations,1);
- assert.equal(t.rows.report_center_trash[0].state,'trashed');
- assert.equal(t.rows.safety_discipline.length,1);
+ assert.equal(t.rows.report_center_trash[0].state,'permanent');
+ assert.equal(t.rows.safety_discipline.length,0);
  t.dom.window.close();
+});
+
+test('opening a permanently deleted Daily Report cannot regenerate its PDF',async()=>{
+ const start=source.indexOf('async function openDailyReport()');
+ const end=source.indexOf('async function report()',start);
+ const button={};let opened=0,rendered='';
+ const filters=[];
+ const query={select(){return this},eq(key,value){filters.push([key,value]);return this},maybeSingle:async()=>({data:{state:'permanent'}})};
+ const ctx=vm.createContext({
+  state:{project:proj},captureView:()=>()=>true,localDateKey:()=> '2026-10-14',
+  db:{from:()=>query},report:()=>opened++,tr:x=>x,frame:html=>{rendered=html},
+  document:{querySelector:()=>button}
+ });
+ vm.runInContext(source.slice(start,end),ctx);
+ await ctx.openDailyReport();
+ assert.deepEqual(filters,[['project_id',proj],['report_kind','daily'],['report_id','daily-2026-10-14']]);
+ assert.match(rendered,/This daily report was removed/);
+ assert.equal(opened,0);
 });
