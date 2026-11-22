@@ -54,5 +54,6 @@ test('daily JHA revision query starts before evidence image downloads, preservin
  const photos=body.indexOf("signedDisplayImage('daily-safety-walks'");
  const wait=body.indexOf('const revisionQuery=await revisionPromise');
  assert.ok(lookup>0&&photos>lookup&&wait>photos);
- assert.match(body,/if\(urls\.some\(url=>!url\)\)throw/,'all evidence must remain loaded before the final report');
+ assert.match(body,/data-jha-evidence-missing/);
+ assert.match(file,/if\(report\.dataset\?\.jhaEvidenceMissing==='true'\)return loadJhaPdfWithMissingEvidence/);
 });

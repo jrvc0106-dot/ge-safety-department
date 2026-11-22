@@ -158,3 +158,10 @@ test('image page classification measures evidence once without changing raster q
  assert.equal(selected,1);
  assert.equal(pdfPageRasterChoice(container,100,100).format,'JPEG','original two-argument API works');
 });
+
+test('JHA photo compression preserves lossless text-only pages',()=>{
+ const evidence=[[120,180]];
+ assert.deepEqual(pdfPageRasterChoice(null,100,100,evidence,0.87),{format:'JPEG',mime:'image/jpeg',quality:0.87});
+ assert.deepEqual(pdfPageRasterChoice(null,0,100,evidence,0.87),{format:'PNG',mime:'image/png'});
+ assert.equal(pdfPageRasterChoice(null,100,100,evidence).quality,0.96);
+});

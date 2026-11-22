@@ -4,7 +4,7 @@ import {JSDOM} from 'jsdom';
 import {readFileSync} from 'node:fs';
 import {
  indexFinalPdfDocuments,archivedPdfFilename,archivedPdfLink,
- openArchivedPdf,downloadArchivedPdf,inspectArchivedPdf
+ openArchivedPdf,downloadArchivedPdf,inspectArchivedPdf,loadArchivedJhaPdf
 } from '../src/finalized-pdf-direct.js';
 
 const row=(overrides={})=>({
@@ -148,4 +148,29 @@ test('stored PDF download sends canonical original-date name in signed URL dispo
  assert.equal(clicked[0].name,'Forklift Daily Report 10.23.2026 By G&E.pdf');
  assert.equal(calls.find(x=>x[0]==='signed')[3].download,clicked[0].name);
  doc.defaultView.close();
+});
+
+test('historical JHA exports the original stored PDF without regenerating it',async()=>{
+ const original=new Blob(['%PDF-1.4\n','Approved photographic JHA content','\n%%EOF'],{type:'application/pdf'});
+ const {storage,calls}=mockStorage({downloadData:original});
+ const blob=await loadArchivedJhaPdf(storage,row(),{fallback:()=>assert.fail('Dropbox should not be used')});
+ assert.equal(blob,original);
+ assert.deepEqual(calls,[['download',row().pdf_path]]);
+});
+
+test('historical JHA checks the Dropbox PDF if Storage is missing or invalid',async()=>{
+ const {storage}=mockStorage({downloadData:new Blob(['truncated'])});
+ const url='https://archive.dropboxusercontent.com/saved.pdf';
+ const original=new Blob(['%PDF-1.4\n','Approved photographic JHA content','\n%%EOF'],{type:'application/pdf'});
+ const options={fallback:async()=>url,fetchPdf:async address=>{
+  assert.equal(address,url);
+  return new Response(original);
+ }};
+ assert.equal(await (await loadArchivedJhaPdf(storage,row(),options)).text(),await original.text());
+ await assert.rejects(loadArchivedJhaPdf(storage,row(),{...options,fetchPdf:async()=>new Response('invalid')}),/failed validation/);
+});
+
+test('historical JHA rejects technical recovery before accessing either archive',async()=>{
+ const storage={from:()=>assert.fail('Technical recovery must not be read')};
+ await assert.rejects(loadArchivedJhaPdf(storage,row({pdf_path:'JHA-RECOVERED-REV-1.pdf'})),/professional JHA archive is unavailable/);
 });

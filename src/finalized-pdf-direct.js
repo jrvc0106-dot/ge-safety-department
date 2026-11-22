@@ -103,3 +103,21 @@ export async function inspectArchivedPdf(storage,entry){
  if(downloaded.error)throw downloaded.error;
  return {valid:await isValidPdfBlob(downloaded.data),bytes:downloaded.data?.size||0};
 }
+
+// A historical JHA can still be exported from its approved archive when
+// its source photographs are unavailable for professional regeneration.
+export async function loadArchivedJhaPdf(storage,entry,{fallback,fetchPdf=fetch}={}){
+ if(entry?.report_type!=='daily_safety_walk'||entry.document_status!=='final'||
+   !entry.pdf_path||isRecoveredJhaPdf(entry))throw new Error('A professional JHA archive is unavailable.');
+ const file=await storage.from('final-reports').download(entry.pdf_path);
+ if(!file.error&&await isValidPdfBlob(file.data))return file.data;
+ if(typeof fallback!=='function')throw file.error||new Error('The archived JHA PDF failed validation.');
+ const url=new URL(await fallback(entry));
+ if(url.protocol!=='https:'||!url.hostname.endsWith('.dropboxusercontent.com'))
+  throw new Error('The secure Dropbox archive link was invalid.');
+ const response=await fetchPdf(url.href);
+ if(!response.ok)throw new Error('The Dropbox JHA PDF could not be downloaded.');
+ const blob=await response.blob();
+ if(!(await isValidPdfBlob(blob)))throw new Error('The Dropbox JHA PDF failed validation.');
+ return blob;
+}
