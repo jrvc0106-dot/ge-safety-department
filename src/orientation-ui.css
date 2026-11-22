@@ -26,7 +26,7 @@
 .orientation-compact .orientation-photo-previews{display:flex;gap:8px;overflow-x:auto;max-width:100%;margin-top:8px}
 .orientation-compact .orientation-photo-previews:empty{display:none}
 .orientation-compact .orientation-photo-previews figure{flex:0 0 88px;margin:0;min-width:0}
-.orientation-compact .orientation-photo-previews img{width:88px;height:72px;object-fit:cover;border-radius:6px}
+.orientation-compact .orientation-photo-previews img{width:88px;height:72px;object-fit:contain;border-radius:6px}
 .orientation-compact .orientation-photo-previews figcaption{font-size:12px;overflow-wrap:anywhere}
 .orientation-compact .jha-approval-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
 .orientation-compact .jha-approval{min-width:0}

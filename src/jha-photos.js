@@ -4,7 +4,9 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
  if(controllers.has(form))return controllers.get(form);
  const fields=new Map();let queue=Promise.resolve();
  const enqueue=task=>{const pending=queue.then(task);queue=pending.catch(onError);return pending};
- for(const input of form.querySelectorAll('input[type=file]')){
+ for(const input of form.querySelectorAll('input[type=file][name]')){
+  const required=input.required;
+  if(required)input.required=false;
   const entries=(list(input.name)||[]).map(item=>({item}));
   const gallery=document.createElement('div');gallery.className='jha-photo-gallery';input.after(gallery);fields.set(input.name,entries);
   function loadStoredPreview(entry,image,label){
@@ -44,12 +46,23 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
     image.addEventListener('error',()=>{if(image.isConnected)label.textContent=tr('Preview unavailable: ','Vista no disponible: ')+image.alt});
    }
   }
-  input.addEventListener('change',()=>{
-   if(form.dataset.submitting==='true')return;
-   const selected=[...input.files].map(file=>({file}));if(!selected.length)return;input.value='';entries.push(...selected);draw();
+  function selectFiles(files){
+   if(form.dataset.submitting==='true'||!files.length)return;
+   if(!input.multiple&&(required||form.id==='correction')&&entries.length){
+    onError(new Error(tr('Remove the current photo before replacing it.','Quita la foto actual antes de reemplazarla.')));return;
+   }
+   const selected=files.map(file=>({file}));entries.push(...selected);draw();
    enqueue(async()=>{try{const saved=await add(input.name,selected.map(entry=>entry.file));
     if(!Array.isArray(saved)||saved.length!==selected.length||saved.some(item=>!item?.path&&!item?.localId))throw Error('JHA draft photo sync returned incomplete evidence');
-    saved.forEach((item,i)=>{selected[i].item=item;selected[i].error=null;selected[i].localOnly=false});draw()}catch(err){
+    saved.forEach((item,i)=>{
+     const previewFile=item.previewFile;
+     delete item.previewFile;
+     const entry=selected[i];entry.item=item;entry.error=null;entry.localOnly=false;
+     if(previewFile&&previewFile!==entry.file){
+      if(entry.url)URL.revokeObjectURL(entry.url);
+      entry.url=null;entry.file=previewFile;
+     }
+    });draw()}catch(err){
     // A draft-storage failure must not permanently reject a selected JHA photo.
     // Its original File is still in memory and is uploaded with the final report.
     // Restored draft items without local files retain strict integrity checks.
@@ -60,10 +73,22 @@ export function attachJhaPhotos(form,{list,add,remove,preview,download,tr,onErro
     }
     selected.forEach(entry=>entry.error=err);throw err
    }});
-  });
+  }
+  input.addEventListener('change',()=>{const files=[...input.files];input.value='';selectFiles(files)});
+  if(!input.hasAttribute('capture')&&!form.querySelector('input[type=file][name="camera_'+input.name+'"],input[type=file][name="'+input.name+'_camera"]')){
+   const camera=document.createElement('input');camera.type='file';camera.accept='image/*';camera.setAttribute('capture','environment');camera.hidden=true;
+   const capture=document.createElement('button');capture.type='button';capture.className='secondary report-photo-camera';capture.textContent=tr('Take photo','Tomar foto');
+   capture.onclick=()=>{if(form.dataset.submitting!=='true')camera.click()};
+   camera.addEventListener('change',()=>{const files=[...camera.files];camera.value='';selectFiles(files)});
+   gallery.before(capture,camera);
+  }
   draw();
  }
- const controller={async files(name){await queue;const entries=fields.get(name)||[];if(entries.some(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)))throw entries.find(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)).error;return Promise.all(entries.map(async entry=>{if(entry.file)return entry.file;try{return await download(entry.item)}catch(err){const message=String(err?.message||err||'');if(/object not found|not found|404/i.test(message))throw Error('A previously saved JHA draft photo is missing from storage. Please remove that unavailable photo and attach it again before finalizing. Your report text and signatures remain on this screen.');throw err}}))}};
+ const controller={async ready(){
+  await queue;
+  const failed=[...fields.values()].flat().find(entry=>entry.error);
+  if(failed)throw failed.error;
+ },async files(name){await queue;const entries=fields.get(name)||[];if(entries.some(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)))throw entries.find(entry=>entry.error&&(!allowLocalFinalUpload||!entry.file)).error;return Promise.all(entries.map(async entry=>{if(entry.file)return entry.file;try{return await download(entry.item)}catch(err){const message=String(err?.message||err||'');if(/object not found|not found|404/i.test(message))throw Error('A previously saved draft photo is missing from storage. Please remove that unavailable photo and attach it again before finalizing. Your report text and signatures remain on this screen.');throw err}}))}};
  controllers.set(form,controller);
  const observer=new MutationObserver(()=>{if(form.isConnected)return;for(const entries of fields.values())for(const entry of entries)if(entry.url)URL.revokeObjectURL(entry.url);observer.disconnect()});observer.observe(document.body,{childList:true,subtree:true});
  return controller;

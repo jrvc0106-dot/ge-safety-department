@@ -78,7 +78,7 @@ export function toolboxWeatherText(weather,language='en'){
  if(weather.location_label)parts.push(weather.location_label);
  return parts.join(' · ');
 }
-export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWeather=async()=>null,getPhotos=async()=>[],onError=()=>{}}={}){
+export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWeather=async()=>null,getPhotos=async()=>[],managedPhotos=()=>false,onError=()=>{}}={}){
  if(!form)return null;
  const doc=form.ownerDocument,win=doc.defaultView;
  const select=(name)=>form.elements.namedItem(name);
@@ -218,6 +218,7 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  };
  weatherButton.onclick=requestWeather;
  const refreshPhotos=async(removeIndex=null)=>{
+  if(managedPhotos()){gallery.hidden=true;return}
   const version=++photoVersion;gallery.textContent=tr('Loading photo previews…','Cargando miniaturas…');
   try{
    const files=await getPhotos(form,removeIndex);if(!form.isConnected||version!==photoVersion)return;
@@ -233,6 +234,7 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
   }catch(err){if(version===photoVersion&&form.isConnected){gallery.textContent=tr('Photo previews could not be loaded; the saved draft is preserved.','No se pudieron cargar miniaturas; el borrador permanece guardado.');onError(err)}}
  };
  photoInput?.addEventListener('change',()=>{
+  if(managedPhotos())return;
   // The autosave listener has already captured the selected File objects.
   if(photoInput)photoInput.value='';
   void refreshPhotos();

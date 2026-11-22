@@ -178,7 +178,7 @@
     border-color:#d4dbdf!important;background:#eef0f2!important;color:#333d44!important;
   }
   html[data-ge-display-mode="mobile"] #quick-orientation-form .quick-face-photo img {
-    width:116px!important;height:116px!important;object-fit:cover!important;
+    width:116px!important;height:116px!important;object-fit:contain!important;
   }
   html[data-ge-display-mode="mobile"] #quick-orientation-form .quick-hazard-grid {
     display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:8px!important;
