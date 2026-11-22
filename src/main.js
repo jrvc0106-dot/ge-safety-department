@@ -694,7 +694,7 @@ async function buildReportPdf(highQuality=false){
        // The device-independent PDF renderer aligns photo pages once, after
        // applying the final Letter layout. Pre-alignment would leave stale gaps
        // when Safari switches from phone columns to six-photo sheets.
-       blob=await renderPaginatedPdf(container,pageSize,report.classList?.contains?.('ge-reference-jha')?{...options,skipBlankLeadingPage:true}:options);
+       blob=await renderPaginatedPdf(container,pageSize,report.classList?.contains?.('ge-reference-jha')?{...options,skipBlankLeadingPage:true,photoQuality:0.87}:options);
     }finally{
       const overlay=await worker.get('overlay');overlay?.remove();
     }

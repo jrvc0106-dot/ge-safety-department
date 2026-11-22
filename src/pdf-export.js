@@ -93,12 +93,12 @@ export function indexPdfEvidencePositions(container){
  }
  return positions;
 }
-export function pdfPageRasterChoice(container,top,height,evidencePositions){
+export function pdfPageRasterChoice(container,top,height,evidencePositions,photoQuality=0.96){
  const positions=Array.isArray(evidencePositions)?evidencePositions:indexPdfEvidencePositions(container);
  if(positions===null)return {format:'JPEG',mime:'image/jpeg',quality:0.92};
  for(const [y,end] of positions){
   if(end>top+1&&y<top+height-1)
-   return {format:'JPEG',mime:'image/jpeg',quality:0.96};
+   return {format:'JPEG',mime:'image/jpeg',quality:photoQuality};
  }
  return {format:'PNG',mime:'image/png'};
 }
@@ -173,7 +173,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
       if(!(strictlyEmpty||(options.skipBlankLeadingPage&&pagesAdded===0&&
           pdfCanvasPageIsBlank(canvas)))){
         if(pagesAdded)pdf.addPage();
-        const raster=pdfPageRasterChoice(container,top,height,evidencePositions);
+        const raster=pdfPageRasterChoice(container,top,height,evidencePositions,options.photoQuality);
         const encoded=raster.format==='PNG'
           ?canvas.toDataURL(raster.mime)
           :canvas.toDataURL(raster.mime,raster.quality);
