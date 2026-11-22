@@ -20,7 +20,7 @@ function setup(){
   currentReportIdentity:()=>({projectId:'job'}),
   reportPdfFilename:()=> 'GE-ONE-final.pdf',
   waitForReportImages:async()=>{waits++},
-  protectPdfReportLogos:()=>0,rasterizePdfSignatures:async()=>{},
+  protectPdfReportLogos:()=>0,validatePdfEvidenceImages:async()=>{},rasterizePdfSignatures:async()=>{},
   nativeReportArchiveAvailable:()=>false,
   registerFinalReport:async()=>null,
   isValidPdfBlob:async blob=>blob?.size>32,

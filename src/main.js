@@ -2458,11 +2458,13 @@ async function reportCenter(){
    if(isAdmin){
     const remove=document.createElement('button');remove.type='button';
     remove.className='report-compact-action report-compact-action--delete';
+    remove.dataset.reportAction='permanent';
     remove.textContent=tr('Delete PDF','Borrar PDF');
     remove.setAttribute('aria-label',tr('Permanently delete PDF and report: ','Borrar definitivamente PDF y reporte: ')+(record.querySelector('strong')?.textContent||''));
     remove.onclick=async()=>{
      if(!viewCurrent()||remove.disabled)return;
      const title=record.querySelector('strong')?.textContent?.trim()||tr('Safety report','Reporte de Safety');
+     if(!confirmPermanentReportDeletion(window,{title,tr,language:state.lang}))return;
      const projectId=state.project;
      remove.disabled=true;remove.textContent=tr('Deleting…','Borrando…');
      let staged=false;
@@ -2627,6 +2629,7 @@ async function reportCenter(){
    const permanent=document.createElement('button');permanent.type='button';permanent.className='report-center-admin-delete';
    permanent.textContent=tr('Remove permanently','Eliminar definitivamente');
    permanent.onclick=async()=>{
+    if(!viewCurrent()||permanent.disabled||!confirmAdminTrashPermanentDeletion(window,{title:entry.report_title,tr}))return;
     permanent.disabled=true;restore.disabled=true;
     try{
      const response=await permanentlyPurgeReportFromSupabase(db,{projectId:state.project,kind:entry.report_kind,id:entry.report_id});

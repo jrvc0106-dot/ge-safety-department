@@ -25,7 +25,7 @@ function mountToolbar(){
   ['daily_safety_walk:walk-a',{id:'arch-walk',project_id:'job-one',report_type:'daily_safety_walk',source_id:'walk-a',document_status:'final',pdf_path:'private/walk.pdf'}],
   ['equipment_inspection:equipment-a',{id:'arch-equipment',project_id:'job-one',report_type:'equipment_inspection',source_id:'equipment-a',document_status:'final',pdf_path:'private/equipment.pdf'}],
  ]);
- const ctx=vm.createContext({document:doc,list,archivedPdfs:archives,tr:x=>x,
+ const ctx=vm.createContext({document:doc,list,archivedPdfs:archives,isAdmin:false,dropboxPdfLink:async()=>null,confirmAction(){},tr:x=>x,
   state:{project:'job-one'},viewCurrent:()=>true,currentCategory:'walks',window:dom.window,
   openArchivedPdf:async(_storage,entry)=>{calls.push('view:'+entry.id)},
   downloadArchivedPdf:async(_storage,entry)=>{calls.push('download:'+entry.id)},
@@ -78,10 +78,12 @@ test('non-finalized reports do not download a different PDF or invent a saved fi
  const row=record.closest('.report-compact-row');
  let opened=0;record.onclick=()=>opened++;
  const download=row.querySelector('[data-pdf-action="download"]');
- assert.equal(download.disabled,true);
+ assert.equal(download.disabled,false);
  row.querySelector('[data-pdf-action="view"]').click();
  assert.equal(opened,1);
- assert.equal(download.title.includes('No saved final PDF'),true);
+ assert.equal(download.title.includes('Open the original JHA'),true);
+ download.click();
+ assert.equal(opened,2);
  t.dom.window.close();
 });
 

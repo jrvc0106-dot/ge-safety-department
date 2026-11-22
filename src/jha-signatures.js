@@ -1,43 +1,5 @@
 const defaultRoles=['safety','superintendent'];
 const boundCanvases=new WeakSet();
-// Shared signature-only scroll guard. A tap outside unlocks without activating controls.
-let activeSignatureCanvas=null;
-let savedScrollLock=null;
-function unlockSignature(){
- if(!activeSignatureCanvas)return;
- activeSignatureCanvas=null;
- if(savedScrollLock){
-  document.documentElement.style.overflow=savedScrollLock.html;
-  document.body.style.overflow=savedScrollLock.body;
-  savedScrollLock=null;
- }
-}
-function lockSignature(canvas){
- if(activeSignatureCanvas===canvas)return;
- unlockSignature();
- activeSignatureCanvas=canvas;
- savedScrollLock={html:document.documentElement.style.overflow,body:document.body.style.overflow};
- document.documentElement.style.overflow='hidden';
- document.body.style.overflow='hidden';
-}
-if(typeof document!=='undefined'){
- document.addEventListener('pointerdown',e=>{
-  if(!activeSignatureCanvas)return;
-  if(!activeSignatureCanvas.isConnected){unlockSignature();return}
-  if(e.target===activeSignatureCanvas)return;
-  unlockSignature();
-  e.preventDefault();
-  e.stopImmediatePropagation();
-  // Suppress the matching click so unlocking cannot submit or change a field.
-  const suppress=click=>{click.preventDefault();click.stopImmediatePropagation();document.removeEventListener('click',suppress,true)};
-  document.addEventListener('click',suppress,true);
-  setTimeout(()=>document.removeEventListener('click',suppress,true),650);
- },true);
- document.addEventListener('touchmove',e=>{if(activeSignatureCanvas){if(!activeSignatureCanvas.isConnected){unlockSignature();return}e.preventDefault()}},{capture:true,passive:false});
- document.addEventListener('visibilitychange',()=>{if(document.hidden)unlockSignature()});
- window.addEventListener('pagehide',unlockSignature);
- document.addEventListener('keydown',e=>{if(e.key==='Escape')unlockSignature()});
-}
 const roleLabel=(role,tr)=>role==='safety'?tr('Assigned Safety','Safety asignado'):tr('Jobsite Superintendent','Superintendente del jobsite');
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function signatureStrokes(value){
@@ -65,7 +27,7 @@ export function attachJhaSignatures(form,roles=defaultRoles){
    ctx.clearRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#202830';ctx.fillStyle='#202830';ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';
    for(const s of strokes){ctx.beginPath();ctx.moveTo(s[0][0]*canvas.width,s[0][1]*canvas.height);for(const p of s.slice(1))ctx.lineTo(p[0]*canvas.width,p[1]*canvas.height);if(s.length===1){ctx.arc(s[0][0]*canvas.width,s[0][1]*canvas.height,1.5,0,Math.PI*2);ctx.fill()}else ctx.stroke()}
   };
-  const notify=()=>{clearTimeout(saveTimer);saveTimer=null;input.dispatchEvent(new Event('input',{bubbles:true}))};
+  const notify=()=>{clearTimeout(saveTimer);saveTimer=null;input.dispatchEvent(new input.ownerDocument.defaultView.Event('input',{bubbles:true}))};
   const save=(immediate=true)=>{
    // Keep current strokes available to submit and visibility-triggered draft saves.
    input.value=JSON.stringify(strokes);
@@ -75,7 +37,7 @@ export function attachJhaSignatures(form,roles=defaultRoles){
   input.addEventListener('change',()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()});
   canvas.addEventListener('pointerdown',e=>{
    if(pointer!==null||(e.pointerType==='mouse'&&e.button!==0)||strokes.length>=500||pointCount>=20000)return;
-   e.preventDefault();lockSignature(canvas);pointer=e.pointerId;stroke=[point(e)];strokes.push(stroke);pointCount++;canvas.setPointerCapture?.(pointer);draw();save();
+   e.preventDefault();pointer=e.pointerId;stroke=[point(e)];strokes.push(stroke);pointCount++;canvas.setPointerCapture?.(pointer);draw();save();
   });
   const appendPoint=e=>{
    if(pointCount>=20000)return;
@@ -92,8 +54,8 @@ export function attachJhaSignatures(form,roles=defaultRoles){
   });
   const finish=e=>{if(e.pointerId!==pointer)return;if(e.type==='pointerup'&&stroke)appendPoint(e);pointer=null;stroke=null;save()};
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,finish);
-  form.querySelector(`[data-jha-clear="${role}"]`).onclick=()=>{unlockSignature();strokes=[];pointCount=0;pointer=null;stroke=null;draw();save()};
-  form.addEventListener('reset',()=>{unlockSignature();queueMicrotask(()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()})});
+  form.querySelector(`[data-jha-clear="${role}"]`).onclick=()=>{strokes=[];pointCount=0;pointer=null;stroke=null;draw();save()};
+  form.addEventListener('reset',()=>{queueMicrotask(()=>{clearTimeout(saveTimer);saveTimer=null;strokes=signatureStrokes(input.value);pointCount=strokes.reduce((n,s)=>n+s.length,0);pointer=null;stroke=null;draw()})});
   draw();
  }
 }
