@@ -48,3 +48,17 @@ test('continuous signing groups draft notifications while retaining every point 
  assert.equal(notifications,1);assert.equal(repaints,1);
  t.pointer('safety','pointerup',110,60);assert.equal(notifications,2);
 });
+
+test('finishing a signature leaves the next tap free to submit or navigate',()=>{
+ const t=fixture(),doc=t.dom.window.document;
+ doc.body.style.overflow='auto';
+ t.pointer('safety','pointerdown',10,10);
+ t.pointer('safety','pointerup',80,30);
+ assert.equal(doc.body.style.overflow,'auto');
+ const next=doc.createElement('button');
+ next.type='button';t.form.append(next);
+ let taps=0;next.addEventListener('click',()=>taps++);
+ next.dispatchEvent(new t.dom.window.Event('pointerdown',{bubbles:true,cancelable:true}));
+ next.click();
+ assert.equal(taps,1);
+});

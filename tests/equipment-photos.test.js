@@ -1,3 +1,4 @@
+import {HOTWORK_TYPE} from '../src/hotwork-jobsite.js';
 import {equipmentDateTimeInput,equipmentInspectionUtc,equipmentDay,equipmentReportDate} from '../src/equipment-datetime.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +11,7 @@ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=
 function fn(name){const node=ast.body.find(n=>n.type==='FunctionDeclaration'&&n.id.name===name);return source.slice(node.start,node.end)}
 for(const count of [0,1,6,7,13])test(`equipment report retains all ${count} photos in groups of six`,async()=>{
  const record={report_number:'EI-TEST',equipment_name:'Forklift',project:{name:'Project'},location:'Test Area',inspector_name:'Safety',checklist:[{item:'Existing check',result:'pass',note:'Existing finding'}],overall_status:'approved',photos:Array.from({length:count},(_,i)=>({path:String(i)}))};let html;
- const ctx=vm.createContext({state:{project:'project',detail:'record'},db:{from(){return{select(){return this},eq(){return this},single:async()=>({data:record})}}},captureView:()=>()=>true,frame:s=>html=s,signedDisplayImage:async(_,path)=>'photo-'+path,tr:x=>x,esc:x=>String(x??''),fmt:x=>x,equipmentReportDate,equipmentInspectionTypes:{},reportSignaturesReport:()=>'<div>Saved signatures</div>',error:e=>{throw e}});
+ const ctx=vm.createContext({state:{project:'project',detail:'record'},db:{from(){return{select(){return this},eq(){return this},single:async()=>({data:record})}}},captureView:()=>()=>true,frame:s=>html=s,signedDisplayImage:async(_,path)=>'photo-'+path,tr:x=>x,esc:x=>String(x??''),fmt:x=>x,equipmentReportDate,HOTWORK_TYPE,equipmentInspectionTypes:{},reportSignaturesReport:()=>'<div>Saved signatures</div>',error:e=>{throw e}});
  vm.runInContext(fn('equipmentInspectionReport'),ctx);await ctx.equipmentInspectionReport();const dom=new JSDOM(html),doc=dom.window.document;
  assert.deepEqual([...doc.querySelectorAll('.eq-photo-page')].map(p=>p.querySelectorAll('img').length),Array.from({length:Math.ceil(count/6)},(_,i)=>Math.min(6,count-i*6)));
  assert.deepEqual([...doc.querySelectorAll('.eq-photos img')].map(img=>img.getAttribute('src')),Array.from({length:count},(_,i)=>'photo-'+i));
@@ -37,7 +38,7 @@ test('equipment draft restores thumbnails, appends selections and saves only ret
 
 test('equipment PDF heading uses selected equipment type instead of optional unit name',async()=>{
  const record={report_number:'EI-HEADER',equipment_type:'backhoe_loader',equipment_name:'Unit #12',project:{name:'Miramar Cove'},location:'Area A',inspector_name:'Safety',checklist:[{item:'Hydraulics',result:'pass'}],overall_status:'approved',photos:[]};let html;
- const ctx=vm.createContext({state:{project:'project',detail:'record'},db:{from(){return{select(){return this},eq(){return this},single:async()=>({data:record})}}},captureView:()=>()=>true,frame:s=>html=s,signedDisplayImage:async()=>'',tr:x=>x,esc:x=>String(x??''),equipmentReportDate,equipmentInspectionTypes:{backhoe_loader:{name:'Backhoe Loader'}},reportSignaturesReport:()=>'',error:e=>{throw e}});
+ const ctx=vm.createContext({state:{project:'project',detail:'record'},db:{from(){return{select(){return this},eq(){return this},single:async()=>({data:record})}}},captureView:()=>()=>true,frame:s=>html=s,signedDisplayImage:async()=>'',tr:x=>x,esc:x=>String(x??''),equipmentReportDate,HOTWORK_TYPE,equipmentInspectionTypes:{backhoe_loader:{name:'Backhoe Loader'}},reportSignaturesReport:()=>'',error:e=>{throw e}});
  vm.runInContext(fn('equipmentInspectionReport'),ctx);await ctx.equipmentInspectionReport();
  const dom=new JSDOM(html),doc=dom.window.document;
  assert.equal(doc.querySelector('.eq-pdf-head h1').textContent,'Backhoe Loader');
@@ -47,5 +48,5 @@ test('equipment PDF heading uses selected equipment type instead of optional uni
 });
 test('equipment PDF header logo has 15 percent larger size in equipment-only CSS',()=>{
  const css=readFileSync(new URL('../src/style.css',import.meta.url),'utf8');
- assert.match(css,/\\.eq-pdf-head img\\{width:71\\.3px;height:auto;max-width:none;object-fit:contain\\}/);
+ assert.match(css,/\.eq-pdf-head img\{width:71\.3px;height:auto;max-width:none;object-fit:contain\}/);
 });

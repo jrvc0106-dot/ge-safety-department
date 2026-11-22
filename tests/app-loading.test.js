@@ -57,3 +57,31 @@ test('daily JHA revision query starts before evidence image downloads, preservin
  assert.match(body,/data-jha-evidence-missing/);
  assert.match(file,/if\(report\.dataset\?\.jhaEvidenceMissing==='true'\)return loadJhaPdfWithMissingEvidence/);
 });
+
+test('deferred module loads recover on rejection without leaving the spinner',async()=>{
+ const recovery=[],loading={isConnected:true},callbacks=[];
+ const context=vm.createContext({captureView:()=>()=>true,frame(){},esc:x=>x,tr:x=>x,document:{querySelector:()=>loading},requestAnimationFrame:fn=>callbacks.push(fn),renderRecovery:err=>recovery.push(err.message)});
+ const start=source.indexOf('function renderPageWithLoading(');
+ vm.runInContext(source.slice(start,source.indexOf('\nfunction renderPage()',start)),context);
+ context.renderPageWithLoading(async()=>{throw Error('Connection lost')},'Loading JHA');
+ await callbacks.shift()();
+ assert.deepEqual(recovery,['Connection lost']);
+ context.renderPageWithLoading(async()=>{},'Loading inspections');
+ await callbacks.shift()();
+ assert.deepEqual(recovery,['Connection lost','This page could not finish loading.']);
+ context.renderPageWithLoading(async()=>{loading.isConnected=false},'Loading project');
+ await callbacks.shift()();
+ assert.equal(recovery.length,2);
+});
+
+test('a delayed error cannot replace the next module after navigation',async()=>{
+ const callbacks=[],recovery=[];
+ let current=true,fail;
+ const context=vm.createContext({captureView:()=>()=>current,frame(){},esc:x=>x,tr:x=>x,document:{querySelector:()=>({isConnected:true})},requestAnimationFrame:fn=>callbacks.push(fn),renderRecovery:err=>recovery.push(err)});
+ const start=source.indexOf('function renderPageWithLoading(');
+ vm.runInContext(source.slice(start,source.indexOf('\nfunction renderPage()',start)),context);
+ context.renderPageWithLoading(()=>new Promise((_,reject)=>{fail=reject}),'Loading');
+ const pending=callbacks.shift()();
+ current=false;fail(Error('Old project connection lost'));await pending;
+ assert.deepEqual(recovery,[]);
+});

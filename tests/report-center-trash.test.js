@@ -89,7 +89,7 @@ async function setup(role='admin'){
  });
  vm.runInContext(body,context);
  await context.reportCenter();
- return {dom,doc,db,rows,dbCalls,navigation,prompts,messages};
+ return {context,dom,doc,db,rows,dbCalls,navigation,prompts,messages};
 }
 test('report center trash helpers hide only the exact category and id',()=>{
  const entries=[{report_kind:'correction',report_id:'same',state:'trashed'}, {report_kind:'walk',report_id:'closed',state:'permanent'},{report_kind:'discipline',report_id:'restored',state:'active'}];
@@ -100,35 +100,30 @@ test('report center trash helpers hide only the exact category and id',()=>{
  assert.deepEqual(reportCenterVisible(entries,'correction',[{id:'same'},{id:'other'}]).map(x=>x.id),['other']);
  assert.equal(reportCenterTrashRows(entries).length,1);
 });
-test('admin trash and restore preserve data but confirmed permanent removal deletes Supabase source',async()=>{
+test('admin trash restores a report and permanently removes it once confirmed',async()=>{
  const t=await setup();
+ const stage=()=>changeReportCenterTrash(t.db,{projectId:proj,kind:'discipline',id:discipline,title:'Worker A',action:'trash'});
+ await stage();await t.context.reportCenter();
  t.doc.querySelector('[data-category="discipline"]').click();
- const row=t.doc.querySelector('.report-record');
- assert.equal(row.dataset.kind,'discipline');
- const deleteButton=t.doc.querySelector('.report-center-admin-delete');
- assert.ok(deleteButton);deleteButton.click();await tick();
  assert.equal(t.rows.safety_discipline.length,1);
- assert.equal(t.rows.report_center_trash[0].state,'trashed');
  assert.equal(t.doc.querySelector('.report-record'),null);
  t.doc.querySelector('.report-center-trash-toggle').click();
  assert.match(t.doc.querySelector('.report-center-admin-trash').textContent,/Worker A/);
  t.doc.querySelector('.report-center-trash-controls .secondary').click();await tick();
  assert.equal(t.rows.report_center_trash[0].state,'active');
- t.doc.querySelector('.report-center-trash-toggle').click();
- assert.equal(t.doc.querySelectorAll('.report-record').length,1);
- t.doc.querySelector('.report-center-admin-delete').click();await tick();
+ await stage();await t.context.reportCenter();
  t.doc.querySelector('.report-center-trash-toggle').click();
  t.doc.querySelector('.report-center-trash-controls .report-center-admin-delete').click();await tick();
  assert.equal(t.rows.report_center_trash[0].state,'permanent');
  assert.equal(t.rows.safety_discipline.length,0);
- assert.equal(t.prompts.filter(x=>/Type DELETE|Escriba ELIMINAR/.test(x)).length,0,'Admin Trash must not ask for a typed deletion code');
+ assert.equal(t.prompts.filter(x=>/Type DELETE|Escriba ELIMINAR/.test(x)).length,0);
  t.dom.window.close();
 });
 test('correction deletion hides only the corrective report, not its underlying observation',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="corrections"]').click();
  assert.equal(t.doc.querySelector('.report-record').dataset.id,correction);
- t.doc.querySelector('.report-center-admin-delete').click();await tick();
+ t.doc.querySelector('[data-report-action="permanent"]').click();await tick();
  assert.equal(t.doc.querySelectorAll('.report-record').length,0);
  t.doc.querySelector('[data-category="observations"]').click();
  assert.equal(t.doc.querySelector('.report-record').dataset.id,observation);
@@ -140,12 +135,13 @@ test('walk cards keep own admin delete button outside record button',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="walks"]').click();
  assert.equal(t.doc.querySelectorAll('details.report-person-group').length,0,'Safety creators now appear inline in option 2');
- const outer=t.doc.querySelector('.report-center-admin-entry');
+ const outer=t.doc.querySelector('.report-compact-row');
  assert.ok(outer);
  assert.match(outer.textContent,/Safety Worker/);
- assert.equal(outer.querySelectorAll('.report-compact-action').length,2);
- assert.equal(outer.querySelectorAll('.report-center-admin-delete').length,2);
- assert.equal(outer.querySelector('button.report-record').contains(outer.querySelector('.report-center-admin-delete')),false);
+ assert.equal(outer.querySelectorAll('[data-pdf-action]').length,2);
+ const deleteButton=outer.querySelector('[data-report-action="permanent"]');
+ assert.ok(deleteButton);
+ assert.equal(outer.querySelector('button.report-record').contains(deleteButton),false);
  t.dom.window.close();
 });
 test('non-admin has no delete buttons or trash even if report is visible',async()=>{
@@ -183,17 +179,17 @@ test('irreversible deletion calls the secure Supabase Edge Function and rejects 
 test('Admin sees a direct Delete permanently button on an active report',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="discipline"]').click();
- const wrapper=t.doc.querySelector('.report-center-admin-entry');
+ const wrapper=t.doc.querySelector('.report-compact-row');
  const buttons=[...wrapper.querySelectorAll('button')];
- assert.equal(buttons.length,5,'Record, two PDF buttons and two separate admin controls');
+ assert.equal(buttons.length,4,'Record, two PDF buttons and one admin control');
  const permanent=wrapper.querySelector('[data-report-action="permanent"]');
  assert.ok(permanent);
- assert.match(permanent.textContent,/Delete permanently/);
+ assert.match(permanent.textContent,/Delete PDF/);
  permanent.click();await tick();await tick();
  assert.equal(t.rows.safety_discipline.length,0);
  assert.equal(t.rows.report_center_trash[0].state,'permanent');
  assert.equal(t.doc.querySelectorAll('.report-record').length,0);
- assert.ok(t.messages.some(m=>m.includes('permanently deleted')));
+ assert.match(t.doc.body.textContent,/Verified deletion receipt/);
  t.dom.window.close();
 });
 test('canceling direct permanent deletion does not touch Supabase',async()=>{
@@ -266,8 +262,8 @@ test('Admin Trash permanent deletion requires just one confirmation and never a 
 test('cancelled Admin Trash confirmation performs no removal',async()=>{
  const t=await setup();
  t.doc.querySelector('[data-category="discipline"]').click();
- t.doc.querySelector('.report-center-admin-delete:not(.report-center-direct-permanent)').click();
- await tick();
+ await changeReportCenterTrash(t.db,{projectId:proj,kind:'discipline',id:discipline,title:'Worker A',action:'trash'});
+ await t.context.reportCenter();
  t.doc.querySelector('.report-center-trash-toggle').click();
  let confirmations=0;
  t.dom.window.confirm=()=>{confirmations++;return false};
