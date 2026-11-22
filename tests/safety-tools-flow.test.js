@@ -82,9 +82,9 @@ test('medical follow-up starts without an incident and saves appointment, report
 
 test('medical report captures document photos, uploads privately, and includes them in its final report',async()=>{
  const t=setup();t.ctx.signedDisplayImage=async(bucket,path)=>`blob:${bucket}:${path}`;const tools=createSafetyTools(t.ctx);await tools.form('medical_followup');const f=document.querySelector('#st-medical_followup-form'),input=document.querySelector('#st-medical-documents');
- assert.equal(input.getAttribute('capture'),'environment');assert.equal(input.multiple,true);assert.equal(f.dataset.autoDraft,undefined);
+ assert.equal(input.hasAttribute('capture'),false);assert.equal(f.querySelector('input[capture=environment]').hidden,true);assert.equal(input.multiple,true);assert.equal(f.dataset.autoDraft,undefined);
  f.elements.employee_name.value='Case Worker';f.elements.event_date.value='2026-10-04';f.elements.current_condition_summary.value='Recovering';
- const photo={name:'patient-private-record.jpg',type:'image/jpeg',size:2048};Object.defineProperty(input,'files',{configurable:true,value:[photo]});input.onchange({target:input});assert.match(document.querySelector('#st-medical-document-list').textContent,/Medical document 1/);
+ const photo=new File([new Uint8Array(2048)],'patient-private-record.jpg',{type:'image/jpeg'});Object.defineProperty(input,'files',{configurable:true,value:[photo]});input.onchange({target:input});assert.equal(document.querySelector('#st-medical-document-list img').alt,'Medical document 1');
  await f.onsubmit({preventDefault(){}});assert.equal(t.errors.length,0);assert.equal(t.uploads.length,1);assert.equal(t.uploads[0].bucket,'employee-medical-documents');assert.match(t.uploads[0].path,/^job-a\/author\//);
  const doc=t.writes.find(x=>x.name==='employee_medical_followup_documents').payload[0];assert.equal(doc.project_id,'job-a');assert.equal(doc.mime_type,'image/jpeg');assert.equal('file_name' in doc,false);
  t.options.documents=[{storage_path:doc.storage_path,document_number:1,mime_type:doc.mime_type,size_bytes:doc.size_bytes}];await tools.report(t.writes.find(x=>x.name==='employee_medical_followups').payload.id);

@@ -4,18 +4,18 @@ import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 import vm from 'node:vm';
 import {parseAst} from 'rollup/parseAst';
-import {QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickSafetyOrientationForm,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,quickStickerVerificationMarkup} from '../src/quick-safety-orientation.js';
+import {QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,quickSafetyOrientationForm,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickCustomTrade,attachQuickHazardSelection,quickStickerVerificationMarkup} from '../src/quick-safety-orientation.js';
 
 const tr=en=>en;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8'),ast=parseAst(source);
 const fn=name=>{const node=ast.body.find(x=>x.type==='FunctionDeclaration'&&x.id.name===name);assert.ok(node,name);return source.slice(node.start,node.end)};
 
-test('Quick Employee Face ID retains front camera and gallery without Jobsite Photos controls',()=>{
+test('Quick Employee Face ID offers rear camera and gallery without Jobsite Photos controls',()=>{
  const markup=quickSafetyOrientationForm({tr,esc,project:{name:'Jobsite'},profile:{}});
  assert.ok(markup.includes('Employee Face ID'));
  assert.ok(markup.includes('id="quick-face-camera"'));
- assert.ok(markup.includes('capture="user"'));
+ assert.ok(markup.includes('capture="environment"'));
  assert.ok(markup.includes('id="quick-face-gallery"'));
  assert.ok(markup.includes('id="quick-face-preview"'));
  assert.ok(!markup.includes('id="quick-photo-camera"'));
@@ -58,7 +58,7 @@ test('new Quick Orientation saves required Face ID without Jobsite Photos',async
  const context=vm.createContext({
   state,db,document:doc,FormData:dom.window.FormData,URL:dom.window.URL,crypto:{randomUUID:()=>String(++serial)},
   frame:html=>doc.querySelector('main').innerHTML=html,captureView:()=>()=>true,tr,esc,fmt:()=> 'today',
-  quickSafetyOrientationForm,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,
+  quickSafetyOrientationForm,quickSafetyAccountName,attachQuickEmployeeSignatureName,attachQuickCustomTrade,attachQuickHazardSelection,QUICK_ORIENTATION_HAZARDS,QUICK_ORIENTATION_ACK,
   mountReportSignatures(){},reportApprovals:()=>({safety:{name:'Safety',strokes:[[1,2]]},employee:{name:'Worker',strokes:[[1,2]]}}),
   normalizeReportImage:async file=>file,clearDraft:async()=>{},savedAction(){},navigate:(...args)=>nav.push(args),error:e=>errors.push(e),console
  });
@@ -66,7 +66,7 @@ test('new Quick Orientation saves required Face ID without Jobsite Photos',async
  await context.quickSafetyOrientation();
  const form=doc.querySelector('#quick-orientation-form');
  assert.ok(form);
- for(const [key,value] of Object.entries({employee_name:'Worker',sticker_number:'AB-92',employee_trade:'Carpenter',employee_company:'G&E'}))form.elements[key].value=value;
+ for(const [key,value] of Object.entries({employee_name:'Worker',sticker_number:'AB-92',employee_trade:'Carpintero',employee_company:'G&E'}))form.elements[key].value=value;
  form.querySelector('[name="hazards"]').checked=true;
  form.querySelector('[name="acknowledged"]').checked=true;
  await form.onsubmit({preventDefault(){}});assert.equal(errors.length,1);assert.equal(writes.length,0);
@@ -76,7 +76,7 @@ test('new Quick Orientation saves required Face ID without Jobsite Photos',async
  faceInput.onchange({target:faceInput});
  assert.ok(doc.querySelector('.quick-face-photo img'));
  await form.onsubmit({preventDefault(){}});
- assert.equal(errors.length,1);
+ assert.equal(errors.length,1,errors.map(e=>e?.message||String(e)).join(' | '));
  assert.equal(uploads.length,1);
  const faceUpload=uploads.find(x=>x.path.includes('/face-'));
  assert.ok(faceUpload);
