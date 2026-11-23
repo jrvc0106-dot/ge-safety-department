@@ -1873,12 +1873,13 @@ async function equipmentInspection(){const formProjectId=state.project,formUserI
   if(isExcavation){
    if(d.get('competent_person')!=='on')throw Error('Excavation: designated competent person must conduct this inspection.');
    const depth=Number(d.get('exc_depth')),width=Number(d.get('exc_width'));
-   if(!Number.isFinite(depth)||depth<0||!Number.isFinite(width)||width<=0)throw Error('Enter valid excavation dimensions.');
+   if(!String(d.get('exc_depth')||'').trim()||!String(d.get('exc_width')||'').trim()||!Number.isFinite(depth)||depth<0||!Number.isFinite(width)||width<=0)throw Error('Enter valid excavation dimensions.');
    const soil=String(d.get('exc_soil')||''),protection=String(d.get('exc_protection')||'');
    const noEntry=protection==='Not installed / entry prohibited'||soil==='Pending competent-person evaluation';
    if(noEntry&&d.get('overall_status')==='approved')throw Error('DO NOT ENTER: soil classification/protective system not verified.');
+   if(depth>=5&&protection==='Under 5 ft, competent person confirms no cave-in potential'&&d.get('overall_status')==='approved')throw Error('Protective system required at 5 ft or deeper unless excavation is entirely in stable rock.');
    const excavationInfo='EXCAVATION DETAILS | Depth: '+depth+' ft | Width: '+width+' ft | Soil: '+soil+' | Protection: '+protection;
-   d.set('comments',[excavationInfo,String(d.get('comments')||'')].filter(Boolean).join('\\n'));
+   d.set('comments',[excavationInfo,String(d.get('comments')||'')].filter(Boolean).join('\n'));
   }
  
  const selectedDate=String(d.get('inspection_at')||''),inspectionUtc=equipmentInspectionUtc(selectedDate),selectedDay=selectedDate.slice(0,10);
