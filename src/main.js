@@ -903,8 +903,8 @@ async function runPdfAction(action,button){
     if(action==='share'){
       const file=new File([blob],filename,{type:'application/pdf'});
       if(!navigator.share||!navigator.canShare?.({files:[file]})){
-        downloadReportPdf(blob,filename);
-        confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));return;
+        // After an asynchronous render, defer fallback download to a fresh tap.
+        confirmAction(tr('PDF ready. Tap “Share PDF now” again to download it and attach the file.','PDF listo. Pulse “Compartir PDF ahora” nuevamente para descargarlo y adjuntarlo.'));return;
       }
       // Safari may expire activation during a long first render. Share immediately
       // when it is still valid; otherwise keep the prepared file for the next tap.
