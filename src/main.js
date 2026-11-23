@@ -880,6 +880,12 @@ async function runPdfAction(action,button){
         tr('PDF download started. Your browser controls its download folder.','Descarga iniciada. Su navegador controla la carpeta de descargas.'));
       return;
     }
+    // Browser user activation may expire during the first high-quality render.
+    // A second tap uses the cached validated PDF synchronously.
+    if(action==='download'){
+      confirmAction(tr('PDF ready. Tap “Download PDF” again to save the file.','PDF listo. Pulse “Descargar PDF” nuevamente para guardar el archivo.'));
+      return;
+    }
     if(readyFirstView){
       confirmAction(tr('PDF ready. Tap “View PDF now” to open it.','PDF listo. Pulse “Ver PDF ahora” para abrirlo.'));return;
     }
