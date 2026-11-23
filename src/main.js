@@ -836,7 +836,7 @@ async function runPdfAction(action,button){
       setTimeout(()=>URL.revokeObjectURL(url),600000);return;
     }
     // Download a ready JHA directly during the click, preserving Safari activation.
-    if(action==='download'&&(isJha||report?.dataset?.pdfViewMode==='ready-first')&&prepared){
+    if(action==='download'&&prepared){
       downloadReportPdf(prepared.blob,prepared.filename);
       confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+prepared.filename);return;
     }
