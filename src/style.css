@@ -2468,3 +2468,18 @@ header .brand small{font-size:9.9px!important;letter-spacing:.16em!important}
 .inventory-form > .jha-approval-fields .jha-approval{width:100%;min-width:0}
 .inventory-form > .jha-approval-fields canvas{width:100%;min-height:110px;max-height:190px;object-fit:contain}
 @media(max-width:760px){.inventory-form > .jha-approval-fields{grid-template-columns:1fr}}
+
+article.report.equipment-pdf[data-excavation-pdf] .eq-photo-page{
+ break-before:auto;
+ page-break-before:auto;
+}
+article.report.equipment-pdf[data-excavation-pdf] .eq-photo-page .eq-photos{
+ grid-template-rows:none;
+}
+.eq-excavation-findings{
+ margin:4px 0 8px;
+ padding-inline-start:18px;
+}
+#equipment-form .equipment-grid > label[hidden]{
+ display:none!important;
+}
