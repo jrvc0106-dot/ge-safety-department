@@ -81,3 +81,18 @@ test('Safety Notes is a single freeform notebook with optional photos and PDF',(
  assert.match(html,/Daily safety notebook entry/);
  assert.match(html,/Safety Notes Report By G&amp;E/);
 });
+
+test('Toolbox Talk PDF source preserves one or twenty signatures and uses the original header logo',()=>{
+ const strokes=[[[.1,.3],[.25,.6],[.62,.24]]];
+ for(const count of [1,20]){
+  const attendance=Array.from({length:count},(_,i)=>({name:'QA Worker '+(i+1),strokes}));
+  const html=toolReportHtml({kind:'toolbox',report_number:'TB-QA',created_at:'2026-11-26T15:00:00Z',
+   payload:{language:'es',topic:'Protección contra caídas',attendance_signatures:attendance}},
+   {name:'QA Jobsite'});
+  assert.equal([...html.matchAll(/data-signature-strokes=/g)].length,count);
+  assert.ok(html.includes('QA Worker '+count));
+  assert.match(html,/<header[^>]*><div class="ewr-brand"><img src="\/ge-logo\.png"/);
+  assert.match(html,/<dd>Spanish<\/dd>/);
+  assert.doesNotMatch(html,/<h2>Attendance<\/h2>/);
+ }
+});

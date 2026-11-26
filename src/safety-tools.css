@@ -75,3 +75,16 @@
 #st-toolbox-form .st-toolbox-topic-count{display:block;margin-top:8px;color:#455968}
 @media(max-width:850px){#st-toolbox-form .st-toolbox-topic-catalog{grid-template-columns:1fr}}
 @media(max-width:600px){#st-toolbox-form .st-toolbox-photo-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}#st-toolbox-form .st-toolbox-chip,#st-toolbox-form .st-toolbox-point{flex:1 1 100%}}
+
+#st-toolbox-form .report-attendance{
+ display:grid;
+ gap:12px;
+ padding:16px;
+ border:1px solid currentColor;
+ border-radius:8px;
+}
+#st-toolbox-form .report-attendance h3,
+#st-toolbox-form [data-attendance-status],
+.pdf-preparation-status{margin:0}
+#st-toolbox-form [data-add-participant]{justify-self:start}
+.pdf-preparation-status{flex-basis:100%;font-size:.875rem}

@@ -660,6 +660,27 @@ async function buildReportPdf(highQuality=false){
   const cached=preparedReportPdf(report,highQuality);if(cached)return cached;
   if(report.dataset?.jhaEvidenceMissing==='true')return loadJhaPdfWithMissingEvidence(report,highQuality);
   const meta=currentReportIdentity(report);
+  if(report.dataset?.toolKind==='toolbox'&&meta?.sourceId&&(!nativeReportArchiveAvailable()||report.dataset.toolboxEvidenceMissing==='true')){
+    const prior=await db.from('report_documents').select('pdf_path').eq('project_id',meta.projectId)
+      .eq('report_type',meta.reportType).eq('source_id',meta.sourceId)
+      .eq('document_status','final').order('version',{ascending:false}).limit(1).maybeSingle()
+      .then(result=>result.data,()=>null);
+    if(prior?.pdf_path){
+      const snapshot=report.innerHTML;
+      const file=await db.storage.from('final-reports').download(prior.pdf_path).catch(()=>null);
+      if(await isValidPdfBlob(file?.data)){
+        if(document.querySelector('article.report')!==report||report.innerHTML!==snapshot)
+          throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
+        const prepared={blob:file.data,filename:reportPdfFilename(report),report,snapshot,highQuality};
+        preparedReportPdfs.set(report,prepared);
+        return prepared;
+      }
+    }
+  }
+  if(report.dataset?.toolboxEvidenceMissing==='true')
+    throw new Error(tr('Some Toolbox Talk photos are unavailable and no complete archived PDF was found. Reopen the report to retry loading its photos.',
+      'Algunas fotos del Toolbox Talk no están disponibles y no se encontró un PDF completo archivado. Vuelva a abrir el reporte para intentar cargar las fotos.'));
+  if(document.querySelector('article.report')!==report)throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
   // Decode/verify existing evidence while PDF libraries load: these are
   // independent tasks. Keep the same image integrity guard and render only
   // once both finish. This never changes photo pixels, layout or resolution.
@@ -988,7 +1009,13 @@ function installReportDocumentActions(){
     isCurrent:()=>document.querySelector('article.report')===report,
     scheduleIdle:task=>{if(window.requestIdleCallback)window.requestIdleCallback(task,{timeout:1500});else setTimeout(task,250)},
     nextTurn:()=>new Promise(resolve=>setTimeout(resolve,0)),
-    progressText:(page,total)=>tr('Preparing PDF… ','Preparando PDF… ')+page+'/'+total
+    progressText:(page,total)=>tr('Preparing PDF… ','Preparando PDF… ')+page+'/'+total,
+    prepare:report.dataset?.toolKind==='toolbox'?()=>buildReportPdf(true):null,
+    statusText:{
+     preparing:tr('Preparing the final PDF…','Preparando el PDF final…'),
+     ready:tr('PDF ready','PDF listo'),
+     retry:tr('The PDF could not be prepared. Use a PDF button to retry.','No se pudo preparar el PDF. Use un botón del PDF para reintentar.')
+    }
   });}
 }
 const nativeAutoArchiveSeen=new WeakSet();
