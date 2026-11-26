@@ -1,10 +1,10 @@
 // GE ONE: cache only public application resources, never reports or user data.
-const CACHE='ge-safety-v6';
+const CACHE='ge-safety-v7';
 const SHELL=['/','/index.html','/manifest.webmanifest','/ge-logo.png'];
 const STATIC_ASSET=/^\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/;
 const PUBLIC_FILES=new Set(['/manifest.webmanifest','/ge-logo.png']);
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL.map(path=>new Request(path,{cache:'reload'})))).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('ge-safety-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
@@ -37,7 +37,18 @@ self.addEventListener('fetch',event=>{
   }
   if(request.mode==='navigate'){
     // Online-first HTML prevents stale references after deployments.
-    event.respondWith(fetch(request).catch(async()=>await caches.match('/index.html')||Response.error()));
+    event.respondWith((async()=>{
+      try{
+        const response=await fetch(request,{cache:'no-store'});
+        if(response.ok&&response.headers.get('content-type')?.includes('text/html')){
+          const copy=response.clone();
+          event.waitUntil(caches.open(CACHE).then(cache=>cache.put('/index.html',copy)).catch(()=>{}));
+        }
+        return response;
+      }catch{
+        return await caches.match('/index.html')||Response.error();
+      }
+    })());
   }
   // All other requests pass through without caching: PDFs, API, photos and private data.
 });

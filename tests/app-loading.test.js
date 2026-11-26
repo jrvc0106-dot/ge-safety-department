@@ -97,3 +97,18 @@ test('opening a saved Toolbox Talk leaves its report visible without entering ap
  await context.openReport();
  assert.deepEqual(opens,['saved-toolbox']);
 });
+
+test('reload restores a saved safety report only in the authorized active jobsite',async()=>{
+ const start=source.indexOf('function renderRecovery(');
+ const end=source.indexOf('\nconst projectObservationsCache',start);
+ for(const project of ['job-a','job-b']){
+  const state={page:'home',project,projects:[{id:project}]};
+  const context=vm.createContext({state,history:{state:{geSafety:true,page:'safetyToolReport',projectId:'job-a',detail:'saved-talk'}},
+   db:{auth:{getSession:async()=>({data:{session:{user:{id:'safety'}}}})}},
+   load:async()=>{},render(){},scheduleWeeklyTabletBackup(){}});
+  vm.runInContext(source.slice(start,end),context);
+  await context.refresh();
+  assert.equal(state.page,project==='job-a'?'safetyToolReport':'home');
+  assert.equal(state.detail,project==='job-a'?'saved-talk':undefined);
+ }
+});
