@@ -165,3 +165,19 @@ test('Toolbox cloud save uses protected draft metadata and never downloads or re
  const t=setup();let passed,filesRead=0;t.ctx.toolboxDraftEvidence=async()=>[{path:'protected-photo',name:'Photo',type:'image/jpeg',size:2000000}];t.ctx.saveToolboxCloud=async(record,photos)=>{passed={record,photos};return {id:record.id}};t.ctx.draftFilesFor=async()=>{filesRead++;throw Error('Unexpected photo download')};t.tools=createSafetyTools(t.ctx);
  await t.tools.form('toolbox');await document.querySelector('form').onsubmit({preventDefault(){}});assert.deepEqual(t.errors,[]);assert.equal(filesRead,0);assert.equal(t.uploads.length,0);assert.equal(passed.photos.length,1);assert.equal(passed.record.kind,'toolbox');assert.equal(t.nav.length,1);t.dom.window.close();
 });
+
+test('a confirmed Toolbox Talk opens while draft cleanup is pending and needs no report reread',async()=>{
+ const t=setup();let finishCleanup;
+ t.ctx.clearDraft=()=>new Promise(resolve=>{finishCleanup=resolve});
+ t.ctx.toolboxDraftEvidence=async()=>[];
+ t.ctx.saveToolboxCloud=async record=>({id:record.id,record:{...record,created_at:'2026-11-26T15:00:00Z'}});
+ const tools=createSafetyTools(t.ctx);
+ await tools.form('toolbox');
+ await document.querySelector('form').onsubmit({preventDefault(){}});
+ assert.equal(t.nav.length,1);
+ t.ctx.db.from=()=>{throw Error('Unexpected report reread')};
+ try{
+  await tools.report(t.nav[0][1]);
+  assert.equal(document.querySelector('article.report').dataset.toolboxJustSaved,'true');
+ }finally{finishCleanup();t.dom.window.close()}
+});

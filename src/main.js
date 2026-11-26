@@ -325,7 +325,7 @@ async function saveToolboxCloud(record,draftPhotos){
  const session=await db.auth.getSession();if(session.error)throw session.error;
  const token=session.data.session?.access_token;if(!token)throw Error(tr('Sign in again before saving.','Inicie sesión nuevamente antes de guardar.'));
  const response=await fetch('/api/toolbox-save',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({record,draftPhotos})});
- const result=await response.json();if(!response.ok)throw Object.assign(new Error(result.error||tr('Saving could not be confirmed.','No se pudo confirmar el guardado.')),{status:response.status});
+ const result=await response.json().catch(()=>null);if(!response.ok||!result)throw Object.assign(new Error(result?.error||tr('Saving could not be confirmed.','No se pudo confirmar el guardado.')),{status:response.status});
  if(result.id!==record.id)throw Error(tr('Saving could not be confirmed.','No se pudo confirmar el guardado.'));return result;
 }
 
@@ -660,14 +660,14 @@ async function buildReportPdf(highQuality=false){
   const cached=preparedReportPdf(report,highQuality);if(cached)return cached;
   if(report.dataset?.jhaEvidenceMissing==='true')return loadJhaPdfWithMissingEvidence(report,highQuality);
   const meta=currentReportIdentity(report);
-  if(report.dataset?.toolKind==='toolbox'&&meta?.sourceId&&(!nativeReportArchiveAvailable()||report.dataset.toolboxEvidenceMissing==='true')){
+  if(report.dataset?.toolKind==='toolbox'&&meta?.sourceId&&(report.dataset.toolboxEvidenceMissing==='true'||(report.dataset.toolboxJustSaved!=='true'&&!nativeReportArchiveAvailable()))){
     const prior=await db.from('report_documents').select('pdf_path').eq('project_id',meta.projectId)
       .eq('report_type',meta.reportType).eq('source_id',meta.sourceId)
-      .eq('document_status','final').order('version',{ascending:false}).limit(1).maybeSingle()
-      .then(result=>result.data,()=>null);
+      .eq('document_status','final').order('version',{ascending:false}).limit(1)
+      .abortSignal(AbortSignal.timeout(2500)).maybeSingle().then(result=>result.data,()=>null);
     if(prior?.pdf_path){
       const snapshot=report.innerHTML;
-      const file=await db.storage.from('final-reports').download(prior.pdf_path).catch(()=>null);
+      const file=await db.storage.from('final-reports').download(prior.pdf_path,{}, {signal:AbortSignal.timeout(5000)}).catch(()=>null);
       if(await isValidPdfBlob(file?.data)){
         if(document.querySelector('article.report')!==report||report.innerHTML!==snapshot)
           throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
@@ -688,6 +688,7 @@ async function buildReportPdf(highQuality=false){
   if(document.querySelector('article.report')!==report)throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
   const snapshot=report.innerHTML;
   const options={
+    renderDpi:report.dataset?.toolKind==='toolbox'?160:undefined,
     margin:[0.25,0.25,0.3,0.25],filename:reportPdfFilename(report),
     image:{type:'jpeg',quality:0.995},
     html2canvas:{scale:3,useCORS:true,allowTaint:false,backgroundColor:'#ffffff',logging:false,imageTimeout:30000},
@@ -733,6 +734,7 @@ async function buildReportPdf(highQuality=false){
   if(document.querySelector('article.report')!==report||report.innerHTML!==snapshot)throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
   const prepared={blob,filename:options.filename,report,snapshot,highQuality};
   preparedReportPdfs.set(report,prepared);
+  const archive=async()=>{
   if(nativeReportArchiveAvailable()){
     // Installed iPad app: ONE original PDF in Files; only a local shortcut
     // is kept. Do not upload a second PDF to the cloud.
@@ -777,6 +779,9 @@ async function buildReportPdf(highQuality=false){
       if(document.querySelector('article.report')===report)confirmAction(tr('PDF ready, but its cloud copy could not be saved. You can download or share it; reopen the report to retry saving the cloud copy.','PDF listo, pero no se pudo guardar su copia en la nube. Puede descargarlo o compartirlo; vuelva a abrir el reporte para reintentar guardar la copia en la nube.'),'error');
     });
   }
+  };
+  if(report.dataset?.toolKind==='toolbox')void archive().catch(err=>console.warn('Toolbox Talk PDF backup failed',err));
+  else await archive();
   // Confidential medical reports never enter the general 'final-reports' bucket.
   // A private object is queued for Dropbox only after OAuth authorization.
   if(report.dataset?.toolKind==='medical_followup'&&report.dataset.medicalFollowupId&&state.profile?.id){
@@ -1007,7 +1012,7 @@ function installReportDocumentActions(){
     run:runPdfAction,
     warm:()=>ensurePdfExporter(),
     isCurrent:()=>document.querySelector('article.report')===report,
-    scheduleIdle:task=>{if(window.requestIdleCallback)window.requestIdleCallback(task,{timeout:1500});else setTimeout(task,250)},
+    scheduleIdle:task=>{if(report.dataset?.toolKind==='toolbox')setTimeout(task,0);else if(window.requestIdleCallback)window.requestIdleCallback(task,{timeout:1500});else setTimeout(task,250)},
     nextTurn:()=>new Promise(resolve=>setTimeout(resolve,0)),
     progressText:(page,total)=>tr('Preparing PDF… ','Preparando PDF… ')+page+'/'+total,
     prepare:report.dataset?.toolKind==='toolbox'?()=>buildReportPdf(true):null,
@@ -1213,7 +1218,15 @@ function renderPageWithLoading(load,label){
  });
 }
 function renderPage(){if(!db)return frame(`<section class="card"><h1>${tr('Setup required','Configuración necesaria')}</h1><p>${tr('Create a Supabase project and copy .env.example to .env with its URL and publishable key.','Cree un proyecto de Supabase y copie .env.example a .env con la URL y clave pública.')}</p></section>`);if(!state.session){if(!sessionStorage.getItem('ge_splash_seen'))return splash();return login();}if(state.page==='setPassword')return setPassword();if(state.page==='profile')return profilePage();if(!state.profile)return frame(`<section class="card"><h1>${tr('Access pending','Acceso pendiente')}</h1><p>${tr('An administrator must approve your account and assign a jobsite and role.','Un administrador debe aprobar su cuenta y asignarle un jobsite y un rol.')}</p></section>`);startAppPresence();if(!state.projects.length&&state.profile.role==='safety_director'&&state.page==='home')state.page='projectAccess';if(!state.projects.length&&!['admin','safety_director'].includes(state.profile.role))return frame(`<section class="card"><h1>${tr('Waiting for project access','Esperando acceso al proyecto')}</h1><p>${tr('Your account can access the app after an administrator approves your role and jobsite.','Podrás acceder al app cuando un administrador apruebe tu rol y jobsite.')}</p></section>`);if(['safetyTool','safetyToolForm','safetyToolReport'].includes(state.page)&&isAdminOnlyTool(state.detail)&&!canAccessAdminOnlyPage(state.profile.role,'admin'))return restrictedAdminAccess();if(state.page==='safetyTool')return safetyTools.list(state.detail);if(state.page==='safetyToolForm')return safetyTools.form(state.detail);if(state.page==='safetyToolReport')return renderPageWithLoading(async()=>{
-  await safetyTools.report(state.detail);
+  const current=captureView();
+  const id=state.detail;
+  void ensurePdfExporter().catch(()=>{});
+  try{await safetyTools.report(id)}catch(cause){
+   if(!current())return;
+   frame(`<section class="card"><h1>${tr('Could not open saved report','No se pudo abrir el reporte guardado')}</h1><p>${esc(cause?.message||tr('Check your connection and retry.','Revise su conexión y vuelva a intentar.'))}</p><button id="retry-safety-report" type="button">${tr('Retry report','Reintentar reporte')}</button></section>`);
+   document.querySelector('#retry-safety-report').onclick=()=>{if(current())render()};
+   return;
+  }
   // Medical follow-ups live in a confidential table and previously produced PDF
   // only when a user tapped Export. Generate once when the report opens if the
   // Admin has approved Dropbox automatic delivery.

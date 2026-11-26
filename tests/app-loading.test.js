@@ -85,3 +85,15 @@ test('a delayed error cannot replace the next module after navigation',async()=>
  current=false;fail(Error('Old project connection lost'));await pending;
  assert.deepEqual(recovery,[]);
 });
+
+test('opening a saved Toolbox Talk leaves its report visible without entering app recovery',async()=>{
+ const start=source.indexOf("if(state.page==='safetyToolReport')return renderPageWithLoading(async()=>{");
+ const end=source.indexOf(";if(state.page==='notifications')",start);
+ const opens=[],state={page:'safetyToolReport',detail:'saved-toolbox'};
+ const context=vm.createContext({state,captureView:()=>()=>true,ensurePdfExporter:async()=>{},
+  safetyTools:{report:async id=>opens.push(id)},document:{querySelector:()=>null},
+  renderPageWithLoading:async load=>load(),tr:x=>x});
+ vm.runInContext('async function openReport(){'+source.slice(start,end)+'}',context);
+ await context.openReport();
+ assert.deepEqual(opens,['saved-toolbox']);
+});

@@ -20,12 +20,17 @@ export function attachJhaPdfActions(actions,report,{run,warm,isCurrent,scheduleI
   status.textContent=statusText.preparing;
   scheduleIdle(async()=>{
    if(!isCurrent())return;
+   report.jhaPdfProgress=async(page,total)=>{
+    if(isCurrent())status.textContent=progressText(page,total);
+    await nextTurn();
+   };
    try{
     await prepare();
     if(isCurrent())status.textContent=statusText.ready;
    }catch{
     if(isCurrent())status.textContent=statusText.retry;
    }finally{
+    delete report.jhaPdfProgress;
     buttons.forEach(({button},index)=>{button.disabled=initial[index]});
    }
   });

@@ -158,7 +158,7 @@ export async function renderPaginatedPdf(container,pageSize,options,render=html2
     const height=Math.min(pageHeight,totalHeight-top);
     let canvas;
     try{
-      canvas=await render(container,{...options.html2canvas,scale:pdfRenderScale,
+      canvas=await render(container,{...options.html2canvas,scale:options.renderDpi===160?160/96:pdfRenderScale,
         x:0,y:top,width,height,scrollX:0,scrollY:0});
       if(!canvas.width||!canvas.height)throw new Error('Unable to render PDF page '+(index+1));
       // Only JHA opts into removing an empty FIRST slice; all other
