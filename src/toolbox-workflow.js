@@ -78,7 +78,7 @@ export function toolboxWeatherText(weather,language='en'){
  if(weather.location_label)parts.push(weather.location_label);
  return parts.join(' · ');
 }
-export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWeather=async()=>null,getPhotos=async()=>[],managedPhotos=()=>false,onError=()=>{}}={}){
+export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWeather=async()=>null,getPhotos=async()=>[],managedPhotos=()=>false,defaultInstructor=null,loadPrevious=null,onError=()=>{}}={}){
  if(!form)return null;
  const doc=form.ownerDocument,win=doc.defaultView;
  const select=(name)=>form.elements.namedItem(name);
@@ -88,11 +88,9 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  const moveHidden=old=>{const label=old.closest('label');old.type='hidden';form.append(old);label?.remove()};
  moveHidden(originalTopic);moveHidden(originalInstructor);
  const languageSelect=make('select');languageSelect.name='language';
- for(const [value,label] of [['en','English']]){const option=make('option','',label);option.value=value;languageSelect.append(option)}
- languageSelect.value='en';
- languageSelect.disabled=true;
- const hiddenLanguage=make('input');hiddenLanguage.type='hidden';hiddenLanguage.name='language';hiddenLanguage.value='en';
- languageSelect.name='toolbox_display_language';languageSelect.after(hiddenLanguage);
+ for(const [value,label] of [['en','English'],['es','Spanish']]){
+  const option=make('option','',label);option.value=value;languageSelect.append(option);
+ }
  originalLanguage.replaceWith(languageSelect);
  const topicsBox=make('section','st-toolbox-topics'),heading=make('h3','',tr('Safety topics (choose several)','Temas de seguridad (seleccione varios)'));
  // Keep the full checklist hidden behind a single select-like control until requested.
@@ -117,6 +115,36 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  const otherLabel=make('label','st-toolbox-other',tr('Add a custom topic','Agregar tema propio'));otherLabel.append(topicOther);
  const topicDone=make('button','secondary st-toolbox-topic-done',tr('Done','Listo'));topicDone.type='button';
  const topicCounter=make('small','st-toolbox-topic-count');topicDropdown.append(otherLabel,topicDone);topicsBox.append(topicCounter);
+ if(loadPrevious){
+  const reuse=make('button','secondary',tr('Use previous talk topics','Usar temas de la charla anterior'));
+  reuse.type='button';
+  const status=make('small');status.setAttribute('role','status');
+  topicsBox.append(reuse,status);
+  reuse.onclick=async()=>{
+   const currentOutline=discussed.value,currentTopics=selectedLabels().join(' / ');
+   reuse.disabled=true;
+   try{
+    const previous=await loadPrevious();
+    if(!form.isConnected)return;
+    if(!previous?.topic&&!previous?.topics){status.textContent=tr('No previous talk topics found.','No se encontraron temas anteriores.');return}
+    if(discussed.value!==currentOutline||selectedLabels().join(' / ')!==currentTopics){
+     status.textContent=tr('Topics changed while loading. Select the previous talk again to replace them.','Los temas cambiaron durante la carga. Seleccione nuevamente la charla anterior para reemplazarlos.');return
+    }
+    languageSelect.value=previous.language==='es'?'es':'en';
+    const ids=new Set(Array.isArray(previous.topic_ids)?previous.topic_ids:[]);
+    for(const check of form.querySelectorAll('[data-toolbox-topic]'))check.checked=ids.has(check.dataset.toolboxTopic);
+    for(const check of form.querySelectorAll('[data-discussion-topic]'))check.checked=false;
+    const known=new Set(toolboxTopicLabels([...ids],languageSelect.value,''));
+    topicOther.value=String(previous.topic||'').split(' / ').filter(label=>!known.has(label)).join(' / ').slice(0,250);
+    discussed.value=String(previous.topics||'').slice(0,12000);
+    manualTopics=true;
+    languageSelect.dispatchEvent(new win.Event('change',{bubbles:true}));
+    discussed.dispatchEvent(new win.Event('input',{bubbles:true}));
+    status.textContent=tr('Previous topics copied. Review them for today’s work.','Temas anteriores copiados. Revíselos para el trabajo de hoy.');
+   }catch(err){if(form.isConnected)onError(err)}
+   finally{reuse.disabled=false}
+  };
+ }
  const detailsLabel=languageSelect.closest('label');detailsLabel?.parentElement?.insertBefore(topicsBox,detailsLabel);
 
  const instructorLabel=make('label','st-toolbox-instructor',tr('Instructor — registered Safety staff','Instructor — personal de Safety registrado'));
@@ -199,7 +227,7 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
    const box=form.querySelector('[data-topic-group="'+row[0]+'"]');if(box){box.querySelector('legend').textContent=row[language()==='es'?2:1];for(const el of box.querySelectorAll('[data-discussion-topic]')){const idx=Number(el.dataset.discussionIndex);el.nextSibling.textContent=row[language()==='es'?4:3][idx]}}
   }
   for(const [i,group] of TOOLBOX_TOPIC_GROUPS.entries())catalog.children[i].querySelector('legend').textContent=group[language()==='es'?'es':'en'];
-  if(lastWeather)select('weather').value=toolboxWeatherText(lastWeather,language());
+  if(lastWeather&&[toolboxWeatherText(lastWeather,'en'),toolboxWeatherText(lastWeather,'es')].includes(select('weather').value))select('weather').value=toolboxWeatherText(lastWeather,language());
   syncTopics();
  });
 
@@ -208,9 +236,11 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
  weatherLabel?.append(weatherButton,weatherStatus);
  const requestWeather=async()=>{
   if(!weatherField)return;
+  const initialValue=weatherField.value;
   const version=++weatherVersion;weatherButton.disabled=true;weatherStatus.textContent=tr('Checking location and weather…','Consultando ubicación y clima…');
   try{const result=await getWeather();if(version!==weatherVersion||!form.isConnected)return;
    if(!result){weatherStatus.textContent=tr('Location or weather unavailable. Enter manually or retry.','Ubicación o clima no disponible. Escriba manualmente o reintente.');return}
+   if(weatherField.value!==initialValue){weatherStatus.textContent='';return}
    lastWeather=result;weatherField.value=toolboxWeatherText(result,language());weatherField.dispatchEvent(new win.Event('input',{bubbles:true}));
    weatherStatus.textContent=result.location_source==='project'?tr('Jobsite address fallback (device location unavailable).','Ubicación estimada del jobsite (dispositivo no disponible).'):tr('Weather from device location.','Clima según ubicación del dispositivo.');
   }catch{if(version===weatherVersion&&form.isConnected)weatherStatus.textContent=tr('Could not load weather. You can enter it manually.','No se pudo cargar el clima. Puede escribirlo manualmente.')}
@@ -249,11 +279,19 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
   if(!selectedIds().length&&originalTopic.value&&!topicOther.value)topicOther.value=originalTopic.value.slice(0,250);
   if(discussed.value.trim())manualTopics=true;
   syncTopics();
+  if(defaultInstructor?.id&&defaultInstructor?.name){
+   const option=make('option','',defaultInstructor.name);option.value=defaultInstructor.id;
+   instructorChoice.append(option);
+   if(!originalInstructor.value&&!instructorCustom.value)instructorChoice.value=option.value;
+   if(instructorChoice.value)syncInstructor();
+  }
+  void refreshPhotos();
+  if(!weatherField.value)void requestWeather();
   const roster=await Promise.resolve().then(loadInstructors).catch(()=>[]);
   if(!form.isConnected)return;
   const existing=instructorChoice.value,previousInstructor=originalInstructor.value;
   const unique=new Map();
-  for(const person of roster||[])if(person?.id&&person?.name)unique.set(person.id,person);
+  for(const person of roster||[])if(person?.id&&person?.name&&person.id!==defaultInstructor?.id)unique.set(person.id,person);
   for(const person of unique.values()){const option=make('option','',person.name+(person.position?' — '+person.position:''));option.value=person.id;instructorChoice.append(option)}
   if(existing)instructorChoice.value=existing;
   if(!instructorChoice.value&&previousInstructor&&!instructorCustom.value){
@@ -262,10 +300,7 @@ export function mountToolboxWorkflow(form,{tr,loadInstructors=async()=>[],getWea
    else instructorCustom.value=previousInstructor.slice(0,160);
   }
   syncInstructor();
-  void refreshPhotos();
-  // Try automatic location upon opening the form; the browser can request permission.
-  // A separate button lets the user retry without changing any typed weather.
-  if(!weatherField.value)void requestWeather();
+
  };
  return {start,collect,refreshPhotos,requestWeather};
 }

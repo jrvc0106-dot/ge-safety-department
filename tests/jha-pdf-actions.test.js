@@ -48,3 +48,26 @@ test('JHA progress yields after each released canvas while preserving 200 DPI an
  const render=async(_,opts)=>{assert.equal(opts.scale,200/96);const canvas={width:1600,height:Math.ceil(opts.height*opts.scale),toDataURL:()=> 'data:image/jpeg;base64/test'};canvases.push(canvas);return canvas};
  await renderPaginatedPdf({scrollHeight:2106},{inner:{width:8,px:{height:1003}}},options,render,Pdf);assert.equal(pages,3);assert.deepEqual(progress,[[1,3],[2,3],[3,3]]);assert.deepEqual(images.map(image=>image[5]),[1003/96,1003/96,100/96]);
 });
+
+test('Toolbox Talk prepares before enabling the three PDF actions on a fresh click',async()=>{
+ const {JSDOM}=await import('jsdom');
+ const dom=new JSDOM('<main><div><button class="pdf-view"></button><button class="pdf-download"></button><button class="pdf-share"></button></div><article></article></main>');
+ try{
+  const {document}=dom.window,actions=document.querySelector('div'),report=document.querySelector('article');
+  const buttons=[...actions.querySelectorAll('button')],calls=[];
+  const gate=deferred(),blob=new Blob(['finished PDF']);let idle,prepared;
+  attachJhaPdfActions(actions,report,{
+   run:action=>{calls.push({action,prepared})},warm:async()=>{},isCurrent:()=>true,
+   scheduleIdle:task=>{idle=task},nextTurn:async()=>{},
+   prepare:async()=>{await gate.promise;prepared=blob},
+   statusText:{preparing:'Preparing',ready:'Ready',retry:'Retry'}
+  });
+  const pending=idle();
+  assert.ok(buttons.every(button=>button.disabled));
+  gate.resolve();await pending;
+  assert.equal(document.querySelector('[role="status"]').textContent,'Ready');
+  for(const button of buttons)await button.onclick({currentTarget:button});
+  assert.deepEqual(calls.map(call=>call.action),['view','download','share']);
+  assert.ok(calls.every(call=>call.prepared===blob));
+ }finally{dom.window.close()}
+});

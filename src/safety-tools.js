@@ -30,7 +30,8 @@ export function toolsHomeMarkup(role,tr,displayName=''){
 export function createSafetyTools(ctx){
  const {db,state,tr,frame,navigate,captureView,error,confirmAction,onAdminRestricted,enableAutoDraft,draftFilesFor,safetyNotesDraftPhotos,clearDraft,normalizeReportImage,signedDisplayImage,toolboxDraftEvidence,toolboxDraftPhotos,saveToolboxCloud,toolboxWeather}=ctx;
  const table='safety_tool_records',bucket='safety-tool-evidence';
- let cameraCleanup=()=>{};
+ let cameraCleanup=()=>{},justSavedToolbox=null;
+ const toolboxDraftCleanup=new Map();
  function stop(){cameraCleanup();cameraCleanup=()=>{}}
  function assertKind(kind){if(!canReadTool(kind,state.profile?.role))throw Error(tr('Access not available for this role.','Acceso no disponible para este rol.'));return TOOL_DEFINITIONS[kind]}
  const field=([name,en,es,type='text'])=>{let control;if(type==='textarea')control=`<textarea name="${name}" maxlength="12000" rows="3"></textarea>`;else if(type==='medical_restrictions')control=`<textarea name="${name}" maxlength="1000" rows="3" placeholder="${tr('Functional work limits only','Solo límites funcionales del trabajo')}"></textarea>`;else if(type==='medical_condition')control=`<textarea name="${name}" maxlength="1000" rows="3" required placeholder="${tr('Employee-reported status relevant to work','Estado reportado por el empleado relevante para el trabajo')}"></textarea>`;else if(type==='medical_medications')control=`<textarea name="${name}" maxlength="500" rows="2" placeholder="${tr('Optional · names only, if voluntarily shared','Opcional · solo nombres, si los comparte voluntariamente')}"></textarea>`;else if(type==='medical_employee')control=`<input name="${name}" type="text" maxlength="150" required autocomplete="off">`;else if(type==='medical_date')control=`<input name="${name}" type="date" required>`;else if(type==='medical_optional_date')control=`<input name="${name}" type="date">`;else if(type==='checkbox')control=`<input name="${name}" type="checkbox" value="true">`;else if(type==='medical_event'||type==='medical_case_status'||type==='medical_work_status'){const options=type==='medical_event'?MEDICAL_FOLLOWUP_EVENTS:type==='medical_case_status'?MEDICAL_CASE_STATUSES:MEDICAL_WORK_STATUSES;control=`<select name="${name}" required>${options.map(([value,labelEn,labelEs])=>`<option value="${value}">${tr(labelEn,labelEs)}</option>`).join('')}</select>`}else if(type==='priority')control=`<select name="${name}"><option value="low">${tr('Low','Baja')}</option><option value="medium">${tr('Medium','Media')}</option><option value="high">${tr('High','Alta')}</option></select>`;else if(type==='training_type')control=`<select name="${name}" required><option value="">${tr('Select a training type','Seleccione el tipo de capacitación')}</option>${TRAINING_TYPE_GROUPS.map(group=>`<optgroup label="${tr(group.en,group.es)}">${group.options.map(([value,labelEn,labelEs])=>`<option value="${esc(value)}">${tr(labelEn,labelEs)}</option>`).join('')}</optgroup>`).join('')}</select>`;else if(type==='training_method')control=`<select name="${name}"><option value="">${tr('Select method','Seleccione el método')}</option><option value="classroom">${tr('Classroom','Aula')}</option><option value="demonstration">${tr('Demonstration','Demostración')}</option><option value="on_the_job">${tr('On-the-job','En el trabajo')}</option><option value="online">${tr('Online','En línea')}</option><option value="other">${tr('Other','Otro')}</option></select>`;else if(type==='training_result')control=`<select name="${name}"><option value="">${tr('Select outcome','Seleccione el resultado')}</option><option value="completed">${tr('Completed','Completado')}</option><option value="needs_retraining">${tr('Retraining required','Requiere reentrenamiento')}</option><option value="not_assessed">${tr('Not assessed','No evaluado')}</option></select>`;else control=`<input name="${name}" type="${type}" ${type==='number'?'min="0" max="1440"':''} ${['number','date'].includes(type)?'':'maxlength="500"'}>`;return `<label${type==='checkbox'?' class="st-check-field"':''}>${tr(en,es)}${control}</label>`};
@@ -55,6 +56,10 @@ export function createSafetyTools(ctx){
  async function form(kind){
   stop();const d=assertKind(kind);if(!canCreateTool(kind,state.profile.role))throw Error(tr('Your role cannot create this report.','Su rol no puede crear este reporte.'));
   const current=captureView(),projectId=state.project,userId=state.profile.id,preparedBy=state.profile.name||'';
+  const draftScope=JSON.stringify([userId,projectId]);
+  if(kind==='toolbox'&&toolboxDraftCleanup.has(draftScope)){
+   await toolboxDraftCleanup.get(draftScope);if(!current())return;
+  }
   const id=crypto.randomUUID();let toolboxPhotos=new WeakMap();let stored=false,lookup=null,lookupType='employee',lookupPhotos=[],lookupVersion=0,summary=null;
   if(kind==='director'){
     // Query permitted projects in batches, rather than issuing a separate
@@ -84,14 +89,25 @@ export function createSafetyTools(ctx){
   const renderedFields=kind==='safety_notes'?'<div class="st-notepad"><textarea name="description" class="st-notepad-text" aria-label="'+tr('My notes','Mis notas')+'" placeholder="'+tr('Write your safety notes here…','Escriba aquí sus notas de seguridad…')+'"></textarea></div>':d.fields.map(kind==='confined_space'?quickField:field).join('');
   frame(`<section class="card st-shell"><h1>${kind==='safety_notes'?esc(tr('Notes Safety','Notas Safety')+' '+String(state.profile?.name||'').trim().split(/\s+/)[0]):tr(d.en,d.es)}</h1><p>${esc(state.projects.find(p=>p.id===projectId)?.name||'')}</p>${kind==='safety_notes'?`<button type="button" id="st-my-notes" class="secondary">${tr('My saved notes','Mis notas guardadas')} ›</button><p class="st-hint">${tr('Write freely. Notes and optional photos are saved automatically as a draft while you work. Return to New note to continue your draft.','Escriba libremente. Las notas y fotos opcionales se guardan automáticamente como borrador mientras trabaja. Regrese a Nueva nota para continuar su borrador.')}</p>`:''}${kind==='medical_followup'?`<p class="st-medical-private">${tr('Confidential · Access is limited to administrators, Safety Directors, and Safety Coordinators assigned to this jobsite. Record employee-reported summaries; use the private photo field below for a document that must be retained with this report.','Confidencial · Acceso limitado a administradores, directores de Safety y coordinadores de Safety asignados a este jobsite. Anote resúmenes reportados por el empleado; use el campo privado de fotos para documentos que deban conservarse con este reporte.')}</p>`:''}<form id="st-${kind}-form" ${kind==='medical_followup'?'':'data-auto-draft="initializing"'}>${kind==='medical_followup'||kind==='safety_notes'?'':'<input type="hidden" name="signatures"><input type="hidden" name="lookup"><input type="hidden" name="lookup_type"><input type="hidden" name="lookup_evidence">'}${kind==='medical_followup'||kind==='safety_notes'?'':`<label>${tr('Weather (optional)','Clima (opcional)')}<input name="weather" maxlength="150"></label>`}${renderedFields}${d.checklist?`<fieldset class="${kind==='confined_space'?'st-cs-compact-checklist':''}"><legend>${tr('Inspection checklist','Checklist de inspección')}</legend>${d.checklist.map(([en,es],i)=>kind==='confined_space'?`<div class="st-cs-check-row"><strong>${tr(en,es)}</strong><div class="st-cs-choices">${[['reviewed','Yes','Sí'],['follow_up','No','No'],['na','N/A','N/A']].map(([v,enLabel,esLabel])=>`<label><input type="radio" name="check_${i}" value="${v}">${tr(enLabel,esLabel)}</label>`).join('')}</div></div>`:`<label>${tr(en,es)}<select name="check_${i}"><option value="">${tr('Not recorded','Sin registrar')}</option><option value="reviewed">${tr('Reviewed','Revisado')}</option><option value="follow_up">${tr('Follow-up required','Requiere seguimiento')}</option><option value="na">N/A</option></select></label>`).join('')}</fieldset>`:''}${kind==='director'?`<div class="st-summary">${summary.map(x=>`<div><strong>${esc(x.project)}</strong><span>${tr('Open','Abiertas')}: ${x.open} · ${tr('Review','Revisión')}: ${x.review} · ${tr('Closed','Cerradas')}: ${x.closed} · ${tr('High','Alta')}: ${x.high}</span></div>`).join('')}</div>`:''}${kind==='qr'?`<fieldset><legend>${tr('Employee or equipment lookup','Consulta de empleado o equipo')}</legend><select id="st-lookup-type"><option value="employee">${tr('Employee sticker','Sticker del empleado')}</option><option value="equipment">${tr('Equipment asset number','Número del equipo')}</option></select><input id="st-code" maxlength="500" placeholder="${tr('Sticker or asset number','Sticker o número de equipo')}"><div class="st-controls"><button type="button" id="st-find">${tr('Look up','Consultar')}</button><button type="button" id="st-camera">${tr('Scan with camera','Escanear con cámara')}</button><button type="button" id="st-stop" hidden>${tr('Stop camera','Detener cámara')}</button></div><label>${tr('QR image from gallery','Imagen QR de la galería')}<input id="st-qr-file" type="file" accept="image/*"></label><video id="st-video" playsinline muted hidden></video><p id="st-qr-status" role="status"></p><div id="st-lookup-result"></div></fieldset>`:''}${kind==='medical_followup'?`<fieldset class="st-medical-documents"><legend>${tr('Medical documents (photos)','Documentos médicos (fotos)')}</legend><p>${tr('Take a clear photo of each document or choose an image from your device. Photos are private and will appear in this report and PDF.','Tome una foto clara de cada documento o elija una imagen de su dispositivo. Las fotos son privadas y aparecerán en este reporte y su PDF.')}</p><label>${tr('Take photo / add document','Tomar foto / agregar documento')}<input id="st-medical-documents" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple></label><small>${tr('Up to 12 photos, 10 MB each. Include the full page and make sure the text is readable.','Hasta 12 fotos, 10 MB cada una. Incluya la página completa y asegúrese de que el texto se lea.')}</small><div id="st-medical-document-list" aria-live="polite"></div></fieldset>`:`<label>${tr('Photos / supporting documents (images)','Fotos / documentos de respaldo (imágenes)')}<input name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple></label><p>${tr('Up to 12 images per report, 10 MB per image.','Hasta 12 imágenes por reporte, 10 MB por imagen.')}</p>`}<button type="submit">${kind==='safety_notes'?tr('Save note','Guardar nota'):tr('Save and open report','Guardar y abrir reporte')}</button>${kind==='medical_followup'?`<p class="st-hint">${tr('For an urgent situation, call 911 and follow the jobsite emergency plan. This tracker does not replace medical care or provider instructions.','Si hay una emergencia, llame al 911 y siga el plan de emergencia del jobsite. Este registro no sustituye la atención médica ni las indicaciones del profesional.')}</p>`:`<p class="st-hint">${tr('Reports may be saved with incomplete fields. A blank field is not an approval.','Se permite guardar campos incompletos. Un campo vacío no constituye una aprobación.')}</p>`}</form></section>`);
   if(kind==='safety_notes'){const savedNotes=document.querySelector('#st-my-notes');if(savedNotes)savedNotes.onclick=()=>navigate('safetyTool','safety_notes');}
-  const f=document.getElementById(`st-${kind}-form`);if(kind==='confined_space')f.confinedSpaceReview=mountConfinedSpaceAssistant(f,d,tr);if(kind!=='medical_followup'&&kind!=='safety_notes')mountReportSignatures(f,kind,tr);if(kind==='toolbox'||kind==='training')mountAttendance(f,tr);
+  const f=document.getElementById(`st-${kind}-form`);if(kind==='confined_space')f.confinedSpaceReview=mountConfinedSpaceAssistant(f,d,tr);if(kind!=='medical_followup'&&kind!=='safety_notes')mountReportSignatures(f,kind,tr);if(kind==='toolbox'||kind==='training')mountAttendance(f,tr,{quick:kind==='toolbox'});
    const toolboxUI=kind==='toolbox'?mountToolboxWorkflow(f,{tr,
+    defaultInstructor:['admin','safety','safety_director'].includes(state.profile.role)?state.profile:null,
+    loadPrevious:async()=>{
+     const previous=await db.from(table).select('payload').eq('project_id',projectId).eq('created_by',userId).eq('kind','toolbox').order('created_at',{ascending:false}).limit(1).maybeSingle();
+     if(previous.error)throw previous.error;
+     return previous.data?.payload;
+    },
     loadInstructors:async()=>{const q=await db.from('profiles').select('id,name,position,role').in('role',['safety','safety_director']).order('name');return q.error?[]:q.data||[]},
     getWeather:()=>toolboxWeather?.()||Promise.resolve(null),
     getPhotos:(form,removeIndex)=>toolboxDraftPhotos?toolboxDraftPhotos(form,removeIndex):draftFilesFor(form,'safety_tool_toolbox','default','photos'),
-    managedPhotos:()=>Boolean(jhaPhotoController(f)),onError:error}):null;
+    managedPhotos:()=>Boolean(jhaPhotoController(f)||(!toolboxDraftPhotos&&toolboxDraftEvidence)),onError:error}):null;
    if(kind!=='medical_followup')await enableAutoDraft(f,'safety_tool_'+kind);if(!current())return;
-   if(toolboxUI)void toolboxUI.start().catch(error);
+   if(toolboxUI){
+    const safetyName=f.elements.namedItem('jha_safety_name');
+    if(safetyName&&!safetyName.value&&['safety','safety_director'].includes(state.profile.role))safetyName.value=preparedBy;
+    f.querySelector('button[type="submit"]').textContent=tr('Finalize Toolbox Talk','Finalizar Toolbox Talk');
+    void toolboxUI.start().catch(error);
+   }
   if(kind==='safety_notes'&&!jhaPhotoController(f)){
    const input=f.querySelector('input[name="photos"]');
    const gallery=document.createElement('div');gallery.className='st-note-gallery';gallery.setAttribute('aria-live','polite');
@@ -246,7 +262,9 @@ export function createSafetyTools(ctx){
       const record={id,project_id:projectId,created_by:userId,kind,report_number:reportNumber,payload:values,photos:uploaded};
       if(cloudToolbox){
        progress(tr('Saving report with protected cloud photos…','Guardando reporte con las fotos protegidas en la nube…'));
-       await saveToolboxCloud(record,cloudPhotos);stored=true;
+       const saved=await saveToolboxCloud(record,cloudPhotos);stored=true;
+       if(saved?.record?.id===id&&saved.record.project_id===projectId&&saved.record.created_by===userId)
+        justSavedToolbox={...saved.record,creator:{name:preparedBy}};
       }else if(kind==='toolbox'){
        await saveToolboxRecord(db,record,attempt=>progress(tr(`Reconnecting to save report (${attempt}/2)… Keep this page open.`,`Reconectando para guardar el reporte (${attempt}/2)… Mantenga esta página abierta.`)));
        stored=true;
@@ -270,26 +288,58 @@ export function createSafetyTools(ctx){
      const docs=await db.from('employee_medical_followup_documents').insert(documentRows);if(docs.error)throw docs.error;medicalDocumentsSaved=true;
     }
     stored=true;
+    if(kind==='toolbox'){
+     const cleanup=clearDraft('safety_tool_toolbox','default',f)
+      .catch(err=>console.warn('Saved report draft cleanup failed',err))
+      .finally(()=>{if(toolboxDraftCleanup.get(draftScope)===cleanup)toolboxDraftCleanup.delete(draftScope)});
+     toolboxDraftCleanup.set(draftScope,cleanup);
+     if(current())navigate('safetyToolReport',id);
+     return;
+    }
     if(kind!=='medical_followup')await clearDraft('safety_tool_'+kind,'default',f).catch(err=>console.warn('Saved report draft cleanup failed',err));confirmAction(tr('Report saved successfully.','Reporte guardado correctamente.'));if(current())navigate('safetyToolReport',id);
    }catch(e){const keepToolboxEvidence=kind==='toolbox'&&(stored||e.toolboxSaveUncertain||toolboxConnectionError(e));if(uploaded.length&&!medicalDocumentsSaved&&!keepToolboxEvidence){await db.storage.from(kind==='medical_followup'?'employee-medical-documents':bucket).remove(uploaded.map(x=>x.path));if(kind==='toolbox')toolboxPhotos=new WeakMap()}if(kind==='medical_followup'&&stored)error(`${tr('The report was saved, but its photos could not be attached. The selected photos are still here; press Save again to retry.','El reporte se guardó, pero no se pudieron adjuntar las fotos. Las fotos seleccionadas siguen aquí; pulse Guardar otra vez para reintentar.')} ${e?.message||''}`);else if(kind==='toolbox'&&e.toolboxSaveUncertain)error(tr('The connection was interrupted before saving could be confirmed. Your form and photos are preserved. Press Save again to verify and retry.','La conexión se interrumpió antes de confirmar el guardado. Sus datos y fotos están conservados. Pulse Guardar otra vez para verificar y reintentar.'));else {if(kind==='confined_space'){const helper=f.querySelector('.st-cs-assistant');helper?.querySelector('button')?.click();helper?.scrollIntoView({behavior:'smooth',block:'start'});}error(e)}}finally{delete f.dataset.submitting;button.disabled=false;f.inert=false;if(kind==='toolbox'){button.textContent=originalButtonText;if(saveStatus&&current())saveStatus.textContent=stored?tr('Report saved.','Reporte guardado.'):tr('Saving could not be confirmed. Your form and photos are still here; try again.','No se pudo confirmar el guardado. Sus datos y fotos siguen aquí; intente otra vez.')}}
   };
  }
  async function report(id){
   stop();const current=captureView(),project=state.project;let r,images=[];
-  const medical=canReadTool('medical_followup',state.profile?.role)?await db.from('employee_medical_followups').select('*,incident:incident_reports!employee_medical_followups_incident_id_fkey(id,report_number,incident_type,incident_at,employee_name,employee_job_title,exact_location),creator:profiles!employee_medical_followups_created_by_fkey(name)').eq('id',id).eq('project_id',project).maybeSingle():{data:null,error:null};if(!current())return;if(medical.error)throw medical.error;
+  const fresh=justSavedToolbox?.id===id&&justSavedToolbox.project_id===project&&justSavedToolbox.created_by===state.profile?.id;
+  if(fresh){r=justSavedToolbox;justSavedToolbox=null}
+  if(!fresh){
+   const saved=await db.from(table).select('*,creator:profiles!safety_tool_records_created_by_fkey(name)').eq('id',id).eq('project_id',project).maybeSingle();
+   if(!current())return;
+   if(saved.error)throw saved.error;
+   if(saved.data?.kind)r=saved.data;
+  }
+  const medical=!r&&canReadTool('medical_followup',state.profile?.role)?await db.from('employee_medical_followups').select('*,incident:incident_reports!employee_medical_followups_incident_id_fkey(id,report_number,incident_type,incident_at,employee_name,employee_job_title,exact_location),creator:profiles!employee_medical_followups_created_by_fkey(name)').eq('id',id).eq('project_id',project).maybeSingle():{data:null,error:null};if(!current())return;if(medical.error)throw medical.error;
   if(medical.data){
    const timeline=await db.from('employee_medical_followups').select('followup_number,employee_name,event_type,event_date,last_appointment_date,next_appointment_date,current_condition_summary,reported_medications,case_status,work_status,next_followup_date,clearance_received,work_restrictions_summary,created_at').eq('employee_name',medical.data.employee_name).eq('project_id',project).order('event_date',{ascending:true}).order('created_at',{ascending:true}).limit(100);if(!current())return;if(timeline.error)throw timeline.error;
    const documents=await db.from('employee_medical_followup_documents').select('storage_path,document_number,mime_type,size_bytes').eq('followup_id',id).eq('project_id',project).order('document_number',{ascending:true});if(!current())return;if(documents.error)throw documents.error;
    r={...medical.data,kind:'medical_followup',report_number:medical.data.followup_number,payload:{...medical.data,incident:medical.data.incident,timeline:timeline.data||[]},photos:(documents.data||[]).map(x=>({path:x.storage_path,label:`${tr('Medical document','Documento médico')} ${x.document_number}`,bucket:'employee-medical-documents'}))};
-  }else{
-   const q=await db.from(table).select('*,creator:profiles!safety_tool_records_created_by_fkey(name)').eq('id',id).eq('project_id',project).single();if(!current())return;if(q.error)throw q.error;r=q.data;
   }
+  if(!r)throw Error(tr('The saved report could not be found.','No se encontró el reporte guardado.'));
   assertKind(r.kind);
   if(r.kind==='safety_notes'&&r.created_by!==state.profile.id)throw Error(tr('This note belongs to another user.','Esta nota pertenece a otro usuario.'));
-  const photos=[...(r.photos||[]).map(x=>({...x,bucket:r.kind==='medical_followup'?'employee-medical-documents':bucket})),...(r.payload.lookup_evidence||[])];
-  for(let n=0;n<photos.length;n+=4){if(!current())return;const batch=await Promise.all(photos.slice(n,n+4).map(async photo=>{const url=await signedDisplayImage(photo.bucket,photo.path,r.kind==='medical_followup'?600:3600);if(!url)throw Error(tr('Evidence failed to load. Please retry.','No se pudo cargar la evidencia. Reintente.'));return {...photo,url:url||''}}));images.push(...batch)}if(!current())return;
+  const photos=[...(r.photos||[]).map(x=>({...x,bucket:r.kind==='medical_followup'?'employee-medical-documents':bucket})),...(r.payload?.lookup_evidence||[])];
+  for(let n=0;n<photos.length;n+=4){
+   if(!current())return;
+   const batch=await Promise.all(photos.slice(n,n+4).map(async photo=>{
+    let url;
+    try{url=await signedDisplayImage(photo.bucket,photo.path,r.kind==='medical_followup'?600:3600)}
+    catch(cause){if(r.kind!=='toolbox')throw cause}
+    if(!url&&r.kind!=='toolbox')throw Error(tr('Evidence failed to load. Please retry.','No se pudo cargar la evidencia. Reintente.'));
+    return {...photo,url:url||''};
+   }));
+   images.push(...batch);
+  }
+  if(!current())return;
+  const missingToolboxEvidence=r.kind==='toolbox'&&images.some(image=>!image.url);
   frame(`<div class="report-actions"><button id="st-back" class="secondary">← ${tr('Saved reports','Reportes guardados')}</button><button id="st-another">＋ ${tr('New report','Nuevo reporte')}</button></div>`+toolReportHtml(r,state.projects.find(p=>p.id===project)||{},images,r.kind==='toolbox'?(en,es)=>en:tr));
-  const exported=document.querySelector('article.report');if(exported)exported.dataset.geReportDate=r.payload?.report_date||r.payload?.inspection_date||r.payload?.date||r.created_at;
+  const exported=document.querySelector('article.report');
+  if(exported){
+   if(fresh)exported.dataset.toolboxJustSaved='true';
+   if(missingToolboxEvidence)exported.dataset.toolboxEvidenceMissing='true';
+   exported.dataset.geReportDate=r.payload?.report_date||r.payload?.inspection_date||r.payload?.date||r.created_at;
+  }
   document.querySelector('#st-back').onclick=()=>navigate('safetyTool',r.kind);const another=document.querySelector('#st-another');another.hidden=!canCreateTool(r.kind,state.profile.role);another.onclick=()=>navigate('safetyToolForm',r.kind);
  }
  return {list,form,report,bindHome,stop};
