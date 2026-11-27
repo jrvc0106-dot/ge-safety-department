@@ -321,3 +321,26 @@ test('PDF libraries load while existing report photos are checked, without lower
  assert.ok(prepared.blob.size>32);
  assert.equal(imageChecks,1);
 });
+
+for(const action of ['download','share'])test(`cold PDF ${action} downloads on the original click while activation remains`,async()=>{
+ const t=setup();
+ t.context.navigator.userActivation={isActive:true};
+ await t.context.runPdfAction(action,t.button);
+ assert.equal(t.downloads.length,1);
+ assert.equal(t.shares.length,0);
+ assert.equal(t.button.disabled,false);
+});
+
+test('a PDF prepared after navigating away cannot open a stale preview',async()=>{
+ const t=setup(),preview={closed:false,location:{href:'about:blank'},close(){this.closed=true}};
+ t.report.dataset={pdfViewMode:'single-click'};
+ t.context.window.open=()=>preview;
+ t.context.buildReportPdf=async()=>{
+  t.context.document.querySelector=()=>null;
+  return {blob:mockValidPdf('Previous report'),filename:'Previous.pdf'};
+ };
+ await t.context.runPdfAction('view',t.button);
+ assert.equal(preview.closed,true);
+ assert.equal(preview.location.href,'about:blank');
+ assert.equal(t.downloads.length,0);
+});
