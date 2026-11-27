@@ -661,13 +661,16 @@ async function buildReportPdf(highQuality=false){
   if(report.dataset?.jhaEvidenceMissing==='true')return loadJhaPdfWithMissingEvidence(report,highQuality);
   const meta=currentReportIdentity(report);
   if(report.dataset?.toolKind==='toolbox'&&meta?.sourceId&&(report.dataset.toolboxEvidenceMissing==='true'||(report.dataset.toolboxJustSaved!=='true'&&!nativeReportArchiveAvailable()))){
-    const prior=await db.from('report_documents').select('pdf_path').eq('project_id',meta.projectId)
+    const archiveDeadline=ms=>typeof AbortSignal.timeout==='function'?AbortSignal.timeout(ms):undefined;
+    let query=db.from('report_documents').select('pdf_path').eq('project_id',meta.projectId)
       .eq('report_type',meta.reportType).eq('source_id',meta.sourceId)
-      .eq('document_status','final').order('version',{ascending:false}).limit(1)
-      .abortSignal(AbortSignal.timeout(2500)).maybeSingle().then(result=>result.data,()=>null);
+      .eq('document_status','final').order('version',{ascending:false}).limit(1);
+    const querySignal=archiveDeadline(2500);
+    if(querySignal)query=query.abortSignal(querySignal);
+    const prior=await query.maybeSingle().then(result=>result.data,()=>null);
     if(prior?.pdf_path){
       const snapshot=report.innerHTML;
-      const file=await db.storage.from('final-reports').download(prior.pdf_path,{}, {signal:AbortSignal.timeout(5000)}).catch(()=>null);
+      const file=await db.storage.from('final-reports').download(prior.pdf_path,{}, {signal:archiveDeadline(5000)}).catch(()=>null);
       if(await isValidPdfBlob(file?.data)){
         if(document.querySelector('article.report')!==report||report.innerHTML!==snapshot)
           throw new Error(tr('The report changed. Please try again.','El reporte cambió. Intente nuevamente.'));
@@ -835,6 +838,7 @@ async function runPdfAction(action,button){
       const selected=await saveDestination.result;
       if(selected.error)throw selected.error;
     }
+    if(report!==document.querySelector('article.report'))return;
     if(action==='save'&&prepared){
       if(nativeReportArchiveAvailable()&&prepared.localArchive){
         const opened=await openLocalReport(prepared.localArchive);
@@ -884,6 +888,10 @@ async function runPdfAction(action,button){
       confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));return;
     }
     prepared=await buildReportPdf(true);
+    if(report!==document.querySelector('article.report')){
+      if(preview&&!preview.closed)preview.close();
+      return;
+    }
     const {blob,filename}=prepared;
     if(action==='save'){
       if(nativeReportArchiveAvailable()&&prepared.localArchive){
@@ -909,6 +917,11 @@ async function runPdfAction(action,button){
     // Browser user activation may expire during the first high-quality render.
     // A second tap uses the cached validated PDF synchronously.
     if(action==='download'){
+      if(navigator.userActivation?.isActive){
+        downloadReportPdf(blob,filename);
+        confirmAction(tr('PDF ready. Download started: ','PDF listo. Descarga iniciada: ')+filename);
+        return;
+      }
       confirmAction(tr('PDF ready. Tap “Download PDF” again to save the file.','PDF listo. Pulse “Descargar PDF” nuevamente para guardar el archivo.'));
       return;
     }
@@ -929,6 +942,11 @@ async function runPdfAction(action,button){
     if(action==='share'){
       const file=new File([blob],filename,{type:'application/pdf'});
       if(!navigator.share||!navigator.canShare?.({files:[file]})){
+        if(navigator.userActivation?.isActive){
+          downloadReportPdf(blob,filename);
+          confirmAction(tr('PDF download started. Attach this file in your email or messaging app to share it.','Descarga del PDF iniciada. Adjunte este archivo en su correo o aplicación de mensajes para compartirlo.'));
+          return;
+        }
         // After an asynchronous render, defer fallback download to a fresh tap.
         confirmAction(tr('PDF ready. Tap “Share PDF now” again to download it and attach the file.','PDF listo. Pulse “Compartir PDF ahora” nuevamente para descargarlo y adjuntarlo.'));return;
       }
